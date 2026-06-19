@@ -26,5 +26,16 @@ Thumbs.db
 # AI tooling
 .atl/
 
+# Package managers
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Markdown — solo README.md y docs/ se suben
+*.md
+!README.md
+!docs/**/*.md
+
 # Project specific
 *.db

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
+        <h3 class="text-gray-400 text-sm uppercase">Eventos hoy</h3>
+        <p class="text-3xl font-bold text-cyan-400 mt-2">0</p>
+    </div>
+    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
+        <h3 class="text-gray-400 text-sm uppercase">Alertas activas</h3>
+        <p class="text-3xl font-bold text-yellow-400 mt-2">0</p>
+    </div>
+    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
+        <h3 class="text-gray-400 text-sm uppercase">Reglas activas</h3>
+        <p class="text-3xl font-bold text-green-400 mt-2">0</p>
+    </div>
+</div>
+
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+    <h2 class="text-lg font-semibold mb-4">Eventos Recientes</h2>
+    <p class="text-gray-500 text-center py-8">Conectá un colector para empezar a ver eventos.</p>
+</div>
+{% endblock %}
