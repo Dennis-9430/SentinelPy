@@ -1,33 +1,83 @@
-"""Correlation rule model (Sigma-compatible format)."""
+"""Modelo de regla de detección (compatible con formato Sigma).
 
-import uuid
-from datetime import datetime
-from sqlalchemy import Boolean, DateTime, String, Text, JSON
+Las reglas definen condiciones que, al cumplirse, generan alertas.
+Siguen una estructura inspirada en Sigma, el estándar abierto para reglas SIEM.
+"""
+
+from sqlalchemy import Boolean, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class DetectionRule(Base, TimestampMixin, UUIDMixin):
-    """A detection rule loosely based on the Sigma rule format."""
+    """Regla de detección — define QUÉ buscar y QUÉ alerta generar.
+
+    Cada regla tiene condiciones (expresadas como JSON) que el motor de
+    correlación evalúa contra cada evento entrante.
+    """
 
     __tablename__ = "rules"
 
-    title: Mapped[str] = mapped_column(String(255))
-    description: Mapped[str] = mapped_column(Text)
-    author: Mapped[str | None] = mapped_column(String(255))
-    severity: Mapped[str] = mapped_column(String(20), default="medium")  # critical, high, medium, low, info
-    status: Mapped[str] = mapped_column(String(20), default="active")  # active, disabled, test
+    # ── Identificación ───────────────────────────────────────────────────
+    title: Mapped[str] = mapped_column(
+        String(255),
+        comment="Título descriptivo de la regla (ej: 'Detección de fuerza bruta SSH')",
+    )
+    description: Mapped[str] = mapped_column(
+        Text,
+        comment="Descripción detallada: qué detecta, por qué es relevante",
+    )
+    author: Mapped[str | None] = mapped_column(
+        String(255),
+        comment="Autor de la regla",
+    )
 
-    # Rule logic: JSON defining conditions (e.g. {"field": "event_type", "operator": "eq", "value": "process_create"})
-    conditions: Mapped[dict] = mapped_column(JSON)
-    # Optional: correlation window in seconds (for multi-event rules)
-    correlation_window: Mapped[int | None] = mapped_column(default=None)
+    # ── Clasificación ────────────────────────────────────────────────────
+    severity: Mapped[str] = mapped_column(
+        String(20), default="medium",
+        comment="Severidad de la regla: critical, high, medium, low, info",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default="active",
+        comment="Estado: active (activa), disabled (desactivada), test (solo logging)",
+    )
 
-    # Action on match
-    alert_title: Mapped[str] = mapped_column(String(255))
-    alert_severity: Mapped[str] = mapped_column(String(20), default="medium")
+    # ── Lógica de detección ──────────────────────────────────────────────
+    conditions: Mapped[dict] = mapped_column(
+        JSON,
+        comment=(
+            "Condiciones en JSON. "
+            'Ej: {"field": "event_type", "operator": "eq", "value": "process_create"}'
+        ),
+    )
+    correlation_window: Mapped[int | None] = mapped_column(
+        default=None,
+        comment=(
+            "Ventana de correlación en segundos. "
+            "Si se setea, la regla espera múltiples eventos en ese período."
+        ),
+    )
 
-    # Metadata
-    tags: Mapped[list] = mapped_column(JSON, default=list)
-    references: Mapped[list] = mapped_column(JSON, default=list)
-    false_positives: Mapped[str | None] = mapped_column(Text)
+    # ── Alerta a generar ─────────────────────────────────────────────────
+    alert_title: Mapped[str] = mapped_column(
+        String(255),
+        comment="Título de la alerta que se crea cuando la regla matchea",
+    )
+    alert_severity: Mapped[str] = mapped_column(
+        String(20), default="medium",
+        comment="Severidad de la alerta generada",
+    )
+
+    # ── Metadatos ────────────────────────────────────────────────────────
+    tags: Mapped[list] = mapped_column(
+        JSON, default=list,
+        comment="Etiquetas para categorizar la regla (ej: ['attack.t1078', 'mitre.credential-access'])",
+    )
+    references: Mapped[list] = mapped_column(
+        JSON, default=list,
+        comment="URLs de referencia (CVE, artículos, documentación)",
+    )
+    false_positives: Mapped[str | None] = mapped_column(
+        Text,
+        comment="Casos conocidos de falsos positivos",
+    )

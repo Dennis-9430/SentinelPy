@@ -1,10 +1,20 @@
-"""Pydantic schemas for NormalizedEvent."""
+"""Esquemas Pydantic para el modelo NormalizedEvent.
+
+Pydantic valida los datos de entrada (request) y define
+la estructura de salida (response) de la API.
+"""
 
 from datetime import datetime
 from pydantic import BaseModel
 
 
 class EventCreate(BaseModel):
+    """Esquema de entrada para crear un evento.
+
+    Se usa en POST /api/events/ para recibir datos del colector.
+    Todos los campos opcionales son None por defecto.
+    """
+
     source: str
     collector_type: str
     event_timestamp: datetime
@@ -23,6 +33,11 @@ class EventCreate(BaseModel):
 
 
 class EventRead(EventCreate):
+    """Esquema de salida — incluye campos de base de datos.
+
+    from_attributes permite crear instancias desde objetos SQLAlchemy.
+    """
+
     id: str
     created_at: datetime
     updated_at: datetime

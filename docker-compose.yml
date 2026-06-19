@@ -1,4 +1,8 @@
+# Docker Compose para desarrollo de SentinelPy
+# Levanta PostgreSQL + API con hot-reload
+
 services:
+  # ── Base de datos PostgreSQL ──────────────────────────────────────────
   db:
     image: postgres:16-alpine
     environment:
@@ -6,15 +10,16 @@ services:
       POSTGRES_USER: sentinel
       POSTGRES_PASSWORD: sentinel_dev
     ports:
-      - "5432:5432"
+      - "5432:5432"  # Expuesto para conectarse con herramientas externas
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data  # Persistencia de datos
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinelpy"]
       interval: 5s
       timeout: 3s
       retries: 5
 
+  # ── API FastAPI ───────────────────────────────────────────────────────
   api:
     build:
       context: ./backend
@@ -22,14 +27,18 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # Conexión a PostgreSQL usando el nombre del servicio Docker 'db'
       DATABASE_URL: postgresql+asyncpg://sentinel:sentinel_dev@db:5432/sentinelpy
       SECRET_KEY: dev-secret-key
     depends_on:
       db:
         condition: service_healthy
+    # Volumen para hot-reload — el código local se refleja en el contenedor
     volumes:
       - ./backend:/app
+    # --reload permite que Uvicorn reinicie automáticamente al cambiar código
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
+# Volúmenes persistentes
 volumes:
   pgdata:

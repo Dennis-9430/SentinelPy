@@ -1,17 +1,42 @@
-"""Log parsers: normalize raw logs into the Common Information Model."""
+"""Parsers de logs: convierten logs crudos al formato normalizado.
+
+Cada parser entiende un formato específico y extrae los campos
+comunes para almacenarlos como NormalizedEvent.
+"""
 
 
 class SyslogParser:
-    """Parses RFC 3164 and RFC 5424 syslog messages."""
+    """Parser de syslog: entiende RFC 3164 y RFC 5424.
+
+    RFC 3164 (BSD): formato clásico "<PRI>timestamp hostname app[PID]: mensaje"
+    RFC 5424 (ISO): formato estructurado con campos nombrados
+    """
 
     def parse(self, raw: str) -> dict | None:
-        """Parse a raw syslog line into normalized fields."""
+        """Convierte una línea de syslog a diccionario normalizado.
+
+        Argumentos:
+            raw: Línea de texto cruda del syslog.
+
+        Retorna:
+            Dict con campos normalizados, o None si no se pudo parsear.
+        """
         raise NotImplementedError("Fase 2: implementar parser syslog")
 
 
 class JSONParser:
-    """Parses JSON-format logs."""
+    """Parser de logs en formato JSON.
+
+    Útil para logs modernos que ya vienen estructurados (ej: Docker, aplicaciones).
+    """
 
     def parse(self, raw: str) -> dict | None:
-        """Parse a JSON log string."""
+        """Parsea un string JSON a diccionario normalizado.
+
+        Argumentos:
+            raw: String JSON con los campos del log.
+
+        Retorna:
+            Dict con campos normalizados, o None si el JSON es inválido.
+        """
         raise NotImplementedError("Fase 2: implementar parser JSON")

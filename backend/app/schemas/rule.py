@@ -1,10 +1,16 @@
-"""Pydantic schemas for DetectionRule."""
+"""Esquemas Pydantic para el modelo DetectionRule."""
 
 from datetime import datetime
 from pydantic import BaseModel
 
 
 class RuleCreate(BaseModel):
+    """Esquema de entrada para crear o actualizar una regla.
+
+    conditions es un dict JSON con la lógica de detección.
+    Ejemplo: {"field": "event_type", "operator": "eq", "value": "auth_failure"}
+    """
+
     title: str
     description: str
     author: str | None = None
@@ -20,6 +26,8 @@ class RuleCreate(BaseModel):
 
 
 class RuleRead(RuleCreate):
+    """Esquema de salida con campos de base de datos."""
+
     id: str
     created_at: datetime
     updated_at: datetime
