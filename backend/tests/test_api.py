@@ -1,6 +1,7 @@
 """Tests de integración para los endpoints de la API.
 
 Usa httpx con ASGITransport para testear FastAPI sin levantar el servidor.
+Los tests corren sin base de datos — el lifespan maneja errores gracefulmente.
 """
 
 import pytest
@@ -21,6 +22,7 @@ async def test_health_endpoint(app):
     Debería devolver status 200 con el estado 'healthy'.
     """
     # Crea un cliente HTTP asíncrono que habla directo con la app
+    # Usamos el lifespan de la app que maneja errores gracefulmente
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/health")

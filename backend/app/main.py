@@ -4,6 +4,7 @@ Configura la aplicación, registra rutas, middlewares,
 y maneja el ciclo de vida (inicio/cierre).
 """
 
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -11,6 +12,13 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from app.config import settings
 from app.api import events, rules, alerts
+from app.services.pipeline import Pipeline
+
+logger = logging.getLogger(__name__)
+
+# ── Instancias globales del pipeline y colectores ───────────────────────
+# Se inicializan en lifespan y se guardan como atributos de la app
+pipeline = Pipeline()
 
 
 @asynccontextmanager
@@ -18,17 +26,55 @@ async def lifespan(app: FastAPI):
     """Maneja el ciclo de vida de la aplicación.
 
     Al iniciar:
-        - Conecta la base de datos
-        - Inicia los colectores (syslog, file watchers)
-        - Carga las reglas activas en el motor de correlación
+        - Crea las tablas en la base de datos (solo desarrollo)
+        - Inicia el colector syslog UDP
+        - Prepara el pipeline de procesamiento
 
     Al cerrar:
         - Detiene colectores gracefulmente
-        - Cierra conexiones de base de datos
     """
-    # TODO: inicializar DB, colectores y motor
-    yield
-    # TODO: shutdown graceful
+    logger.info("Iniciando SentinelPy...")
+
+    # ── Inicializar base de datos ────────────────────────────────────────
+    try:
+        from app.database import engine
+        from app.models.base import Base
+
+        # En desarrollo, crear tablas automáticamente
+        # En producción se usan migraciones Alembic
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Tablas de base de datos verificadas/creadas")
+    except Exception as e:
+        logger.warning("No se pudo conectar a la base de datos: %s", e)
+        logger.warning("La API funcionará sin BD — los endpoints de datos devolverán error")
+
+    # ── Iniciar colector syslog ──────────────────────────────────────────
+    try:
+        from app.services.collector import SyslogCollector
+
+        colector = SyslogCollector(pipeline)
+        await colector.start()
+        app.state.colector = colector
+        logger.info("Sistema de recolección iniciado")
+    except Exception as e:
+        logger.warning("No se pudo iniciar el colector syslog: %s", e)
+        app.state.colector = None
+
+    # ── Pipeline listo ───────────────────────────────────────────────────
+    app.state.pipeline = pipeline
+    logger.info("SentinelPy iniciado correctamente")
+
+    yield  # La app corre durante este yield
+
+    # ── Shutdown graceful ────────────────────────────────────────────────
+    logger.info("Deteniendo SentinelPy...")
+
+    if hasattr(app.state, "colector") and app.state.colector:
+        await app.state.colector.stop()
+        logger.info("Colectores detenidos")
+
+    logger.info("SentinelPy detenido")
 
 
 # ── Creación de la app FastAPI ──────────────────────────────────────────

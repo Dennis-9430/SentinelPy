@@ -4,9 +4,15 @@ Alembic usa este archivo para saber cómo conectarse a la base de datos
 y qué modelos considerar al generar migraciones automáticas.
 """
 
+import sys
+from pathlib import Path
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
+
+# Agregar el directorio raíz del backend al path para que Alembic
+# pueda importar los módulos de la aplicación
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Cargar configuración de alembic.ini
 config = context.config
