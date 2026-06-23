@@ -5,7 +5,7 @@
 
 {% block content %}
 {# ── Cards de métricas principales ─────────────────────────────────────── #}
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-6">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
     {# Eventos recibidos hoy #}
     <div class="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
         <h3 class="text-gray-400 text-xs uppercase tracking-wide">Eventos hoy</h3>
@@ -37,16 +37,16 @@
 </div>
 
 {# ── Gráficas: timeline y distribución ─────────────────────────────────── #}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
     {# Timeline de eventos #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:p-3">
-        <h2 class="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Eventos (últimas 24h)</h2>
-        <canvas id="chart-timeline" height="80"></canvas>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2">
+        <h2 class="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Eventos 24h</h2>
+        <canvas id="chart-timeline" height="40"></canvas>
     </div>
     {# Distribución por severidad #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:p-3">
-        <h2 class="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Eventos por severidad</h2>
-        <canvas id="chart-severidad" height="80"></canvas>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2">
+        <h2 class="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Por severidad</h2>
+        <canvas id="chart-severidad" height="40"></canvas>
     </div>
 </div>
 
