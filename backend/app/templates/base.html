@@ -13,24 +13,23 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen">
-    {# ── Barra de navegación superior ─────────────────────────────────── #}
-    <nav class="bg-gray-800 border-b border-gray-700 px-6 py-3">
-        <div class="flex items-center justify-between">
+    {# ── Barra de navegación superior centrada ─────────────────────────── #}
+    <nav class="bg-gray-800 border-b border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
             {# Logo/nombre de la app #}
-            <h1 class="text-xl font-bold text-cyan-400">{{ app_name }}</h1>
+            <h1 class="text-lg sm:text-xl font-bold text-cyan-400">{{ app_name }}</h1>
             {# Navegación principal — cada link lleva a una sección #}
-            <div class="space-x-4 text-sm">
-                <a href="/" class="hover:text-cyan-400">Dashboard</a>
-                <a href="/events" class="hover:text-cyan-400">Eventos</a>
-                <a href="/alerts" class="hover:text-cyan-400">Alertas</a>
-                <a href="/rules" class="hover:text-cyan-400">Reglas</a>
+            <div class="flex gap-3 sm:gap-5 text-xs sm:text-sm">
+                <a href="/" class="hover:text-cyan-400 transition-colors">Dashboard</a>
+                <a href="/events" class="hover:text-cyan-400 transition-colors">Eventos</a>
+                <a href="/alerts" class="hover:text-cyan-400 transition-colors">Alertas</a>
+                <a href="/rules" class="hover:text-cyan-400 transition-colors">Reglas</a>
             </div>
         </div>
     </nav>
 
-    {# ── Contenido principal ─────────────────────────────────────────── #}
-    {# Cada página hija llena este bloque con su contenido específico #}
-    <main class="p-6">
+    {# ── Contenido principal centrado y responsive ────────────────────── #}
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {% block content %}{% endblock %}
     </main>
 

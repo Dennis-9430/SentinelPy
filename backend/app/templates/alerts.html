@@ -1,39 +1,39 @@
 {# Página de alertas con paginación, filtros y cambio de estado.
-   Extiende base.html. #}
+   Extiende base.html. Diseño compacto y responsive. #}
 {% extends "base.html" %}
 {% block title %}Alertas{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-    <h2 class="text-xl font-semibold">Alertas</h2>
-    <div class="flex gap-3 items-center">
-        <span class="text-sm text-gray-400">{{ total_alertas }} total</span>
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-base sm:text-lg font-semibold">Alertas</h2>
+    <div class="flex gap-2 sm:gap-3 items-center">
+        <span class="text-xs sm:text-sm text-gray-400">{{ total_alertas }} total</span>
         <a href="/api/alerts/exportar{% if estado_seleccionado %}?estado={{ estado_seleccionado }}{% endif %}{% if severidad_seleccionada %}{% if estado_seleccionado %}&{% else %}?{% endif %}severidad={{ severidad_seleccionada }}{% endif %}"
-           class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+           class="px-2.5 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors">
             ↓ CSV
         </a>
     </div>
 </div>
 
 {# ── Filtros ──────────────────────────────────────────────────────────── #}
-<div class="flex gap-2 mb-4 flex-wrap">
-    <span class="text-xs text-gray-500 self-center mr-1">Estado:</span>
+<div class="flex gap-1.5 mb-3 sm:mb-4 flex-wrap items-center">
+    <span class="text-xs text-gray-500 mr-0.5">Estado:</span>
     <a href="/alerts"
-       class="px-3 py-1.5 rounded text-xs {% if not estado_seleccionado %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+       class="px-2.5 py-1 rounded text-xs {% if not estado_seleccionado %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %} transition-colors">
         Todas
     </a>
     {% for e in ['open', 'acknowledged', 'investigating', 'resolved', 'false_positive'] %}
     <a href="/alerts?estado={{ e }}{% if severidad_seleccionada %}&severidad={{ severidad_seleccionada }}{% endif %}"
-       class="px-3 py-1.5 rounded text-xs {% if estado_seleccionado == e %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
-        {{ e }}
+       class="px-2.5 py-1 rounded text-xs {% if estado_seleccionado == e %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %} transition-colors">
+        {{ e[:6] }}
     </a>
     {% endfor %}
 
-    <span class="text-xs text-gray-500 self-center ml-4 mr-1">Severidad:</span>
+    <span class="text-xs text-gray-500 ml-2 mr-0.5">Sev:</span>
     {% for s in ['critical', 'high', 'medium', 'low'] %}
     <a href="/alerts?severidad={{ s }}{% if estado_seleccionado %}&estado={{ estado_seleccionado }}{% endif %}"
-       class="px-3 py-1.5 rounded text-xs {% if severidad_seleccionada == s %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
-        {{ s|upper }}
+       class="px-2.5 py-1 rounded text-xs {% if severidad_seleccionada == s %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %} transition-colors">
+        {{ s[:4]|upper }}
     </a>
     {% endfor %}
 </div>
@@ -42,74 +42,74 @@
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
     {% if alertas %}
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-xs sm:text-sm">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
-                    <th class="text-left py-3 px-4">Título</th>
-                    <th class="text-left py-3 px-4">Severidad</th>
-                    <th class="text-left py-3 px-4">Estado</th>
-                    <th class="text-left py-3 px-4">Eventos</th>
-                    <th class="text-left py-3 px-4">Creada</th>
-                    <th class="text-left py-3 px-4">Resuelta</th>
-                    <th class="text-left py-3 px-4">Acción</th>
+                    <th class="text-left py-2 px-2 sm:px-3">Título</th>
+                    <th class="text-left py-2 px-2 sm:px-3">Sev</th>
+                    <th class="text-left py-2 px-2 sm:px-3">Estado</th>
+                    <th class="text-center py-2 px-2 sm:px-3">#</th>
+                    <th class="hidden sm:table-cell text-left py-2 px-2 sm:px-3">Creada</th>
+                    <th class="hidden md:table-cell text-left py-2 px-2 sm:px-3">Resuelta</th>
+                    <th class="text-left py-2 px-2 sm:px-3">Acción</th>
                 </tr>
             </thead>
             <tbody>
                 {% for a in alertas %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td class="py-2.5 px-4">
-                        <div class="text-gray-200 font-medium">{{ a.title }}</div>
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
+                        <div class="text-gray-200 font-medium text-xs sm:text-sm">{{ a.title[:40] }}{% if a.title|length > 40 %}…{% endif %}</div>
                         {% if a.description %}
-                        <div class="text-xs text-gray-500 truncate max-w-xs" title="{{ a.description }}">
-                            {{ a.description[:80] }}{% if a.description|length > 80 %}…{% endif %}
+                        <div class="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-xs" title="{{ a.description }}">
+                            {{ a.description[:50] }}{% if a.description|length > 50 %}…{% endif %}
                         </div>
                         {% endif %}
                     </td>
-                    <td class="py-2.5 px-4">
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
                         {% set sev = a.severity|lower %}
                         {% if sev == 'critical' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRITICAL</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRIT</span>
                         {% elif sev == 'high' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-orange-900/50 text-orange-400">HIGH</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-orange-900/50 text-orange-400">HIGH</span>
                         {% elif sev == 'medium' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">MEDIUM</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">MED</span>
                         {% else %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
                         {% endif %}
                     </td>
-                    <td class="py-2.5 px-4">
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
                         {% set st = a.status %}
                         {% if st == 'open' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">open</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-red-900/50 text-red-400">open</span>
                         {% elif st == 'acknowledged' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">ack</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">ack</span>
                         {% elif st == 'investigating' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">investigating</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">inv</span>
                         {% elif st == 'resolved' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-green-900/50 text-green-400">resolved</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-green-900/50 text-green-400">done</span>
                         {% elif st == 'false_positive' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">false positive</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-400">FP</span>
                         {% endif %}
                     </td>
-                    <td class="py-2.5 px-4 text-gray-400 text-center">{{ a.event_count }}</td>
-                    <td class="py-2.5 px-4 text-gray-400 text-xs whitespace-nowrap font-mono">
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3 text-gray-400 text-center">{{ a.event_count }}</td>
+                    <td class="hidden sm:table-cell py-1.5 sm:py-2 px-2 sm:px-3 text-gray-400 text-xs font-mono">
                         {{ a.created_at.strftime('%d/%m %H:%M') if a.created_at else '-' }}
                     </td>
-                    <td class="py-2.5 px-4 text-gray-400 text-xs whitespace-nowrap font-mono">
+                    <td class="hidden md:table-cell py-1.5 sm:py-2 px-2 sm:px-3 text-gray-400 text-xs font-mono">
                         {{ a.resolved_at.strftime('%d/%m %H:%M') if a.resolved_at else '-' }}
                     </td>
-                    <td class="py-2.5 px-4">
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
                         {% if a.status not in ('resolved', 'false_positive') %}
                         <form action="/alerts/{{ a.id }}/estado" method="post" class="flex gap-1">
                             <select name="estado"
-                                    class="bg-gray-700 text-xs text-gray-300 rounded px-1.5 py-1 border border-gray-600">
+                                    class="bg-gray-700 text-xs text-gray-300 rounded px-1 py-0.5 border border-gray-600 w-16 sm:w-auto">
                                 <option value="acknowledged" {% if a.status == 'acknowledged' %}selected{% endif %}>Ack</option>
-                                <option value="investigating" {% if a.status == 'investigating' %}selected{% endif %}>Investigar</option>
-                                <option value="resolved">Resolver</option>
-                                <option value="false_positive">Falso +</option>
+                                <option value="investigating" {% if a.status == 'investigating' %}selected{% endif %}>Inv</option>
+                                <option value="resolved">Res</option>
+                                <option value="false_positive">FP</option>
                             </select>
                             <button type="submit"
-                                    class="px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+                                    class="px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors">
                                 OK
                             </button>
                         </form>
@@ -125,21 +125,21 @@
 
     {# ── Paginación ───────────────────────────────────────────────────── #}
     {% if total_paginas > 1 %}
-    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-700">
-        <span class="text-sm text-gray-400">
-            Página {{ pagina_actual }} de {{ total_paginas }}
+    <div class="flex items-center justify-between px-3 sm:px-4 py-2.5 border-t border-gray-700">
+        <span class="text-xs text-gray-400">
+            Pág {{ pagina_actual }}/{{ total_paginas }}
         </span>
-        <div class="flex gap-2">
+        <div class="flex gap-1.5">
             {% if pagina_actual > 1 %}
             <a href="/alerts?pagina={{ pagina_actual - 1 }}{% if estado_seleccionado %}&estado={{ estado_seleccionado }}{% endif %}{% if severidad_seleccionada %}&severidad={{ severidad_seleccionada }}{% endif %}"
-               class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
-                ← Anterior
+               class="px-2.5 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors">
+                ← Ant
             </a>
             {% endif %}
             {% if pagina_actual < total_paginas %}
             <a href="/alerts?pagina={{ pagina_actual + 1 }}{% if estado_seleccionado %}&estado={{ estado_seleccionado }}{% endif %}{% if severidad_seleccionada %}&severidad={{ severidad_seleccionada }}{% endif %}"
-               class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
-                Siguiente →
+               class="px-2.5 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors">
+                Sig →
             </a>
             {% endif %}
         </div>
@@ -147,7 +147,7 @@
     {% endif %}
 
     {% else %}
-    <p class="text-gray-500 text-center py-12">
+    <p class="text-gray-500 text-center py-8 sm:py-10 text-sm">
         No hay alertas aún. Las alertas se generan automáticamente cuando un evento
         matchea una regla de detección.
     </p>

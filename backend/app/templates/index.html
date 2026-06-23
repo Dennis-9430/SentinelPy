@@ -5,108 +5,108 @@
 
 {% block content %}
 {# ── Cards de métricas principales ─────────────────────────────────────── #}
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-6">
     {# Eventos recibidos hoy #}
-    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-        <h3 class="text-gray-400 text-sm uppercase tracking-wide">Eventos hoy</h3>
-        <p class="text-4xl font-bold text-cyan-400 mt-2">
+    <div class="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+        <h3 class="text-gray-400 text-xs uppercase tracking-wide">Eventos hoy</h3>
+        <p class="text-2xl sm:text-3xl font-bold text-cyan-400 mt-1">
             {{ eventos_hoy }}
         </p>
     </div>
     {# Alertas activas (open + acknowledged + investigating) #}
-    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-        <h3 class="text-gray-400 text-sm uppercase tracking-wide">Alertas activas</h3>
-        <p class="text-4xl font-bold text-yellow-400 mt-2">
+    <div class="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+        <h3 class="text-gray-400 text-xs uppercase tracking-wide">Alertas activas</h3>
+        <p class="text-2xl sm:text-3xl font-bold text-yellow-400 mt-1">
             {{ alertas_activas }}
         </p>
     </div>
     {# Reglas de detección activas #}
-    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-        <h3 class="text-gray-400 text-sm uppercase tracking-wide">Reglas activas</h3>
-        <p class="text-4xl font-bold text-green-400 mt-2">
+    <div class="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+        <h3 class="text-gray-400 text-xs uppercase tracking-wide">Reglas activas</h3>
+        <p class="text-2xl sm:text-3xl font-bold text-green-400 mt-1">
             {{ reglas_activas }}
         </p>
     </div>
     {# Ventanas de correlación activas #}
-    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-        <h3 class="text-gray-400 text-sm uppercase tracking-wide">Ventanas activas</h3>
-        <p class="text-4xl font-bold text-purple-400 mt-2">
+    <div class="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+        <h3 class="text-gray-400 text-xs uppercase tracking-wide">Ventanas activas</h3>
+        <p class="text-2xl sm:text-3xl font-bold text-purple-400 mt-1">
             {{ ventanas_activas }}
         </p>
     </div>
 </div>
 
 {# ── Gráficas: timeline y distribución ─────────────────────────────────── #}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 sm:mb-6">
     {# Timeline de eventos #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
-        <h2 class="text-lg font-semibold mb-4">Eventos (últimas 24h)</h2>
-        <canvas id="chart-timeline" height="200"></canvas>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4">
+        <h2 class="text-sm sm:text-base font-semibold mb-2 sm:mb-3">Eventos (últimas 24h)</h2>
+        <canvas id="chart-timeline" height="120"></canvas>
     </div>
     {# Distribución por severidad #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
-        <h2 class="text-lg font-semibold mb-4">Eventos por severidad</h2>
-        <canvas id="chart-severidad" height="200"></canvas>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4">
+        <h2 class="text-sm sm:text-base font-semibold mb-2 sm:mb-3">Eventos por severidad</h2>
+        <canvas id="chart-severidad" height="120"></canvas>
     </div>
 </div>
 
 {# ── Tabla de eventos recientes ───────────────────────────────────────── #}
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">Últimos Eventos</h2>
-        <a href="/events" class="text-sm text-cyan-400 hover:text-cyan-300">
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+        <h2 class="text-sm sm:text-base font-semibold">Últimos Eventos</h2>
+        <a href="/events" class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">
             Ver todos →
         </a>
     </div>
 
     {% if ultimos_eventos %}
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-xs sm:text-sm">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700">
-                    <th class="text-left py-2 pr-4">Timestamp</th>
-                    <th class="text-left py-2 pr-4">Tipo</th>
-                    <th class="text-left py-2 pr-4">Severidad</th>
-                    <th class="text-left py-2 pr-4">Source</th>
-                    <th class="text-left py-2 pr-4">IP Origen</th>
-                    <th class="text-left py-2">Descripción</th>
+                    <th class="text-left py-1.5 sm:py-2 px-2 sm:px-3">Timestamp</th>
+                    <th class="text-left py-1.5 sm:py-2 px-2 sm:px-3">Tipo</th>
+                    <th class="text-left py-1.5 sm:py-2 px-2 sm:px-3">Severidad</th>
+                    <th class="hidden sm:table-cell text-left py-1.5 sm:py-2 px-2 sm:px-3">Source</th>
+                    <th class="text-left py-1.5 sm:py-2 px-2 sm:px-3">IP Origen</th>
+                    <th class="hidden md:table-cell text-left py-1.5 sm:py-2 px-2 sm:px-3">Descripción</th>
                 </tr>
             </thead>
             <tbody>
                 {% for ev in ultimos_eventos %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td class="py-2 pr-4 text-gray-300 whitespace-nowrap font-mono text-xs">
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3 text-gray-300 whitespace-nowrap font-mono text-xs">
                         {{ ev.event_timestamp.strftime('%H:%M:%S') if ev.event_timestamp else '-' }}
                     </td>
-                    <td class="py-2 pr-4">
-                        <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-200">
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
+                        <span class="px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-200">
                             {{ ev.event_type or '-' }}
                         </span>
                     </td>
-                    <td class="py-2 pr-4">
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
                         {% set sev = ev.severity|lower %}
                         {% if sev == 'critical' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRITICAL</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRIT</span>
                         {% elif sev == 'high' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-orange-900/50 text-orange-400">HIGH</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-orange-900/50 text-orange-400">HIGH</span>
                         {% elif sev == 'medium' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">MEDIUM</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">MED</span>
                         {% elif sev == 'low' %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
                         {% else %}
-                            <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">INFO</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-400">INFO</span>
                         {% endif %}
                     </td>
-                    <td class="py-2 pr-4 text-gray-300">{{ ev.source or '-' }}</td>
-                    <td class="py-2 pr-4 font-mono text-xs text-gray-400">{{ ev.source_ip or '-' }}</td>
-                    <td class="py-2 text-gray-400 max-w-xs truncate">{{ ev.description or '' }}</td>
+                    <td class="hidden sm:table-cell py-1.5 sm:py-2 px-2 sm:px-3 text-gray-300">{{ ev.source or '-' }}</td>
+                    <td class="py-1.5 sm:py-2 px-2 sm:px-3 font-mono text-xs text-gray-400">{{ ev.source_ip or '-' }}</td>
+                    <td class="hidden md:table-cell py-1.5 sm:py-2 px-2 sm:px-3 text-gray-400 max-w-xs truncate">{{ ev.description or '' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% else %}
-    <p class="text-gray-500 text-center py-8">
+    <p class="text-gray-500 text-center py-6 sm:py-8 text-sm">
         Conectá un colector o enviá eventos vía API para empezar a ver datos.
     </p>
     {% endif %}
