@@ -130,6 +130,50 @@ class AlertService:
         logger.info("Alerta %s → estado: %s", alerta_id, nuevo_estado)
         return alerta
 
+    async def actualizar_contadores(
+        self, rule_id: str, event_count: int, last_event_at: datetime
+    ) -> Alert | None:
+        """Actualiza los contadores de una alerta abierta en ventana temporal.
+
+        Busca la alerta más reciente (open) para la regla dada y actualiza
+        su event_count y last_event_at. Esto permite que múltiples eventos
+        dentro de una ventana de correlación actualicen una misma alerta.
+
+        Argumentos:
+            rule_id: UUID de la regla (como string).
+            event_count: Nuevo contador de eventos.
+            last_event_at: Timestamp del último evento recibido.
+
+        Retorna:
+            La alerta actualizada, o None si no encontró ninguna abierta.
+        """
+        from uuid import UUID
+        try:
+            result = await self.session.execute(
+                select(Alert).where(
+                    Alert.rule_id == UUID(rule_id),
+                    Alert.status == "open",
+                ).order_by(Alert.created_at.desc()).limit(1)
+            )
+            alerta = result.scalar_one_or_none()
+            if not alerta:
+                logger.warning(
+                    "No se encontró alerta abierta para regla %s", rule_id,
+                )
+                return None
+
+            alerta.event_count = event_count
+            alerta.last_event_at = last_event_at
+            await self.session.commit()
+            await self.session.refresh(alerta)
+            logger.debug(
+                "Alerta %s actualizada: %d eventos", alerta.id, event_count,
+            )
+            return alerta
+        except (ValueError, Exception) as e:
+            logger.warning("Error actualizando contadores: %s", e)
+            return None
+
     async def obtener_estadisticas(self) -> dict:
         """Obtiene estadísticas de alertas.
 

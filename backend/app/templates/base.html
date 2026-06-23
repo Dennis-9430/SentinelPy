@@ -9,6 +9,8 @@
     <title>{{ app_name }} — {% block title %}Dashboard{% endblock %}</title>
     {# Tailwind CSS vía CDN — en producción se reemplaza por build estático #}
     <script src="https://cdn.tailwindcss.com"></script>
+    {# Chart.js para gráficas — sin build step ni npm #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen">
     {# ── Barra de navegación superior ─────────────────────────────────── #}
@@ -31,5 +33,8 @@
     <main class="p-6">
         {% block content %}{% endblock %}
     </main>
+
+    {# ── Scripts adicionales (cada página puede extender este bloque) ── #}
+    {% block scripts %}{% endblock %}
 </body>
 </html>

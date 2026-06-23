@@ -5,7 +5,7 @@
 
 {% block content %}
 {# ── Cards de métricas principales ─────────────────────────────────────── #}
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     {# Eventos recibidos hoy #}
     <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
         <h3 class="text-gray-400 text-sm uppercase tracking-wide">Eventos hoy</h3>
@@ -26,6 +26,27 @@
         <p class="text-4xl font-bold text-green-400 mt-2">
             {{ reglas_activas }}
         </p>
+    </div>
+    {# Ventanas de correlación activas #}
+    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
+        <h3 class="text-gray-400 text-sm uppercase tracking-wide">Ventanas activas</h3>
+        <p class="text-4xl font-bold text-purple-400 mt-2">
+            {{ ventanas_activas }}
+        </p>
+    </div>
+</div>
+
+{# ── Gráficas: timeline y distribución ─────────────────────────────────── #}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    {# Timeline de eventos #}
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+        <h2 class="text-lg font-semibold mb-4">Eventos (últimas 24h)</h2>
+        <canvas id="chart-timeline" height="200"></canvas>
+    </div>
+    {# Distribución por severidad #}
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+        <h2 class="text-lg font-semibold mb-4">Eventos por severidad</h2>
+        <canvas id="chart-severidad" height="200"></canvas>
     </div>
 </div>
 
@@ -90,4 +111,87 @@
     </p>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Timeline de eventos (últimas 24h) ─────────────────────────────────
+(async function() {
+    try {
+        const res = await fetch('/api/events/stats?horas=24');
+        const data = await res.json();
+
+        // Timeline chart (línea)
+        const ctxTimeline = document.getElementById('chart-timeline');
+        if (ctxTimeline && data.timeline.length) {
+            new Chart(ctxTimeline, {
+                type: 'line',
+                data: {
+                    labels: data.timeline.map(t => {
+                        const d = new Date(t.hora);
+                        return d.getHours() + ':00';
+                    }),
+                    datasets: [{
+                        label: 'Eventos',
+                        data: data.timeline.map(t => t.total),
+                        borderColor: '#22d3ee',
+                        backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            ticks: { color: '#9ca3af', maxTicksLimit: 12 },
+                            grid: { color: 'rgba(75, 85, 99, 0.3)' },
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#9ca3af', precision: 0 },
+                            grid: { color: 'rgba(75, 85, 99, 0.3)' },
+                        }
+                    }
+                }
+            });
+        }
+
+        // Severidad chart (dona)
+        const ctxSev = document.getElementById('chart-severidad');
+        if (ctxSev && Object.keys(data.por_severidad).length) {
+            const colores = {
+                critical: '#f87171',
+                high: '#fb923c',
+                medium: '#facc15',
+                low: '#60a5fa',
+                info: '#9ca3af',
+            };
+            const entries = Object.entries(data.por_severidad);
+            new Chart(ctxSev, {
+                type: 'doughnut',
+                data: {
+                    labels: entries.map(([k]) => k.toUpperCase()),
+                    datasets: [{
+                        data: entries.map(([, v]) => v),
+                        backgroundColor: entries.map(([k]) => colores[k] || '#6b7280'),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#d1d5db', padding: 12 },
+                        }
+                    }
+                }
+            });
+        }
+    } catch (e) {
+        console.error('Error cargando gráficas:', e);
+    }
+})();
+</script>
 {% endblock %}

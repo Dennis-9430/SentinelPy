@@ -4,11 +4,13 @@ Configura la aplicación, registra rutas, middlewares,
 y maneja el ciclo de vida (inicio/cierre).
 """
 
+import csv
+import io
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func
 from app.config import settings
@@ -65,6 +67,28 @@ async def crear_alerta_desde_engine(datos_alerta: dict) -> dict | None:
         return None
 
 
+async def actualizar_alerta_desde_engine(datos: dict):
+    """Callback para actualizar contadores dentro de ventana temporal.
+
+    Cuando el motor de correlación detecta un evento dentro de la
+    ventana temporal de una regla, llama a este callback para
+    incrementar event_count y actualizar last_event_at en la alerta existente.
+    """
+    try:
+        from app.database import async_session as db_session
+        from app.services.alert_service import AlertService
+
+        async with db_session() as session:
+            service = AlertService(session)
+            await service.actualizar_contadores(
+                rule_id=datos["rule_id"],
+                event_count=datos["event_count"],
+                last_event_at=datos["last_event_at"],
+            )
+    except Exception as e:
+        logger.error("Error en callback de actualización: %s", e, exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Maneja el ciclo de vida de la aplicación.
@@ -95,6 +119,7 @@ async def lifespan(app: FastAPI):
             engine.cargar_reglas(reglas)
 
         engine.registrar_callback(crear_alerta_desde_engine)
+        engine.registrar_callback_actualizar(actualizar_alerta_desde_engine)
         app.state.engine = engine
         logger.info(
             "Motor de correlación: %d reglas activas", engine.reglas_activas
@@ -228,6 +253,7 @@ async def dashboard(request: Request):
                 "eventos_hoy": eventos_hoy_total,
                 "alertas_activas": alertas_activas_total,
                 "reglas_activas": reglas_activas_total,
+                "ventanas_activas": engine.ventanas_activas,
                 "ultimos_eventos": ultimos_eventos,
             },
         )
@@ -394,4 +420,138 @@ async def health():
         "app": settings.app_name,
         "version": settings.app_version,
         "reglas_activas": engine.reglas_activas,
+        "ventanas_activas": engine.ventanas_activas,
     }
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# GRÁFICAS (Chart.js) — Datos para el dashboard
+# ═════════════════════════════════════════════════════════════════════════
+
+
+@app.get("/api/events/stats")
+async def stats_eventos(horas: int = 24):
+    """Estadísticas de eventos para gráficas del dashboard.
+
+    Retorna:
+        timeline: Eventos por hora en las últimas N horas.
+        por_severidad: Conteo de eventos agrupado por severidad.
+    """
+    async for session in obtener_session():
+        from app.models.event import NormalizedEvent
+
+        ahora = datetime.now(timezone.utc)
+        desde = ahora - timedelta(hours=horas)
+
+        # ── Timeline: eventos por hora ──────────────────────────────────
+        timeline_raw = await session.execute(
+            select(
+                func.date_trunc("hour", NormalizedEvent.event_timestamp).label("hora"),
+                func.count(NormalizedEvent.id).label("total"),
+            ).where(
+                NormalizedEvent.event_timestamp >= desde
+            ).group_by("hora").order_by("hora")
+        )
+        timeline = [
+            {"hora": row.hora.isoformat(), "total": row.total}
+            for row in timeline_raw
+        ]
+
+        # ── Por severidad ────────────────────────────────────────────────
+        sev_raw = await session.execute(
+            select(
+                NormalizedEvent.severity,
+                func.count(NormalizedEvent.id).label("total"),
+            ).group_by(NormalizedEvent.severity)
+        )
+        por_severidad = {row.severity or "unknown": row.total for row in sev_raw}
+
+        return {"timeline": timeline, "por_severidad": por_severidad}
+
+
+@app.get("/api/alerts/stats")
+async def stats_alertas():
+    """Estadísticas de alertas para gráficas del dashboard.
+
+    Retorna:
+        por_severidad: Conteo de alertas agrupado por severidad.
+        por_estado: Conteo de alertas agrupado por estado.
+    """
+    async for session in obtener_session():
+        from app.models.alert import Alert
+
+        # ── Por severidad ────────────────────────────────────────────────
+        sev_raw = await session.execute(
+            select(
+                Alert.severity,
+                func.count(Alert.id).label("total"),
+            ).group_by(Alert.severity)
+        )
+        por_severidad = {row.severity or "unknown": row.total for row in sev_raw}
+
+        # ── Por estado ───────────────────────────────────────────────────
+        est_raw = await session.execute(
+            select(
+                Alert.status,
+                func.count(Alert.id).label("total"),
+            ).group_by(Alert.status)
+        )
+        por_estado = {row.status or "unknown": row.total for row in est_raw}
+
+        return {"por_severidad": por_severidad, "por_estado": por_estado}
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# EXPORTACIÓN CSV
+# ═════════════════════════════════════════════════════════════════════════
+
+
+@app.get("/api/alerts/exportar")
+async def exportar_alertas_csv(
+    estado: str | None = None,
+    severidad: str | None = None,
+):
+    """Exporta alertas a CSV con los filtros actuales.
+
+    Descarga un archivo CSV con columnas: id, título, severidad,
+    estado, event_count, created_at, resolved_at, descripción.
+
+    Los filtros (estado, severidad) se aplican igual que en la
+    interfaz web para exportar exactamente lo que se está viendo.
+    """
+    async for session in obtener_session():
+        from app.models.alert import Alert
+        from app.services.alert_service import AlertService
+
+        service = AlertService(session)
+        alertas, _ = await service.listar_alertas(
+            limite=10000, estado=estado, severidad=severidad
+        )
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "id", "titulo", "severidad", "estado",
+            "eventos", "creada", "resuelta", "descripcion",
+        ])
+
+        for a in alertas:
+            writer.writerow([
+                str(a.id),
+                a.title,
+                a.severity,
+                a.status,
+                a.event_count,
+                a.created_at.strftime("%Y-%m-%d %H:%M:%S") if a.created_at else "",
+                a.resolved_at.strftime("%Y-%m-%d %H:%M:%S") if a.resolved_at else "",
+                a.description or "",
+            ])
+
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=alertas.csv",
+            },
+        )

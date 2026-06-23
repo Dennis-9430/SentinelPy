@@ -6,7 +6,13 @@
 {% block content %}
 <div class="flex items-center justify-between mb-6">
     <h2 class="text-xl font-semibold">Alertas</h2>
-    <span class="text-sm text-gray-400">{{ total_alertas }} total</span>
+    <div class="flex gap-3 items-center">
+        <span class="text-sm text-gray-400">{{ total_alertas }} total</span>
+        <a href="/api/alerts/exportar{% if estado_seleccionado %}?estado={{ estado_seleccionado }}{% endif %}{% if severidad_seleccionada %}{% if estado_seleccionado %}&{% else %}?{% endif %}severidad={{ severidad_seleccionada }}{% endif %}"
+           class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+            ↓ CSV
+        </a>
+    </div>
 </div>
 
 {# ── Filtros ──────────────────────────────────────────────────────────── #}

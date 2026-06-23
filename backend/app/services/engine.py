@@ -2,11 +2,15 @@
 
 El corazón de SentinelPy. Cada evento que ingresa se evalúa contra
 todas las reglas activas. Si una regla matchea, se genera una alerta.
+
+Soporta correlación temporal: si una regla tiene correlation_window,
+acumula eventos en una ventana de tiempo y solo genera/actualiza
+la alerta dentro de esa ventana.
 """
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from app.models.rule import DetectionRule
 
@@ -22,16 +26,22 @@ class CorrelationEngine:
     Flujo:
         1. Se cargan las reglas activas desde la BD al iniciar
         2. Por cada evento que llega, se evalúa contra todas las reglas
-        3. Si una regla matchea, se crea una alerta vía el callback
+        3. Si una regla matchea:
+           a. Sin correlation_window → alerta inmediata
+           b. Con correlation_window → acumula en ventana temporal
+        4. Las alertas se crean/actualizan vía callbacks
     """
 
     def __init__(self):
         """Inicializa el motor sin reglas. Llamar a cargar_reglas() antes de usar."""
         self._reglas: list[DetectionRule] = []
         self._callbacks: list = []
+        self._callbacks_actualizar: list = []
+        # Ventanas temporales: rule_id -> {event_count, first_event_at, last_event_at, expires_at}
+        self._ventanas: dict[str, dict] = {}
 
     def registrar_callback(self, callback):
-        """Registra una función que se ejecuta cuando se genera una alerta.
+        """Registra una función que se ejecuta cuando se crea una alerta.
 
         Cada callback recibe un dict con los datos de la alerta y debe
         retornar la alerta creada. Se pueden registrar múltiples callbacks.
@@ -40,6 +50,18 @@ class CorrelationEngine:
             callback: Función asíncrona que recibe (datos_alerta) y retorna la alerta.
         """
         self._callbacks.append(callback)
+
+    def registrar_callback_actualizar(self, callback):
+        """Registra un callback para actualizar alertas dentro de ventanas.
+
+        Se ejecuta cuando un evento matchea una regla con correlation_window
+        y ya existe una ventana activa. Recibe un dict con rule_id,
+        event_count, last_event_at.
+
+        Argumentos:
+            callback: Función asíncrona que recibe (datos_actualizacion).
+        """
+        self._callbacks_actualizar.append(callback)
 
     def cargar_reglas(self, reglas: list[DetectionRule | dict]):
         """Carga o recarga las reglas activas en memoria.
@@ -50,6 +72,9 @@ class CorrelationEngine:
         Filtra automáticamente solo las reglas con status='active'.
         Soporta tanto objetos DetectionRule como dicts.
 
+        Al recargar, las ventanas activas se limpian para evitar
+        inconsistencias con reglas modificadas.
+
         Argumentos:
             reglas: Lista de DetectionRule o dict con status='active'.
         """
@@ -59,6 +84,8 @@ class CorrelationEngine:
             return getattr(regla, "status", "")
 
         self._reglas = [r for r in reglas if _status(r) == "active"]
+        # Limpiar ventanas al recargar reglas
+        self._ventanas.clear()
         logger.info(
             "Motor de correlación: %d reglas activas cargadas (de %d recibidas)",
             len(self._reglas), len(reglas),
@@ -67,7 +94,8 @@ class CorrelationEngine:
     async def evaluate(self, evento: dict) -> list[dict]:
         """Evalúa un evento contra todas las reglas activas.
 
-        Por cada regla que matchea, se crea una alerta.
+        Por cada regla que matchea, se crea una alerta o se actualiza
+        una existente si la regla tiene correlación temporal.
 
         Argumentos:
             evento: Dict con los datos del evento normalizado (ya guardado en DB).
@@ -85,11 +113,71 @@ class CorrelationEngine:
                     evento.get("id", "unknown"),
                 )
 
-                alerta = await self._crear_alerta(regla, evento)
+                alerta = await self._manejar_match(regla, evento)
                 if alerta:
                     alertas_generadas.append(alerta)
 
         return alertas_generadas
+
+    async def _manejar_match(
+        self, regla: DetectionRule | dict, evento: dict
+    ) -> dict | None:
+        """Maneja un match de regla, considerando correlación temporal.
+
+        Si la regla tiene correlation_window:
+          - Si hay ventana activa → actualiza contadores
+          - Si no hay ventana o expiró → crea nueva alerta
+        Si no tiene correlation_window → alerta inmediata.
+
+        Argumentos:
+            regla: Regla que matcheó.
+            evento: Evento que activó la regla.
+
+        Retorna:
+            Dict de alerta creada, o None si solo se actualizó.
+        """
+        correlation_window = self._campo_regla(regla, "correlation_window")
+        rule_id_raw = self._campo_regla(regla, "id")
+        rule_id = str(rule_id_raw) if rule_id_raw else None
+
+        # Sin correlación temporal → alerta inmediata (comportamiento actual)
+        if not correlation_window or not rule_id:
+            return await self._crear_alerta(regla, evento)
+
+        ahora = datetime.now(timezone.utc)
+        ventana = self._ventanas.get(rule_id)
+        ts_evento = evento.get("event_timestamp", ahora)
+
+        if ventana and ventana["expires_at"] > ahora:
+            # ── Dentro de la ventana → actualizar contadores ──────────
+            ventana["event_count"] += 1
+            ventana["last_event_at"] = ts_evento
+            self._ventanas[rule_id] = ventana
+
+            logger.info(
+                "Ventana temporal activa para regla %s: %d eventos",
+                rule_id, ventana["event_count"],
+            )
+
+            # Ejecutar callbacks de actualización
+            datos_actualizacion = {
+                "rule_id": rule_id,
+                "event_count": ventana["event_count"],
+                "last_event_at": ventana["last_event_at"],
+            }
+            await self._ejecutar_callbacks_actualizar(datos_actualizacion)
+            return None  # No se creó nueva alerta
+
+        # ── Nueva ventana o ventana expirada → crear alerta ──────────
+        expiracion = ahora + timedelta(seconds=correlation_window)
+        self._ventanas[rule_id] = {
+            "event_count": 1,
+            "first_event_at": ts_evento,
+            "last_event_at": ts_evento,
+            "expires_at": expiracion,
+        }
+
+        return await self._crear_alerta(regla, evento)
 
     @staticmethod
     def _campo_regla(regla: Any, campo: str):
@@ -315,7 +403,25 @@ class CorrelationEngine:
 
         return datos_alerta
 
+    async def _ejecutar_callbacks_actualizar(self, datos: dict):
+        """Ejecuta todos los callbacks de actualización registrados.
+
+        Argumentos:
+            datos: Dict con rule_id, event_count, last_event_at.
+        """
+        for callback in self._callbacks_actualizar:
+            try:
+                await callback(datos)
+            except Exception as e:
+                logger.error("Error en callback de actualización: %s", e, exc_info=True)
+
     @property
     def reglas_activas(self) -> int:
         """Cantidad de reglas activas cargadas en memoria."""
         return len(self._reglas)
+
+    @property
+    def ventanas_activas(self) -> int:
+        """Cantidad de ventanas temporales activas."""
+        ahora = datetime.now(timezone.utc)
+        return sum(1 for v in self._ventanas.values() if v["expires_at"] > ahora)

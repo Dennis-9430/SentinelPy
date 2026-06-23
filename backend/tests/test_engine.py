@@ -463,3 +463,173 @@ class TestOperadoresBorde:
             {"field": "severity", "operator": "in", "value": "critical"},
             evento,
         )
+
+
+# ── Tests de correlación temporal ─────────────────────────────────────────
+
+class TestCorrelacionTemporal:
+    """Prueba el manejo de ventanas temporales en el engine."""
+
+    @pytest.fixture
+    def regla_con_ventana(self):
+        """Regla con correlation_window de 300 segundos."""
+        return {
+            "id": "rule-window-001",
+            "title": "Ventana temporal",
+            "conditions": {"field": "severity", "operator": "eq", "value": "critical"},
+            "alert_title": "Alerta con ventana",
+            "alert_severity": "high",
+            "severity": "high",
+            "correlation_window": 300,
+            "status": "active",
+        }
+
+    @pytest.fixture
+    def regla_sin_ventana(self):
+        """Regla SIN correlation_window (alerta inmediata)."""
+        return {
+            "id": "rule-nowindow-002",
+            "title": "Sin ventana",
+            "conditions": {"field": "severity", "operator": "eq", "value": "critical"},
+            "alert_title": "Alerta inmediata",
+            "alert_severity": "high",
+            "severity": "high",
+            "status": "active",
+        }
+
+    @pytest.mark.asyncio
+    async def test_primer_evento_crea_alerta(self, engine, regla_con_ventana):
+        """El primer match con ventana crea una alerta."""
+        engine.cargar_reglas([regla_con_ventana])
+        alertas = await engine.evaluate({"severity": "critical"})
+        assert len(alertas) == 1
+        assert alertas[0]["title"] == "Alerta con ventana"
+        assert alertas[0]["event_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_segundo_evento_no_crea_alerta(self, engine, regla_con_ventana):
+        """Segundo match dentro de la ventana NO crea nueva alerta."""
+        engine.cargar_reglas([regla_con_ventana])
+
+        # Primer match: crea alerta
+        alertas1 = await engine.evaluate({"severity": "critical"})
+        assert len(alertas1) == 1
+
+        # Segundo match (dentro de ventana): NO crea alerta
+        alertas2 = await engine.evaluate({"severity": "critical"})
+        assert len(alertas2) == 0
+
+    @pytest.mark.asyncio
+    async def test_update_callback_ejecutado(self, engine, regla_con_ventana):
+        """El callback de actualización se ejecuta en el segundo match."""
+        updates = []
+
+        async def cb_update(datos):
+            updates.append(datos)
+
+        engine.registrar_callback_actualizar(cb_update)
+        engine.cargar_reglas([regla_con_ventana])
+
+        # Primer match: callback de creación
+        await engine.evaluate({"severity": "critical"})
+        assert len(updates) == 0  # No se llamó al update
+
+        # Segundo match: callback de actualización
+        await engine.evaluate({"severity": "critical"})
+        assert len(updates) == 1
+        assert updates[0]["rule_id"] == "rule-window-001"
+        assert updates[0]["event_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_event_count_se_acumula(self, engine, regla_con_ventana):
+        """El contador event_count se incrementa con cada match."""
+        engine.cargar_reglas([regla_con_ventana])
+        updates = []
+
+        async def cb_update(datos):
+            updates.append(datos["event_count"])
+
+        engine.registrar_callback_actualizar(cb_update)
+
+        # 3 matches dentro de la ventana
+        await engine.evaluate({"severity": "critical"})  # Crea alerta (count=1)
+        await engine.evaluate({"severity": "critical"})  # Update (count=2)
+        await engine.evaluate({"severity": "critical"})  # Update (count=3)
+
+        assert updates == [2, 3]
+
+    @pytest.mark.asyncio
+    async def test_regla_sin_ventana_siempre_crea_alerta(
+        self, engine, regla_sin_ventana
+    ):
+        """Regla sin correlation_window: cada match crea alerta."""
+        engine.cargar_reglas([regla_sin_ventana])
+
+        # Primer match
+        a1 = await engine.evaluate({"severity": "critical"})
+        assert len(a1) == 1
+
+        # Segundo match: también crea alerta (sin ventana)
+        a2 = await engine.evaluate({"severity": "critical"})
+        assert len(a2) == 1
+
+    @pytest.mark.asyncio
+    async def test_ventanas_activas_property(self, engine, regla_con_ventana):
+        """ventanas_activas refleja las ventanas abiertas."""
+        assert engine.ventanas_activas == 0
+
+        engine.cargar_reglas([regla_con_ventana])
+        await engine.evaluate({"severity": "critical"})
+
+        assert engine.ventanas_activas == 1
+
+    @pytest.mark.asyncio
+    async def test_recarga_limpia_ventanas(self, engine, regla_con_ventana):
+        """cargar_reglas() limpia las ventanas activas."""
+        engine.cargar_reglas([regla_con_ventana])
+        await engine.evaluate({"severity": "critical"})
+        assert engine.ventanas_activas == 1
+
+        # Recargar (misma regla)
+        engine.cargar_reglas([regla_con_ventana])
+        assert engine.ventanas_activas == 0
+
+    @pytest.mark.asyncio
+    async def test_ventana_expirada_crea_nueva_alerta(self, engine, regla_con_ventana):
+        """Cuando la ventana expira, el próximo match crea una alerta nueva."""
+        engine.cargar_reglas([regla_con_ventana])
+
+        # Modificar la regla para que tenga ventana de 0 segundos (expirada)
+        regla_expirada = dict(regla_con_ventana)
+        regla_expirada["correlation_window"] = 0
+
+        engine.cargar_reglas([regla_expirada])
+        await engine.evaluate({"severity": "critical"})  # Crea alerta
+
+        # La ventana expira instantáneamente (0 segundos)
+        import asyncio
+        await asyncio.sleep(0.01)
+
+        alertas = await engine.evaluate({"severity": "critical"})
+        assert len(alertas) == 1  # Nueva alerta
+
+    @pytest.mark.asyncio
+    async def test_regla_sin_id_no_ventana(self, engine):
+        """Regla sin ID no usa correlación temporal (edge case)."""
+        regla = {
+            "title": "Sin ID",
+            "conditions": {"field": "severity", "operator": "eq", "value": "critical"},
+            "alert_title": "No ID",
+            "alert_severity": "high",
+            "severity": "high",
+            "correlation_window": 300,
+            "status": "active",
+        }
+        engine.cargar_reglas([regla])
+
+        # Sin ID: siempre crea alerta inmediata
+        a1 = await engine.evaluate({"severity": "critical"})
+        assert len(a1) == 1
+
+        a2 = await engine.evaluate({"severity": "critical"})
+        assert len(a2) == 1  # No hay ventana, siempre crea
