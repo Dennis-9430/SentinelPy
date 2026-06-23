@@ -26,3 +26,10 @@ class AlertRead(BaseModel):
     resolution_notes: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class AlertUpdateStatus(BaseModel):
+    """Esquema para actualizar el estado de una alerta."""
+
+    status: str
+    resolution_notes: str | None = None

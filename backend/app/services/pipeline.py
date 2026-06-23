@@ -22,10 +22,15 @@ class Pipeline:
     Detecta automáticamente si el log es JSON o syslog según el primer carácter.
     """
 
-    def __init__(self):
-        """Inicializa los parsers disponibles."""
+    def __init__(self, engine=None):
+        """Inicializa los parsers disponibles.
+
+        Argumentos:
+            engine: Instancia opcional de CorrelationEngine para evaluación.
+        """
         self.syslog_parser = SyslogParser()
         self.json_parser = JSONParser()
+        self.engine = engine
 
     async def process(self, raw: str, origen: tuple | None = None) -> dict | None:
         """Procesa un log crudo: detecta formato, parsea y guarda.
@@ -65,6 +70,32 @@ class Pipeline:
                 evento.severity,
                 evento.source,
             )
+
+            # ── Evaluar contra el motor de correlación ──────────────────
+            if self.engine:
+                evento_dict = {
+                    "id": str(evento.id),
+                    "source": evento.source,
+                    "collector_type": evento.collector_type,
+                    "event_timestamp": evento.event_timestamp,
+                    "event_type": evento.event_type,
+                    "severity": evento.severity,
+                    "description": evento.description,
+                    "source_ip": evento.source_ip,
+                    "destination_ip": evento.destination_ip,
+                    "source_port": evento.source_port,
+                    "destination_port": evento.destination_port,
+                    "protocol": evento.protocol,
+                    "user_name": evento.user_name,
+                    "process_name": evento.process_name,
+                    "file_path": evento.file_path,
+                }
+                alertas = await self.engine.evaluate(evento_dict)
+                if alertas:
+                    logger.info(
+                        "Evento %s generó %d alerta(s)",
+                        evento.event_type, len(alertas),
+                    )
 
         return evento
 

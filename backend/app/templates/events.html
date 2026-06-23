@@ -1,0 +1,118 @@
+{# Página de eventos con paginación y filtros.
+   Extiende base.html. #}
+{% extends "base.html" %}
+{% block title %}Eventos{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold">Eventos</h2>
+    <span class="text-sm text-gray-400">{{ total_eventos }} total</span>
+</div>
+
+{# ── Filtro por severidad ─────────────────────────────────────────────── #}
+<div class="flex gap-2 mb-4 flex-wrap">
+    <a href="/events"
+       class="px-3 py-1.5 rounded text-xs {% if not severidad_seleccionada %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+        Todas
+    </a>
+    {% for s in ['critical', 'high', 'medium', 'low', 'info'] %}
+    <a href="/events?severidad={{ s }}"
+       class="px-3 py-1.5 rounded text-xs {% if severidad_seleccionada == s %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+        {{ s|upper }}
+    </a>
+    {% endfor %}
+</div>
+
+{# ── Tabla de eventos ─────────────────────────────────────────────────── #}
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    {% if eventos %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-3 px-4">Timestamp</th>
+                    <th class="text-left py-3 px-4">Tipo</th>
+                    <th class="text-left py-3 px-4">Severidad</th>
+                    <th class="text-left py-3 px-4">Source</th>
+                    <th class="text-left py-3 px-4">IP Origen</th>
+                    <th class="text-left py-3 px-4">IP Destino</th>
+                    <th class="text-left py-3 px-4">Puerto</th>
+                    <th class="text-left py-3 px-4">Usuario</th>
+                    <th class="text-left py-3 px-4">Descripción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ev in eventos %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2.5 px-4 text-gray-300 whitespace-nowrap font-mono text-xs">
+                        {{ ev.event_timestamp.strftime('%Y-%m-%d %H:%M:%S') if ev.event_timestamp else '-' }}
+                    </td>
+                    <td class="py-2.5 px-4">
+                        <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-200">
+                            {{ ev.event_type or '-' }}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-4">
+                        {% set sev = ev.severity|lower %}
+                        {% if sev == 'critical' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRITICAL</span>
+                        {% elif sev == 'high' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-orange-900/50 text-orange-400">HIGH</span>
+                        {% elif sev == 'medium' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">MEDIUM</span>
+                        {% elif sev == 'low' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
+                        {% else %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">INFO</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-4 text-gray-300">{{ ev.source or '-' }}</td>
+                    <td class="py-2.5 px-4 font-mono text-xs text-gray-400">{{ ev.source_ip or '-' }}</td>
+                    <td class="py-2.5 px-4 font-mono text-xs text-gray-400">{{ ev.destination_ip or '-' }}</td>
+                    <td class="py-2.5 px-4 text-gray-400">
+                        {% if ev.source_port or ev.destination_port %}
+                            {{ ev.source_port or '?' }}→{{ ev.destination_port or '?' }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-4 text-gray-400">{{ ev.user_name or '-' }}</td>
+                    <td class="py-2.5 px-4 text-gray-400 max-w-xs truncate" title="{{ ev.description or '' }}">
+                        {{ ev.description or '' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# ── Paginación ───────────────────────────────────────────────────── #}
+    {% if total_paginas > 1 %}
+    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-700">
+        <span class="text-sm text-gray-400">
+            Página {{ pagina_actual }} de {{ total_paginas }}
+        </span>
+        <div class="flex gap-2">
+            {% if pagina_actual > 1 %}
+            <a href="/events?pagina={{ pagina_actual - 1 }}{% if severidad_seleccionada %}&severidad={{ severidad_seleccionada }}{% endif %}"
+               class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+                ← Anterior
+            </a>
+            {% endif %}
+            {% if pagina_actual < total_paginas %}
+            <a href="/events?pagina={{ pagina_actual + 1 }}{% if severidad_seleccionada %}&severidad={{ severidad_seleccionada }}{% endif %}"
+               class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+                Siguiente →
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <p class="text-gray-500 text-center py-12">
+        No hay eventos registrados aún.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

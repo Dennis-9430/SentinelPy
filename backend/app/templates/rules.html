@@ -1,0 +1,152 @@
+{# Página de reglas de detección.
+   Muestra el listado de reglas con opción de activar/desactivar.
+   Para crear/editar reglas se usa Swagger UI (/docs). #}
+{% extends "base.html" %}
+{% block title %}Reglas{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold">Reglas de Detección</h2>
+    <div class="flex gap-3 items-center">
+        <span class="text-sm text-gray-400">{{ total_reglas }} total</span>
+        <a href="/docs"
+           class="px-3 py-1.5 rounded text-xs bg-cyan-700 text-white hover:bg-cyan-600">
+            + Nueva regla (API)
+        </a>
+    </div>
+</div>
+
+{# ── Filtro por estado ────────────────────────────────────────────────── #}
+<div class="flex gap-2 mb-4 flex-wrap">
+    <span class="text-xs text-gray-500 self-center mr-1">Estado:</span>
+    <a href="/rules"
+       class="px-3 py-1.5 rounded text-xs {% if not estado_seleccionado %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+        Todas
+    </a>
+    {% for e in ['active', 'disabled', 'test'] %}
+    <a href="/rules?estado={{ e }}"
+       class="px-3 py-1.5 rounded text-xs {% if estado_seleccionado == e %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+        {{ e }}
+    </a>
+    {% endfor %}
+</div>
+
+{# ── Tabla de reglas ──────────────────────────────────────────────────── #}
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    {% if reglas %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-3 px-4">Título</th>
+                    <th class="text-left py-3 px-4">Severidad</th>
+                    <th class="text-left py-3 px-4">Estado</th>
+                    <th class="text-left py-3 px-4">Alerta</th>
+                    <th class="text-left py-3 px-4">Creada</th>
+                    <th class="text-left py-3 px-4">Tags</th>
+                    <th class="text-left py-3 px-4">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reglas %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2.5 px-4">
+                        <div class="text-gray-200 font-medium">{{ r.title }}</div>
+                        <div class="text-xs text-gray-500">{{ r.description[:100] }}{% if r.description|length > 100 %}…{% endif %}</div>
+                    </td>
+                    <td class="py-2.5 px-4">
+                        {% set sev = r.severity|lower %}
+                        {% if sev == 'critical' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRITICAL</span>
+                        {% elif sev == 'high' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-orange-900/50 text-orange-400">HIGH</span>
+                        {% elif sev == 'medium' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">MEDIUM</span>
+                        {% else %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-4">
+                        {% if r.status == 'active' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-green-900/50 text-green-400">active</span>
+                        {% elif r.status == 'disabled' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">disabled</span>
+                        {% elif r.status == 'test' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">test</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-4 text-gray-400 text-xs">
+                        {{ r.alert_title or '-' }}
+                        {% if r.alert_severity %}
+                            ({{ r.alert_severity }})
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-4 text-gray-400 text-xs font-mono whitespace-nowrap">
+                        {{ r.created_at.strftime('%d/%m/%Y') if r.created_at else '-' }}
+                    </td>
+                    <td class="py-2.5 px-4">
+                        <div class="flex gap-1 flex-wrap">
+                            {% if r.tags %}
+                                {% for tag in r.tags[:3] %}
+                                <span class="px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-400">{{ tag }}</span>
+                                {% endfor %}
+                                {% if r.tags|length > 3 %}
+                                <span class="text-xs text-gray-600">+{{ r.tags|length - 3 }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-xs text-gray-600">—</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="py-2.5 px-4">
+                        <form action="/rules/{{ r.id }}/toggle" method="post">
+                            {% if r.status == 'active' %}
+                            <button type="submit"
+                                    class="px-2 py-1 rounded text-xs bg-red-900/50 text-red-400 hover:bg-red-900/80">
+                                Desactivar
+                            </button>
+                            {% else %}
+                            <button type="submit"
+                                    class="px-2 py-1 rounded text-xs bg-green-900/50 text-green-400 hover:bg-green-900/80">
+                                Activar
+                            </button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# ── Paginación ───────────────────────────────────────────────────── #}
+    {% if total_paginas > 1 %}
+    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-700">
+        <span class="text-sm text-gray-400">
+            Página {{ pagina_actual }} de {{ total_paginas }}
+        </span>
+        <div class="flex gap-2">
+            {% if pagina_actual > 1 %}
+            <a href="/rules?pagina={{ pagina_actual - 1 }}{% if estado_seleccionado %}&estado={{ estado_seleccionado }}{% endif %}"
+               class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+                ← Anterior
+            </a>
+            {% endif %}
+            {% if pagina_actual < total_paginas %}
+            <a href="/rules?pagina={{ pagina_actual + 1 }}{% if estado_seleccionado %}&estado={{ estado_seleccionado }}{% endif %}"
+               class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+                Siguiente →
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <p class="text-gray-500 text-center py-12">
+        No hay reglas de detección aún.
+        <a href="/docs" class="text-cyan-400 hover:text-cyan-300">Creá una desde la API</a>.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

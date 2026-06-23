@@ -1,0 +1,150 @@
+{# Página de alertas con paginación, filtros y cambio de estado.
+   Extiende base.html. #}
+{% extends "base.html" %}
+{% block title %}Alertas{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold">Alertas</h2>
+    <span class="text-sm text-gray-400">{{ total_alertas }} total</span>
+</div>
+
+{# ── Filtros ──────────────────────────────────────────────────────────── #}
+<div class="flex gap-2 mb-4 flex-wrap">
+    <span class="text-xs text-gray-500 self-center mr-1">Estado:</span>
+    <a href="/alerts"
+       class="px-3 py-1.5 rounded text-xs {% if not estado_seleccionado %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+        Todas
+    </a>
+    {% for e in ['open', 'acknowledged', 'investigating', 'resolved', 'false_positive'] %}
+    <a href="/alerts?estado={{ e }}{% if severidad_seleccionada %}&severidad={{ severidad_seleccionada }}{% endif %}"
+       class="px-3 py-1.5 rounded text-xs {% if estado_seleccionado == e %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+        {{ e }}
+    </a>
+    {% endfor %}
+
+    <span class="text-xs text-gray-500 self-center ml-4 mr-1">Severidad:</span>
+    {% for s in ['critical', 'high', 'medium', 'low'] %}
+    <a href="/alerts?severidad={{ s }}{% if estado_seleccionado %}&estado={{ estado_seleccionado }}{% endif %}"
+       class="px-3 py-1.5 rounded text-xs {% if severidad_seleccionada == s %}bg-cyan-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+        {{ s|upper }}
+    </a>
+    {% endfor %}
+</div>
+
+{# ── Tabla de alertas ─────────────────────────────────────────────────── #}
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    {% if alertas %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-3 px-4">Título</th>
+                    <th class="text-left py-3 px-4">Severidad</th>
+                    <th class="text-left py-3 px-4">Estado</th>
+                    <th class="text-left py-3 px-4">Eventos</th>
+                    <th class="text-left py-3 px-4">Creada</th>
+                    <th class="text-left py-3 px-4">Resuelta</th>
+                    <th class="text-left py-3 px-4">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alertas %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2.5 px-4">
+                        <div class="text-gray-200 font-medium">{{ a.title }}</div>
+                        {% if a.description %}
+                        <div class="text-xs text-gray-500 truncate max-w-xs" title="{{ a.description }}">
+                            {{ a.description[:80] }}{% if a.description|length > 80 %}…{% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-4">
+                        {% set sev = a.severity|lower %}
+                        {% if sev == 'critical' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRITICAL</span>
+                        {% elif sev == 'high' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-orange-900/50 text-orange-400">HIGH</span>
+                        {% elif sev == 'medium' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">MEDIUM</span>
+                        {% else %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-4">
+                        {% set st = a.status %}
+                        {% if st == 'open' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">open</span>
+                        {% elif st == 'acknowledged' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">ack</span>
+                        {% elif st == 'investigating' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">investigating</span>
+                        {% elif st == 'resolved' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-green-900/50 text-green-400">resolved</span>
+                        {% elif st == 'false_positive' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">false positive</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-4 text-gray-400 text-center">{{ a.event_count }}</td>
+                    <td class="py-2.5 px-4 text-gray-400 text-xs whitespace-nowrap font-mono">
+                        {{ a.created_at.strftime('%d/%m %H:%M') if a.created_at else '-' }}
+                    </td>
+                    <td class="py-2.5 px-4 text-gray-400 text-xs whitespace-nowrap font-mono">
+                        {{ a.resolved_at.strftime('%d/%m %H:%M') if a.resolved_at else '-' }}
+                    </td>
+                    <td class="py-2.5 px-4">
+                        {% if a.status not in ('resolved', 'false_positive') %}
+                        <form action="/alerts/{{ a.id }}/estado" method="post" class="flex gap-1">
+                            <select name="estado"
+                                    class="bg-gray-700 text-xs text-gray-300 rounded px-1.5 py-1 border border-gray-600">
+                                <option value="acknowledged" {% if a.status == 'acknowledged' %}selected{% endif %}>Ack</option>
+                                <option value="investigating" {% if a.status == 'investigating' %}selected{% endif %}>Investigar</option>
+                                <option value="resolved">Resolver</option>
+                                <option value="false_positive">Falso +</option>
+                            </select>
+                            <button type="submit"
+                                    class="px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+                                OK
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-xs text-gray-600">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# ── Paginación ───────────────────────────────────────────────────── #}
+    {% if total_paginas > 1 %}
+    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-700">
+        <span class="text-sm text-gray-400">
+            Página {{ pagina_actual }} de {{ total_paginas }}
+        </span>
+        <div class="flex gap-2">
+            {% if pagina_actual > 1 %}
+            <a href="/alerts?pagina={{ pagina_actual - 1 }}{% if estado_seleccionado %}&estado={{ estado_seleccionado }}{% endif %}{% if severidad_seleccionada %}&severidad={{ severidad_seleccionada }}{% endif %}"
+               class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+                ← Anterior
+            </a>
+            {% endif %}
+            {% if pagina_actual < total_paginas %}
+            <a href="/alerts?pagina={{ pagina_actual + 1 }}{% if estado_seleccionado %}&estado={{ estado_seleccionado }}{% endif %}{% if severidad_seleccionada %}&severidad={{ severidad_seleccionada }}{% endif %}"
+               class="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">
+                Siguiente →
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <p class="text-gray-500 text-center py-12">
+        No hay alertas aún. Las alertas se generan automáticamente cuando un evento
+        matchea una regla de detección.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

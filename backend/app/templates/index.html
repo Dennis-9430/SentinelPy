@@ -1,35 +1,93 @@
-{# Página principal del dashboard.
-   Extiende base.html y muestra las métricas clave del SIEM. #}
+{# Página principal del dashboard con métricas en vivo.
+   Extiende base.html y muestra datos reales de la base de datos. #}
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-{# ── Cards de métricas principales ───────────────────────────────────── #}
-{# Cada card muestra un número grande con su label #}
+{# ── Cards de métricas principales ─────────────────────────────────────── #}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
     {# Eventos recibidos hoy #}
     <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-        <h3 class="text-gray-400 text-sm uppercase">Eventos hoy</h3>
-        <p class="text-3xl font-bold text-cyan-400 mt-2" id="eventos-hoy">0</p>
+        <h3 class="text-gray-400 text-sm uppercase tracking-wide">Eventos hoy</h3>
+        <p class="text-4xl font-bold text-cyan-400 mt-2">
+            {{ eventos_hoy }}
+        </p>
     </div>
-    {# Alertas activas (no resueltas) #}
+    {# Alertas activas (open + acknowledged + investigating) #}
     <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-        <h3 class="text-gray-400 text-sm uppercase">Alertas activas</h3>
-        <p class="text-3xl font-bold text-yellow-400 mt-2" id="alertas-activas">0</p>
+        <h3 class="text-gray-400 text-sm uppercase tracking-wide">Alertas activas</h3>
+        <p class="text-4xl font-bold text-yellow-400 mt-2">
+            {{ alertas_activas }}
+        </p>
     </div>
     {# Reglas de detección activas #}
     <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-        <h3 class="text-gray-400 text-sm uppercase">Reglas activas</h3>
-        <p class="text-3xl font-bold text-green-400 mt-2" id="reglas-activas">0</p>
+        <h3 class="text-gray-400 text-sm uppercase tracking-wide">Reglas activas</h3>
+        <p class="text-4xl font-bold text-green-400 mt-2">
+            {{ reglas_activas }}
+        </p>
     </div>
 </div>
 
-{# ── Tabla de eventos recientes ─────────────────────────────────────── #}
+{# ── Tabla de eventos recientes ───────────────────────────────────────── #}
 <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
-    <h2 class="text-lg font-semibold mb-4">Eventos Recientes</h2>
-    {# Placeholder — se reemplaza cuando haya datos reales #}
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">Últimos Eventos</h2>
+        <a href="/events" class="text-sm text-cyan-400 hover:text-cyan-300">
+            Ver todos →
+        </a>
+    </div>
+
+    {% if ultimos_eventos %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700">
+                    <th class="text-left py-2 pr-4">Timestamp</th>
+                    <th class="text-left py-2 pr-4">Tipo</th>
+                    <th class="text-left py-2 pr-4">Severidad</th>
+                    <th class="text-left py-2 pr-4">Source</th>
+                    <th class="text-left py-2 pr-4">IP Origen</th>
+                    <th class="text-left py-2">Descripción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ev in ultimos_eventos %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 pr-4 text-gray-300 whitespace-nowrap font-mono text-xs">
+                        {{ ev.event_timestamp.strftime('%H:%M:%S') if ev.event_timestamp else '-' }}
+                    </td>
+                    <td class="py-2 pr-4">
+                        <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-200">
+                            {{ ev.event_type or '-' }}
+                        </span>
+                    </td>
+                    <td class="py-2 pr-4">
+                        {% set sev = ev.severity|lower %}
+                        {% if sev == 'critical' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRITICAL</span>
+                        {% elif sev == 'high' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-orange-900/50 text-orange-400">HIGH</span>
+                        {% elif sev == 'medium' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">MEDIUM</span>
+                        {% elif sev == 'low' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
+                        {% else %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">INFO</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 pr-4 text-gray-300">{{ ev.source or '-' }}</td>
+                    <td class="py-2 pr-4 font-mono text-xs text-gray-400">{{ ev.source_ip or '-' }}</td>
+                    <td class="py-2 text-gray-400 max-w-xs truncate">{{ ev.description or '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
     <p class="text-gray-500 text-center py-8">
-        Conectá un colector para empezar a ver eventos.
+        Conectá un colector o enviá eventos vía API para empezar a ver datos.
     </p>
+    {% endif %}
 </div>
 {% endblock %}
