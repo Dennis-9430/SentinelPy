@@ -36,15 +36,15 @@
     </div>
 </div>
 
-{# ── Gráficas: timeline y distribución ─────────────────────────────────── #}
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+{# ── Gráficas: timeline y distribución (contenedores acotados) ─────────── #}
+<div class="flex flex-col sm:flex-row gap-2 mb-3">
     {# Timeline de eventos #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2">
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:w-72">
         <h2 class="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Eventos 24h</h2>
         <canvas id="chart-timeline" height="40"></canvas>
     </div>
     {# Distribución por severidad #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2">
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:w-72">
         <h2 class="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Por severidad</h2>
         <canvas id="chart-severidad" height="40"></canvas>
     </div>
