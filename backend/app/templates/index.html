@@ -37,14 +37,14 @@
 </div>
 
 {# ── Gráficas: timeline y distribución (contenedores acotados) ─────────── #}
-<div class="flex flex-col sm:flex-row gap-2 mb-3">
+<div class="flex flex-col sm:flex-row gap-2 mb-3 justify-center">
     {# Timeline de eventos #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:w-72">
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:w-[488px]">
         <h2 class="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Eventos 24h</h2>
         <canvas id="chart-timeline" height="40"></canvas>
     </div>
     {# Distribución por severidad #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:w-72">
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-2 sm:w-[488px]">
         <h2 class="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Por severidad</h2>
         <canvas id="chart-severidad" height="40"></canvas>
     </div>
