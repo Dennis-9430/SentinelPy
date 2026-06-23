@@ -41,12 +41,12 @@
     {# Timeline de eventos #}
     <div class="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4">
         <h2 class="text-sm sm:text-base font-semibold mb-2 sm:mb-3">Eventos (últimas 24h)</h2>
-        <canvas id="chart-timeline" height="120"></canvas>
+        <canvas id="chart-timeline" height="100"></canvas>
     </div>
     {# Distribución por severidad #}
     <div class="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4">
         <h2 class="text-sm sm:text-base font-semibold mb-2 sm:mb-3">Eventos por severidad</h2>
-        <canvas id="chart-severidad" height="120"></canvas>
+        <canvas id="chart-severidad" height="100"></canvas>
     </div>
 </div>
 
@@ -64,26 +64,26 @@
         <table class="w-full text-xs sm:text-sm">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700">
-                    <th class="text-left py-1.5 sm:py-2 px-2 sm:px-3">Timestamp</th>
-                    <th class="text-left py-1.5 sm:py-2 px-2 sm:px-3">Tipo</th>
-                    <th class="text-left py-1.5 sm:py-2 px-2 sm:px-3">Severidad</th>
-                    <th class="hidden sm:table-cell text-left py-1.5 sm:py-2 px-2 sm:px-3">Source</th>
-                    <th class="text-left py-1.5 sm:py-2 px-2 sm:px-3">IP Origen</th>
-                    <th class="hidden md:table-cell text-left py-1.5 sm:py-2 px-2 sm:px-3">Descripción</th>
+                    <th class="text-left py-1.5 sm:py-2 px-3 sm:px-4">Timestamp</th>
+                    <th class="text-left py-1.5 sm:py-2 px-3 sm:px-4">Tipo</th>
+                    <th class="text-left py-1.5 sm:py-2 px-3 sm:px-4">Severidad</th>
+                    <th class="hidden sm:table-cell text-left py-1.5 sm:py-2 px-3 sm:px-4">Source</th>
+                    <th class="text-left py-1.5 sm:py-2 px-3 sm:px-4">IP Origen</th>
+                    <th class="hidden md:table-cell text-left py-1.5 sm:py-2 px-3 sm:px-4">Descripción</th>
                 </tr>
             </thead>
             <tbody>
                 {% for ev in ultimos_eventos %}
                 <tr class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
-                    <td class="py-1.5 sm:py-2 px-2 sm:px-3 text-gray-300 whitespace-nowrap font-mono text-xs">
+                    <td class="py-1.5 sm:py-2 px-3 sm:px-4 text-gray-300 whitespace-nowrap font-mono text-xs">
                         {{ ev.event_timestamp.strftime('%H:%M:%S') if ev.event_timestamp else '-' }}
                     </td>
-                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
+                    <td class="py-1.5 sm:py-2 px-3 sm:px-4">
                         <span class="px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-200">
                             {{ ev.event_type or '-' }}
                         </span>
                     </td>
-                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
+                    <td class="py-1.5 sm:py-2 px-3 sm:px-4">
                         {% set sev = ev.severity|lower %}
                         {% if sev == 'critical' %}
                             <span class="px-1.5 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRIT</span>
@@ -97,9 +97,9 @@
                             <span class="px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-400">INFO</span>
                         {% endif %}
                     </td>
-                    <td class="hidden sm:table-cell py-1.5 sm:py-2 px-2 sm:px-3 text-gray-300">{{ ev.source or '-' }}</td>
-                    <td class="py-1.5 sm:py-2 px-2 sm:px-3 font-mono text-xs text-gray-400">{{ ev.source_ip or '-' }}</td>
-                    <td class="hidden md:table-cell py-1.5 sm:py-2 px-2 sm:px-3 text-gray-400 max-w-xs truncate">{{ ev.description or '' }}</td>
+                    <td class="hidden sm:table-cell py-1.5 sm:py-2 px-3 sm:px-4 text-gray-300">{{ ev.source or '-' }}</td>
+                    <td class="py-1.5 sm:py-2 px-3 sm:px-4 font-mono text-xs text-gray-400">{{ ev.source_ip or '-' }}</td>
+                    <td class="hidden md:table-cell py-1.5 sm:py-2 px-3 sm:px-4 text-gray-400 max-w-xs truncate">{{ ev.description or '' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

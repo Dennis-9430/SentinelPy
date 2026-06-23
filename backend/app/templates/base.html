@@ -15,7 +15,7 @@
 <body class="bg-gray-900 text-gray-100 min-h-screen">
     {# ── Barra de navegación superior centrada ─────────────────────────── #}
     <nav class="bg-gray-800 border-b border-gray-700">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-3 flex items-center justify-between">
             {# Logo/nombre de la app #}
             <h1 class="text-lg sm:text-xl font-bold text-cyan-400">{{ app_name }}</h1>
             {# Navegación principal — cada link lleva a una sección #}
@@ -29,7 +29,7 @@
     </nav>
 
     {# ── Contenido principal centrado y responsive ────────────────────── #}
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+    <main class="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-4 sm:py-6">
         {% block content %}{% endblock %}
     </main>
 

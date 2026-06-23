@@ -39,23 +39,23 @@
         <table class="w-full text-xs sm:text-sm">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
-                    <th class="text-left py-2 px-2 sm:px-3">Título</th>
-                    <th class="text-left py-2 px-2 sm:px-3">Sev</th>
-                    <th class="text-left py-2 px-2 sm:px-3">Estado</th>
-                    <th class="hidden sm:table-cell text-left py-2 px-2 sm:px-3">Alerta</th>
-                    <th class="hidden md:table-cell text-left py-2 px-2 sm:px-3">Creada</th>
-                    <th class="hidden lg:table-cell text-left py-2 px-2 sm:px-3">Tags</th>
-                    <th class="text-left py-2 px-2 sm:px-3">Acción</th>
+                    <th class="text-left py-2 px-3 sm:px-4">Título</th>
+                    <th class="text-left py-2 px-3 sm:px-4">Sev</th>
+                    <th class="text-left py-2 px-3 sm:px-4">Estado</th>
+                    <th class="hidden sm:table-cell text-left py-2 px-3 sm:px-4">Alerta</th>
+                    <th class="hidden md:table-cell text-left py-2 px-3 sm:px-4">Creada</th>
+                    <th class="hidden lg:table-cell text-left py-2 px-3 sm:px-4">Tags</th>
+                    <th class="text-left py-2 px-3 sm:px-4">Acción</th>
                 </tr>
             </thead>
             <tbody>
                 {% for r in reglas %}
                 <tr class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
-                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
+                    <td class="py-1.5 sm:py-2 px-3 sm:px-4">
                         <div class="text-gray-200 font-medium text-xs sm:text-sm">{{ r.title[:30] }}{% if r.title|length > 30 %}…{% endif %}</div>
                         <div class="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-xs">{{ r.description[:60] }}{% if r.description|length > 60 %}…{% endif %}</div>
                     </td>
-                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
+                    <td class="py-1.5 sm:py-2 px-3 sm:px-4">
                         {% set sev = r.severity|lower %}
                         {% if sev == 'critical' %}
                             <span class="px-1.5 py-0.5 rounded text-xs bg-red-900/50 text-red-400">CRIT</span>
@@ -67,7 +67,7 @@
                             <span class="px-1.5 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">LOW</span>
                         {% endif %}
                     </td>
-                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
+                    <td class="py-1.5 sm:py-2 px-3 sm:px-4">
                         {% if r.status == 'active' %}
                             <span class="px-1.5 py-0.5 rounded text-xs bg-green-900/50 text-green-400">on</span>
                         {% elif r.status == 'disabled' %}
@@ -76,13 +76,13 @@
                             <span class="px-1.5 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-400">test</span>
                         {% endif %}
                     </td>
-                    <td class="hidden sm:table-cell py-1.5 sm:py-2 px-2 sm:px-3 text-gray-400 text-xs">
+                    <td class="hidden sm:table-cell py-1.5 sm:py-2 px-3 sm:px-4 text-gray-400 text-xs">
                         {{ r.alert_title[:20] or '-' }}{% if r.alert_title and r.alert_title|length > 20 %}…{% endif %}
                     </td>
-                    <td class="hidden md:table-cell py-1.5 sm:py-2 px-2 sm:px-3 text-gray-400 text-xs font-mono">
+                    <td class="hidden md:table-cell py-1.5 sm:py-2 px-3 sm:px-4 text-gray-400 text-xs font-mono">
                         {{ r.created_at.strftime('%d/%m') if r.created_at else '-' }}
                     </td>
-                    <td class="hidden lg:table-cell py-1.5 sm:py-2 px-2 sm:px-3">
+                    <td class="hidden lg:table-cell py-1.5 sm:py-2 px-3 sm:px-4">
                         <div class="flex gap-1 flex-wrap">
                             {% if r.tags %}
                                 {% for tag in r.tags[:2] %}
@@ -96,7 +96,7 @@
                             {% endif %}
                         </div>
                     </td>
-                    <td class="py-1.5 sm:py-2 px-2 sm:px-3">
+                    <td class="py-1.5 sm:py-2 px-3 sm:px-4">
                         <form action="/rules/{{ r.id }}/toggle" method="post">
                             {% if r.status == 'active' %}
                             <button type="submit"
