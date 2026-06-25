@@ -60,7 +60,7 @@ async def crear_alerta_desde_engine(datos_alerta: dict) -> dict | None:
                 "description": alerta.description,
                 "status": alerta.status,
             }
-            multi_notifier.send_all(alerta_dict)
+            await multi_notifier.send_all(alerta_dict)
             logger.info(
                 "Alerta creada por engine: %s | %s",
                 alerta.title, alerta.severity,
@@ -152,6 +152,19 @@ async def lifespan(app: FastAPI):
 
     # ── Configurar notificadores ─────────────────────────────────────────
     multi_notifier.agregar(ConsoleNotifier())
+
+    # EmailNotifier (solo si hay configuración SMTP)
+    if settings.smtp_user:
+        from app.services.email_notifier import EmailNotifier
+        multi_notifier.agregar(EmailNotifier(), min_severity=settings.notify_min_severity)
+        logger.info("EmailNotifier configurado para severidad >= %s", settings.notify_min_severity)
+
+    # WebhookNotifier (solo si hay URL configurada)
+    if settings.webhook_url:
+        from app.services.webhook_notifier import WebhookNotifier
+        multi_notifier.agregar(WebhookNotifier(), min_severity=settings.notify_min_severity)
+        logger.info("WebhookNotifier configurado para severidad >= %s", settings.notify_min_severity)
+
     app.state.notifier = multi_notifier
     logger.info("Notificadores configurados")
 

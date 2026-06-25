@@ -38,6 +38,18 @@ class Settings(BaseSettings):
     syslog_host: str = "0.0.0.0"  # Escucha en todas las interfaces
     syslog_port: int = 5140       # Puerto no privilegiado (el 514 requiere sudo)
 
+    # ── Notificaciones Email ────────────────────────────────────────────
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    notify_to: list[str] = []
+
+    # ── Notificaciones Webhook ──────────────────────────────────────────
+    webhook_url: str = ""
+    notify_min_severity: str = "high"  # critical | high | medium | low
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
