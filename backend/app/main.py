@@ -15,10 +15,14 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func
 from app.config import settings
 from app.api import events, rules, alerts
+from app.api import auth as auth_router
+from app.auth import get_current_user_from_cookie
 from app.services.pipeline import Pipeline
 from app.services.engine import CorrelationEngine
 from app.services.notifier import ConsoleNotifier, MultiNotifier
 from app.database import get_session
+from app.services.auth_service import AuthService
+from app.models.user import User  # noqa: F401 — usado por seed en lifespan
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +109,24 @@ async def lifespan(app: FastAPI):
         async with db_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Tablas de base de datos verificadas/creadas")
+
+        # ── Seed usuario admin ──────────────────────────────────────────
+        try:
+            from app.database import async_session as db_session
+
+            async with db_session() as seed_session:
+                auth_svc = AuthService(seed_session)
+                try:
+                    admin_user = await auth_svc.crear_usuario(
+                        username=settings.admin_username,
+                        password=settings.admin_password,
+                        role="admin",
+                    )
+                    logger.info("Admin creado: %s", admin_user.username)
+                except ValueError:
+                    logger.info("Admin ya existe, omitiendo seed")
+        except Exception as e:
+            logger.warning("No se pudo seedear admin: %s", e)
     except Exception as e:
         logger.warning("No se pudo conectar a la base de datos: %s", e)
 
@@ -177,6 +199,7 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 app.include_router(events.router)
 app.include_router(rules.router)
 app.include_router(alerts.router)
+app.include_router(auth_router.router)
 
 # ── Templates ───────────────────────────────────────────────────────────
 # Usamos Jinja2 directamente (no Starlette Jinja2Templates) para evitar
@@ -202,6 +225,52 @@ def render_template(name: str, context: dict) -> HTMLResponse:
 # ═════════════════════════════════════════════════════════════════════════
 
 
+@app.get("/login", response_class=HTMLResponse)
+async def pagina_login(request: Request, error: str = None):
+    """Página de inicio de sesión."""
+    return render_template("login.html", {
+        "request": request,
+        "app_name": settings.app_name,
+        "app_version": settings.app_version,
+        "error": error,
+    })
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_form_post(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    """Login desde formulario HTML — redirige al dashboard o muestra error.
+
+    Si las credenciales son válidas, crea un JWT, lo guarda en cookie
+    httpOnly, y redirige al dashboard. Si no, vuelve al login con error.
+    """
+    async for session in obtener_session():
+        service = AuthService(session)
+        user = await service.autenticar(username, password)
+
+        if not user:
+            return render_template("login.html", {
+                "request": request,
+                "app_name": settings.app_name,
+                "app_version": settings.app_version,
+                "error": "Usuario o contraseña incorrectos",
+            })
+
+        token = service.crear_token(user)
+        response = RedirectResponse(url="/", status_code=303)
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=True,
+            max_age=settings.access_token_expire_minutes * 60,
+            samesite="lax",
+        )
+        return response
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Página principal del dashboard con métricas en vivo.
@@ -211,6 +280,11 @@ async def dashboard(request: Request):
         - Tabla con los últimos 10 eventos
     """
     async for session in obtener_session():
+        # ── Verificar autenticación ──────────────────────────────────
+        user = await get_current_user_from_cookie(request, session)
+        if not user:
+            return RedirectResponse(url="/login", status_code=303)
+
         from app.models.event import NormalizedEvent
         from app.models.alert import Alert
         from app.services.event_service import EventService
@@ -250,6 +324,7 @@ async def dashboard(request: Request):
             {
                 "request": request,
                 "app_name": settings.app_name,
+                "user": user,
                 "eventos_hoy": eventos_hoy_total,
                 "alertas_activas": alertas_activas_total,
                 "reglas_activas": reglas_activas_total,
@@ -272,6 +347,11 @@ async def pagina_eventos(
         severidad: Filtrar por severidad (opcional).
     """
     async for session in obtener_session():
+        # ── Verificar autenticación ──────────────────────────────────
+        user = await get_current_user_from_cookie(request, session)
+        if not user:
+            return RedirectResponse(url="/login", status_code=303)
+
         from app.services.event_service import EventService
 
         service = EventService(session)
@@ -288,6 +368,7 @@ async def pagina_eventos(
             {
                 "request": request,
                 "app_name": settings.app_name,
+                "user": user,
                 "eventos": eventos,
                 "pagina_actual": pagina,
                 "total_paginas": total_paginas,
@@ -306,6 +387,11 @@ async def pagina_alertas(
 ):
     """Página de alertas con paginación, filtros y formularios de estado."""
     async for session in obtener_session():
+        # ── Verificar autenticación ──────────────────────────────────
+        user = await get_current_user_from_cookie(request, session)
+        if not user:
+            return RedirectResponse(url="/login", status_code=303)
+
         from app.services.alert_service import AlertService
 
         service = AlertService(session)
@@ -322,6 +408,7 @@ async def pagina_alertas(
             {
                 "request": request,
                 "app_name": settings.app_name,
+                "user": user,
                 "alertas": alertas,
                 "pagina_actual": pagina,
                 "total_paginas": total_paginas,
@@ -334,6 +421,7 @@ async def pagina_alertas(
 
 @app.post("/alerts/{alerta_id}/estado")
 async def cambiar_estado_alerta(
+    request: Request,
     alerta_id: str,
     estado: str = Form(...),
 ):
@@ -343,6 +431,11 @@ async def cambiar_estado_alerta(
     y redirige de vuelta a /alerts.
     """
     async for session in obtener_session():
+        # ── Verificar autenticación ──────────────────────────────────
+        user = await get_current_user_from_cookie(request, session)
+        if not user:
+            return RedirectResponse(url="/login", status_code=303)
+
         from app.services.alert_service import AlertService
 
         estados_validos = {"open", "acknowledged", "investigating", "resolved", "false_positive"}
@@ -363,6 +456,11 @@ async def pagina_reglas(
 ):
     """Página de reglas de detección con paginación."""
     async for session in obtener_session():
+        # ── Verificar autenticación ──────────────────────────────────
+        user = await get_current_user_from_cookie(request, session)
+        if not user:
+            return RedirectResponse(url="/login", status_code=303)
+
         from app.services.rule_service import RuleService
 
         service = RuleService(session)
@@ -379,6 +477,7 @@ async def pagina_reglas(
             {
                 "request": request,
                 "app_name": settings.app_name,
+                "user": user,
                 "reglas": reglas,
                 "pagina_actual": pagina,
                 "total_paginas": total_paginas,
@@ -389,9 +488,17 @@ async def pagina_reglas(
 
 
 @app.post("/rules/{regla_id}/toggle")
-async def toggle_regla(regla_id: str):
+async def toggle_regla(
+    request: Request,
+    regla_id: str,
+):
     """Activa/desactiva una regla desde el dashboard."""
     async for session in obtener_session():
+        # ── Verificar autenticación ──────────────────────────────────
+        user = await get_current_user_from_cookie(request, session)
+        if not user:
+            return RedirectResponse(url="/login", status_code=303)
+
         from app.services.rule_service import RuleService
 
         service = RuleService(session)

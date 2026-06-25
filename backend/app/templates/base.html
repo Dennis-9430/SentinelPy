@@ -18,12 +18,22 @@
         <div class="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-3 flex items-center justify-between">
             {# Logo/nombre de la app #}
             <h1 class="text-lg sm:text-xl font-bold text-cyan-400">{{ app_name }}</h1>
-            {# Navegación principal — cada link lleva a una sección #}
-            <div class="flex gap-3 sm:gap-5 text-xs sm:text-sm">
-                <a href="/" class="hover:text-cyan-400 transition-colors">Dashboard</a>
-                <a href="/events" class="hover:text-cyan-400 transition-colors">Eventos</a>
-                <a href="/alerts" class="hover:text-cyan-400 transition-colors">Alertas</a>
-                <a href="/rules" class="hover:text-cyan-400 transition-colors">Reglas</a>
+            {# Navegación principal + usuario #}
+            <div class="flex items-center gap-4">
+                <div class="flex gap-3 sm:gap-5 text-xs sm:text-sm">
+                    <a href="/" class="hover:text-cyan-400 transition-colors">Dashboard</a>
+                    <a href="/events" class="hover:text-cyan-400 transition-colors">Eventos</a>
+                    <a href="/alerts" class="hover:text-cyan-400 transition-colors">Alertas</a>
+                    <a href="/rules" class="hover:text-cyan-400 transition-colors">Reglas</a>
+                </div>
+                {% if user %}
+                <div class="flex items-center gap-3 text-xs sm:text-sm border-l border-gray-600 pl-4">
+                    <span class="text-gray-400">{{ user.username }}</span>
+                    <form action="/api/auth/logout" method="POST" class="inline">
+                        <button type="submit" class="text-red-400 hover:text-red-300 transition-colors">Salir</button>
+                    </form>
+                </div>
+                {% endif %}
             </div>
         </div>
     </nav>
