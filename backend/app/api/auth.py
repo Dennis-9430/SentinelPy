@@ -63,13 +63,15 @@ async def login(
 
 
 @router.post("/logout")
-async def logout(response: Response):
-    """Elimina la cookie de autenticación.
+async def logout():
+    """Elimina la cookie de autenticación y redirige al login.
 
-    Simplemente borra la cookie access_token del navegador.
+    Crea un RedirectResponse a /login y borra la cookie access_token
+    en el mismo response, así el navegador pierde la sesión al redirigir.
     """
+    response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie(key="access_token")
-    return {"mensaje": "Sesión cerrada"}
+    return response
 
 
 @router.get("/me", response_model=dict)
