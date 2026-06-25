@@ -2,13 +2,13 @@
 
 ## Objetivo
 
-Agregar notificaciones automáticas cuando se generen alertas de severidad
-crítica o alta. Un SIEM que no notifica no sirve para producción — nadie
+Agregar notificaciones automáticas multicanal cuando se generen alertas
+de seguridad. Un SIEM que no notifica no sirve para producción — nadie
 va a estar mirando el dashboard 24/7. Con notificaciones por email y
 webhook, los analistas reciben las alertas en su canal de comunicación
 habitual (correo, Slack, Discord, etc.).
 
-## Arquitectura Propuesta
+## Arquitectura
 
 ```
                     ┌──────────────────────┐
@@ -24,60 +24,153 @@ habitual (correo, Slack, Discord, etc.).
                              │
                              ▼
                     ┌──────────────────────┐
-                    │   Notifier System     │
+                    │   MultiNotifier       │
+                    │   (filtro severidad)  │
                     │                      │
                     │  ┌──────────────┐    │
+                    │  │ ConsoleNotif │    │
+                    │  │ → logging    │    │
+                    │  └──────────────┘    │
+                    │  ┌──────────────┐    │
                     │  │ EmailNotifier│    │
-                    │  │ → SMTP      │    │
+                    │  │ → aiosmtplib │    │
                     │  └──────────────┘    │
                     │  ┌──────────────┐    │
-                    │  │ SlackNotifier│    │
-                    │  │ → Webhook   │    │
-                    │  └──────────────┘    │
-                    │  ┌──────────────┐    │
-                    │  │ LogNotifier  │    │
-                    │  │ → consola    │    │
+                    │  │WebhookNotif  │    │
+                    │  │ → httpx POST │    │
                     │  └──────────────┘    │
                     └──────────────────────┘
 ```
 
-## Componentes a Implementar
+## Componentes
 
-### 1. EmailNotifier
+### 1. MultiNotifier — Refactor a Async + Filtro por Severidad
 
-Envío de alertas por email usando SMTP asíncrono.
+El `MultiNotifier` existente se refactorizó para soportar:
 
-**Configuración (config.py):**
+- **Async**: `send_all()` ahora es `async def` y `await` cada notificador
+- **Filtro por severidad**: cada notificador registrado tiene su propio
+  `min_severity`. Antes de enviar, se compara la severidad de la alerta
+  contra el umbral usando un orden numérico.
+
+**Orden de severidad:**
 
 ```python
-# ── Notificaciones Email ──────────────────────────────────────
-smtp_host: str = "smtp.gmail.com"
-smtp_port: int = 587
-smtp_user: str = ""       # Email remitente
-smtp_password: str = ""    # Contraseña de aplicación
-smtp_from: str = ""        # Dirección From
-notify_to: list[str] = []  # Lista de destinatarios
-notify_min_severity: str = "high"  # critical | high | medium
+_SEVERITY_ORDER = {
+    "critical": 5,
+    "high": 4,
+    "medium": 3,
+    "low": 2,
+    "info": 1,
+}
 ```
 
-**Formato del email:**
+**Registro con severidad:**
+
+```python
+multi_notifier.agregar(ConsoleNotifier())
+multi_notifier.agregar(EmailNotifier(), min_severity="high")
+multi_notifier.agregar(WebhookNotifier(), min_severity="high")
+```
+
+**SendAll con tolerancia a fallos:**
+
+```python
+async def send_all(self, alerta: dict):
+    for notificador, min_severidad in self._notificadores:
+        if _SEVERITY_ORDER.get(alerta.get("severity", "info"), 0) < _SEVERITY_ORDER.get(min_severidad, 0):
+            continue
+        try:
+            await notificador.send(alerta)
+        except Exception as e:
+            logger.error("Error en notificador %s: %s", type(notificador).__name__, e)
+```
+
+Un notificador que falla nunca detiene a los demás.
+
+### 2. ConsoleNotifier — Adaptado a Async
+
+El `ConsoleNotifier` existente solo cambió `def send()` → `async def send()`.
+La lógica interna sigue igual: loguea la alerta con diferentes niveles
+(warning para critical/high, info para el resto).
+
+### 3. EmailNotifier
+
+Envío de alertas por email usando `aiosmtplib` (SMTP asíncrono).
+
+**Inicialización:**
+
+```python
+class EmailNotifier:
+    def __init__(self):
+        self.host = settings.smtp_host          # smtp.gmail.com
+        self.port = settings.smtp_port           # 587
+        self.user = settings.smtp_user           # correo@gmail.com
+        self.password = settings.smtp_password    # contraseña de aplicación
+        self.from_addr = settings.smtp_from
+        self.to_addrs = settings.notify_to        # ["analista@ejemplo.com"]
+```
+
+**Método send() con skip silencioso:**
+
+```python
+async def send(self, alerta: dict):
+    if not self.user or not self.to_addrs:
+        return  # SMTP no configurado — skip silencioso
+
+    msg = EmailMessage()
+    msg["From"] = self.from_addr or self.user
+    msg["To"] = ", ".join(self.to_addrs)
+    msg["Subject"] = f"[{severity}] SentinelPy — {title}"
+    msg.set_content(self._formatear_cuerpo(alerta))
+
+    await aiosmtplib.send(
+        msg,
+        hostname=self.host,
+        port=self.port,
+        username=self.user,
+        password=self.password,
+        start_tls=True,
+        timeout=10.0,
+    )
+```
+
+**Formato del email (texto plano):**
 
 ```
-Asunto: [CRITICAL] SentinelPy — Posible fuerza bruta SSH detectada
+[CRITICAL] Posible fuerza bruta SSH detectada
+============================================================
 
-├── Regla:      Fuerza bruta SSH
-├── Severidad:  critical
-├── Eventos:    15 en 60 segundos
-├── Creada:     2024-01-15 10:00:00 UTC
-│
-└── Descripción:
+  Regla:      550e8400-e29b-41d4-a716-446655440000
+  Severidad:  critical
+  Eventos:    15
+  ID Alerta:  660e8400-e29b-41d4-a716-446655440000
+
+  Descripción:
     Múltiples intentos de autenticación como root
     desde 10.0.0.1 en los últimos 60 segundos.
+
+  — SentinelPy
 ```
 
-### 2. WebhookNotifier (Slack / Discord / Genérico)
+### 4. WebhookNotifier
 
-Envío de alertas a webhooks HTTP (Slack, Discord, Teams, etc.).
+Envío de alertas a webhooks HTTP via `httpx.AsyncClient`. Detecta
+automáticamente el formato según la URL:
+
+| URL contiene | Formato |
+|-------------|---------|
+| `discord` | Discord Embeds |
+| cualquier otra | Slack Attachments |
+
+**Inicialización:**
+
+```python
+class WebhookNotifier:
+    def __init__(self, webhook_url: str | None = None):
+        self.webhook_url = webhook_url or settings.webhook_url
+        self._client = httpx.AsyncClient(timeout=5.0)
+```
 
 **Payload Slack:**
 
@@ -86,190 +179,173 @@ Envío de alertas a webhooks HTTP (Slack, Discord, Teams, etc.).
     "attachments": [{
         "color": "#dc2626",
         "title": "🚨 [CRITICAL] Posible fuerza bruta SSH",
+        "text": "Múltiples intentos de autenticación...",
         "fields": [
-            {"title": "Regla", "value": "Fuerza bruta SSH", "short": true},
-            {"title": "Severidad", "value": "critical", "short": true},
-            {"title": "Eventos", "value": "15", "short": true},
-            {"title": "Fuente", "value": "10.0.0.1", "short": true}
+            {"title": "ID", "value": "550e8400", "short": true},
+            {"title": "Eventos", "value": "15", "short": true}
         ],
-        "footer": "SentinelPy",
-        "ts": 1705312800
+        "footer": "SentinelPy"
     }]
 }
 ```
 
-**Configuración:**
+**Payload Discord:**
+
+```json
+{
+    "embeds": [{
+        "color": 14431526,
+        "title": "[CRITICAL] Posible fuerza bruta SSH",
+        "description": "Múltiples intentos de autenticación...",
+        "fields": [
+            {"name": "ID", "value": "550e8400", "inline": true},
+            {"name": "Eventos", "value": "15", "inline": true}
+        ],
+        "footer": {"text": "SentinelPy"}
+    }]
+}
+```
+
+**Mapa de colores por severidad:**
+
+| Severidad | Slack (hex) | Discord (int) |
+|-----------|-------------|---------------|
+| critical | `#dc2626` | `0xdc2626` |
+| high | `#ea580c` | `0xea580c` |
+| medium | `#ca8a04` | `0xca8a04` |
+| low | `#2563eb` | `0x2563eb` |
+| info | `#6b7280` | `0x6b7280` |
+
+## Flujo Completo
+
+```
+1. CorrelationEngine detecta match → llama a callback
+2. CrearAlertaDesdeEngine():
+   a. Persiste alerta en BD
+   b. MultiNotifier.send_all(alerta_dict)  ← AHORA ASYNC
+3. Por cada notificador registrado:
+   ── ¿severidad de alerta >= min_severity del notificador?
+   ├── No → skip (log debug)
+   └── Sí → await notificador.send(alerta)
+        ├── Éxito → log "Notificación enviada: {title} → {canal}"
+        └── Error → log "Error en {notificador}: {error}"
+                     (los demás notificadores siguen)
+```
+
+## Configuración
+
+### Config (config.py)
 
 ```python
-# ── Notificaciones Webhook ────────────────────────────────────
-webhook_urls: list[str] = []    # URLs de webhook (Slack, Discord, etc.)
-notify_on_severity: list[str] = ["critical", "high"]
+# ── Notificaciones Email ────────────────────────────────────────────
+smtp_host: str = ""
+smtp_port: int = 587
+smtp_user: str = ""
+smtp_password: str = ""
+smtp_from: str = ""
+notify_to: list[str] = []
+
+# ── Notificaciones Webhook ──────────────────────────────────────────
+webhook_url: str = ""
+notify_min_severity: str = "high"  # critical | high | medium | low
 ```
 
-### 3. LogNotifier (ya existe como ConsoleNotifier)
+### .env
 
-Registro de alertas en consola/logs. Ya implementado como `ConsoleNotifier`
-dentro de `MultiNotifier`. Se mantiene para debug en desarrollo.
+```env
+# Email
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=alertas@tuempresa.com
+SMTP_PASSWORD=xxxx xxxx xxxx xxxx
+NOTIFY_TO=analista@ejemplo.com
 
-### 4. Sistema de Canales por Severidad
-
-Cada canal (email, webhook, consola) debería poder configurarse
-para qué severidades notifica:
-
-| Canal | critical | high | medium | low | Por defecto |
-|-------|----------|------|--------|-----|-------------|
-| Email | ✅ | ✅ | ❌ | ❌ | critical+high |
-| Slack | ✅ | ✅ | ❌ | ❌ | critical+high |
-| Log | ✅ | ✅ | ✅ | ✅ | todas |
-
-### 5. Notification History (opcional)
-
-Tabla opcional para registrar qué notificaciones se enviaron:
-
-```python
-class NotificationLog(Base, TimestampMixin, UUIDMixin):
-    __tablename__ = "notification_log"
-
-    alert_id:      UUID   # FK → alerts.id
-    channel:       str    # "email" | "slack" | "console"
-    severity:      str    # severidad de la alerta original
-    status:        str    # "sent" | "failed"
-    error:         str    # mensaje de error si falló
-    delivered_at:  datetime
+# Webhook
+WEBHOOK_URL=https://hooks.slack.com/services/T00/B00/xxxxx
+NOTIFY_MIN_SEVERITY=high
 ```
 
-Útil para auditoría y debugging de notificaciones fallidas.
-
-## Dependencias Nuevas
-
-```txt
-# Notificaciones
-aiosmtplib>=3.0.0          # SMTP asíncrono
-httpx>=0.28.0              # Webhooks HTTP (ya está)
-```
-
-`aiosmtplib` es clave: usa `asyncio` para no bloquear el event loop
-mientras envía el email.
-
-## Flujo de Notificación
-
-```
-1. CorrelationEngine detecta match
-2. Callback → AlertService.crear_alerta()
-3. MultiNotifier.send_all(alerta_dict)
-4. Por cada notificador registrado:
-   ── ¿severidad >= notify_min_severity?
-   ├── Sí → enviar notificación
-   │    ├── Éxito → log "notificación enviada"
-   │    └── Error → log "fallo al enviar: {error}"
-   └── No → skip
-```
-
-## Archivos a Crear/Modificar
+## Archivos Creados/Modificados
 
 | Archivo | Acción | Descripción |
 |---------|--------|-------------|
-| `backend/app/services/email_notifier.py` | Crear | EmailNotifier con SMTP asíncrono |
-| `backend/app/services/webhook_notifier.py` | Crear | WebhookNotifier para Slack/Discord |
-| `backend/app/services/notifier.py` | Modificar | Refactor MultiNotifier con filtro por severidad |
-| `backend/app/config.py` | Modificar | Config SMTP + webhooks |
-| `backend/app/main.py` | Modificar | Registrar nuevos notificadores en lifespan |
-| `backend/requirements.txt` | Modificar | Agregar aiosmtplib |
-| `backend/tests/test_notifiers.py` | Crear | Tests para cada notificador |
-| `docs/fase-07-notificaciones.md` | Crear | Este documento |
+| `app/services/email_notifier.py` | Creado | EmailNotifier con aiosmtplib (SMTP asíncrono) |
+| `app/services/webhook_notifier.py` | Creado | WebhookNotifier con httpx (Slack/Discord) |
+| `app/services/notifier.py` | Modificado | ConsoleNotifier → async. MultiNotifier con filtro severidad |
+| `app/config.py` | Modificado | 7 campos nuevos: smtp_*, notify_to, webhook_url, notify_min_severity |
+| `app/main.py` | Modificado | callback ahora await send_all(), lifespan registra notifiers condicionales |
+| `requirements.txt` | Modificado | aiosmtplib>=3.0.0 |
+| `tests/test_notifiers.py` | Creado | 7 tests con mocks |
+| `.env.example` | Modificado | Variables SMTP y webhook comentadas |
 
-## Tests a Implementar
+## Tests (7 tests)
 
-| Test | Qué verifica |
-|------|-------------|
-| `email_notifier_envia_alerta` | EmailNotifier envía correctamente |
-| `email_notifier_filtra_severidad` | No envía si severidad es muy baja |
-| `email_notifier_error_manejado` | Error SMTP no crashea la app |
-| `webhook_notifier_envia_payload` | POST correcto al webhook |
-| `webhook_notifier_formato_slack` | Payload Slack tiene estructura correcta |
-| `multi_notifier_filtra_canales` | Cada canal recibe según su configuración |
-| `multi_notifier_error_continua` | Un canal falla, los otros siguen |
+| Test | Tipo | Qué verifica |
+|------|------|-------------|
+| `test_console_notifier_logs_alerta` | Unitario | ConsoleNotifier loguea sin errores |
+| `test_multi_notifier_ejecuta_todos` | Unitario | MultiNotifier ejecuta todos los registrados |
+| `test_multi_notifier_filtra_severidad` | Unitario | No envía si severidad < min_severity |
+| `test_multi_notifier_error_no_detiene` | Unitario | Un fallo no detiene a los otros |
+| `test_email_notifier_skips_sin_config` | Unitario | Skip silencioso si SMTP no configurado |
+| `test_webhook_notifier_skips_sin_url` | Unitario | Skip silencioso si URL vacía |
+| `test_console_severity_filtering` | Unitario | Todas las severidades se manejan sin error |
 
-## Lecciones Anticipadas
+## Lecciones Aprendidas
 
-### 1. SMTP asíncrono con aiosmtplib
+### 1. Hacer todo async fue el cambio más simple
 
-`aiosmtplib` es la versión asíncrona de `smtplib`. La diferencia principal
-es que usa `asyncio` para no bloquear:
+El `ConsoleNotifier` original era sincrónico. Para que `MultiNotifier`
+pudiera `await` notificadores async (email, webhook), había dos opciones:
 
-```python
-import aiosmtplib
+- **Mantener sync + run_in_executor**: más complejo, introducía threads
+- **Convertir todo a async**: solo cambiar `def` → `async def` en ConsoleNotifier
 
-async def enviar(self, alerta: dict):
-    message = EmailMessage()
-    message["From"] = self.from_addr
-    message["To"] = ", ".join(self.to_addrs)
-    message["Subject"] = f"[{alerta['severity'].upper()}] {alerta['title']}"
-    message.set_content(formatear_cuerpo(alerta))
+La segunda opción fue trivial. Como el engine ya `await`ea los callbacks,
+el cambio fue natural y no rompió nada.
 
-    await aiosmtplib.send(
-        message,
-        hostname=self.smtp_host,
-        port=self.smtp_port,
-        username=self.smtp_user,
-        password=self.smtp_password,
-        start_tls=True,
-    )
-```
-
-### 2. Timeout y retry en notificaciones
-
-Las notificaciones no deben ralentizar el pipeline. Cada notificador
-debería tener un timeout (5s por defecto) y manejar fallos sin excepciones:
+### 2. Filtro por severidad con orden numérico
 
 ```python
-try:
-    await asyncio.wait_for(self._enviar(alerta), timeout=5.0)
-except asyncio.TimeoutError:
-    logger.error("Timeout al enviar notificación: %s", alerta["id"])
-except Exception as e:
-    logger.error("Error al enviar notificación: %s", e)
+_SEVERITY_ORDER = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 ```
 
-### 3. Rate limiting para webhooks
+Cada notificador registra su `min_severity`. En `send_all`, se compara
+el orden de la severidad de la alerta contra el umbral. Esto permitió
+que cada canal tenga su propia configuración: consola recibe todo,
+email solo critical+high.
 
-Slack y Discord tienen rate limits (típicamente 1 mensaje por segundo).
-Para alertas en ráfaga (ej: 100 eventos en 1 minuto con ventana temporal),
-el CorrelationEngine ya agrupa en una sola alerta. Pero si hay múltiples
-reglas disparándose, igual pueden llegar varias notificaciones seguidas.
+### 3. Detección Slack vs Discord por URL
 
-Solución simple: cola asíncrona con mínimo 1 segundo entre mensajes.
+En lugar de requerir una configuración explícita del tipo de webhook,
+el `WebhookNotifier` detecta automáticamente el formato buscando
+`"discord"` en la URL. Esto hace la configuración más simple: el usuario
+solo pega la URL y el sistema elige el formato correcto.
 
-### 4. Contraseñas de aplicación para Gmail
+### 4. Skip silencioso sin configuración
 
-Gmail ya no permite contraseñas normales para SMTP. Hay que generar una
-"contraseña de aplicación" desde:
-`Cuenta de Google → Seguridad → Verificación en dos pasos → Contraseñas de aplicación`
+Si `smtp_user` está vacío, `EmailNotifier.send()` hace `return`
+inmediatamente sin loguear error. Esto es intencional: el usuario
+recién instaló SentinelPy y todavía no configuró SMTP. No debería ver
+warnings por algo que no configuró. Los logs solo aparecen cuando hay
+configuración pero falla el envío.
 
-Para otros proveedores:
+### 5. aiosmtplib vs smtplib
 
-| Proveedor | Host | Puerto | TLS |
-|-----------|------|--------|-----|
-| Gmail | smtp.gmail.com | 587 | ✅ |
-| Outlook | smtp.office365.com | 587 | ✅ |
-| SendGrid | smtp.sendgrid.net | 587 | ✅ |
-| Mailtrap (dev) | sandbox.smtp.mailtrap.io | 2525 | ✅ |
-
-### 5. El AsyncTry pattern para no bloquear
-
-En lugar de esperar a que la notificación se envíe (bloqueando el callback
-del engine), se puede lanzar una tarea asíncrona independiente:
+`aiosmtplib` tiene exactamente la misma API que `smtplib` pero async.
+El cambio es mínimo:
 
 ```python
-async def send_all(self, alerta: dict):
-    for notificador in self._notificadores:
-        asyncio.create_task(notificador.enviar_si_corresponde(alerta))
+# Sync
+smtplib.send(msg, hostname=..., port=...)
+
+# Async
+await aiosmtplib.send(msg, hostname=..., port=...)
 ```
 
-Esto hace que las notificaciones sean fire-and-forget: no ralentizan el
-pipeline, y si fallan, solo se loguean.
+Incluye soporte nativo para STARTTLS, autenticación, y timeout, lo que
+evita tener que manejar conexiones manualmente.
 
-## Configuración de Desarrollo (Mailtrap)
+## Configuración de Desarrollo
 
 Para desarrollo sin un servidor SMTP real, [Mailtrap](https://mailtrap.io)
 ofrece un sandbox SMTP gratuito:
@@ -286,8 +362,9 @@ NOTIFY_MIN_SEVERITY=low
 Los emails no se envían realmente — se pueden inspeccionar en el web
 dashboard de Mailtrap.
 
-## Próximos Pasos (Fase 08)
+## Próximos Pasos
 
-- **Configuración productiva** (variables de entorno, volúmenes Docker, healthchecks)
-- **Documentación de instalación y configuración**
-- **Docker compose con perfiles** (dev vs prod)
+- **Sistema de permisos por rol** (admin puede todo, analyst solo lectura)
+- **API Key** para integraciones externas sin cookie
+- **NotificationLog** en BD para auditoría de notificaciones enviadas
+- **Cola asíncrona** para rate limiting en webhooks
