@@ -1,0 +1,16 @@
+# Override de producción para SentinelPy
+# Elimina hot-reload, expone puertos solo en db interna,
+# y agrega políticas de reinicio más estrictas.
+#
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    # No exponer puerto de base de datos en producción
+    ports: []
+
+  api:
+    # Sin volúmenes de desarrollo ni reload
+    # La imagen ya tiene el código copiado
+    environment:
+      DEBUG: "false"

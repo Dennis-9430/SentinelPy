@@ -1,44 +1,71 @@
-# Docker Compose para desarrollo de SentinelPy
-# Levanta PostgreSQL + API con hot-reload
+# Docker Compose para SentinelPy
+# Usar con:
+#   Desarrollo:  docker compose up -d
+#   Producción:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 services:
-  # ── Base de datos PostgreSQL ──────────────────────────────────────────
+  # ── Base de datos PostgreSQL ──────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: sentinelpy
-      POSTGRES_USER: sentinel
-      POSTGRES_PASSWORD: sentinel_dev
+      POSTGRES_DB: ${POSTGRES_DB:-sentinelpy}
+      POSTGRES_USER: ${POSTGRES_USER:-sentinel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_dev}
     ports:
-      - "5432:5432"  # Expuesto para conectarse con herramientas externas
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data  # Persistencia de datos
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinelpy"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinel} -d ${POSTGRES_DB:-sentinelpy}"]
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ── API FastAPI ───────────────────────────────────────────────────────
+  # ── API FastAPI ───────────────────────────────────────────────────────────
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     environment:
-      # Conexión a PostgreSQL usando el nombre del servicio Docker 'db'
-      DATABASE_URL: postgresql+asyncpg://sentinel:sentinel_dev@db:5432/sentinelpy
-      SECRET_KEY: dev-secret-key
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel_dev}@db:5432/${POSTGRES_DB:-sentinelpy}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DEBUG: ${DEBUG:-false}
+      # SMTP
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      NOTIFY_TO: ${NOTIFY_TO:-}
+      # Webhook
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      NOTIFY_MIN_SEVERITY: ${NOTIFY_MIN_SEVERITY:-high}
+      # Admin
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
     depends_on:
       db:
         condition: service_healthy
-    # Volumen para hot-reload — el código local se refleja en el contenedor
-    volumes:
-      - ./backend:/app
-    # --reload permite que Uvicorn reinicie automáticamente al cambiar código
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-# Volúmenes persistentes
 volumes:
   pgdata:
