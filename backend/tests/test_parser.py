@@ -87,7 +87,7 @@ class TestJSONParser:
         resultado = self.parser.parse(raw)
 
         assert resultado is not None
-        assert resultado["source"] == "unknown"
+        assert resultado["source"] is None
         assert resultado["event_type"] == "json_event"
         assert resultado["severity"] == "info"
         assert resultado["collector_type"] == "json"

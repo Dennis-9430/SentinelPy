@@ -236,7 +236,7 @@ class JSONParser:
 
         # Construir el evento normalizado mapeando campos
         evento = {
-            "source": self._extraer_campo(data, "source") or "unknown",
+            "source": self._extraer_campo(data, "source"),
             "collector_type": "json",
             "event_timestamp": self._parsear_timestamp(data) or datetime.now(timezone.utc),
             "event_type": self._extraer_campo(data, "event_type") or "json_event",

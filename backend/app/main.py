@@ -16,6 +16,7 @@ from sqlalchemy import select, func
 from app.config import settings
 from app.api import events, rules, alerts
 from app.api import auth as auth_router
+from app.api import users as users_router
 from app.auth import get_current_user_from_cookie
 from app.services.pipeline import Pipeline
 from app.services.engine import CorrelationEngine
@@ -213,6 +214,7 @@ app.include_router(events.router)
 app.include_router(rules.router)
 app.include_router(alerts.router)
 app.include_router(auth_router.router)
+app.include_router(users_router.router)
 
 # ── Templates ───────────────────────────────────────────────────────────
 # Usamos Jinja2 directamente (no Starlette Jinja2Templates) para evitar
@@ -449,6 +451,10 @@ async def cambiar_estado_alerta(
         if not user:
             return RedirectResponse(url="/login", status_code=303)
 
+        # Solo admin puede cambiar estado de alertas
+        if user.role != "admin":
+            return RedirectResponse(url="/alerts", status_code=303)
+
         from app.services.alert_service import AlertService
 
         estados_validos = {"open", "acknowledged", "investigating", "resolved", "false_positive"}
@@ -511,6 +517,10 @@ async def toggle_regla(
         user = await get_current_user_from_cookie(request, session)
         if not user:
             return RedirectResponse(url="/login", status_code=303)
+
+        # Solo admin puede activar/desactivar reglas
+        if user.role != "admin":
+            return RedirectResponse(url="/rules", status_code=303)
 
         from app.services.rule_service import RuleService
 
@@ -675,3 +685,104 @@ async def exportar_alertas_csv(
                 "Content-Disposition": "attachment; filename=alertas.csv",
             },
         )
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# ADMINISTRACIÓN DE USUARIOS (solo admin)
+# ═════════════════════════════════════════════════════════════════════════
+
+
+@app.get("/users", response_class=HTMLResponse)
+async def pagina_usuarios(request: Request):
+    """Página de administración de usuarios (solo admin).
+
+    Muestra tabla de usuarios con opciones para crear nuevos
+    y desactivar existentes. Redirige si no es admin.
+    """
+    async for session in obtener_session():
+        user = await get_current_user_from_cookie(request, session)
+        if not user or user.role != "admin":
+            return RedirectResponse(url="/", status_code=303)
+
+        from app.models.user import User
+        from sqlalchemy import select
+
+        result = await session.execute(
+            select(User).order_by(User.created_at.desc())
+        )
+        usuarios = result.scalars().all()
+
+        return render_template("users.html", {
+            "request": request,
+            "app_name": settings.app_name,
+            "user": user,
+            "usuario_actual_id": str(user.id),
+            "usuarios": [
+                {
+                    "id": str(u.id),
+                    "username": u.username,
+                    "role": u.role,
+                    "active": u.active,
+                    "created_at": u.created_at.isoformat(),
+                }
+                for u in usuarios
+            ],
+        })
+
+
+@app.post("/usuarios/crear")
+async def crear_usuario_form(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    role: str = Form("analyst"),
+):
+    """Crea usuario desde formulario HTML (solo admin).
+
+    Si el usuario ya existe, simplemente redirige sin error
+    para no exponer información sobre usuarios existentes.
+    """
+    async for session in obtener_session():
+        admin_user = await get_current_user_from_cookie(request, session)
+        if not admin_user or admin_user.role != "admin":
+            return RedirectResponse(url="/users", status_code=303)
+
+        service = AuthService(session)
+        try:
+            await service.crear_usuario(
+                username=username, password=password, role=role,
+            )
+        except ValueError:
+            pass  # Usuario ya existe, redirigir sin exponer información
+
+        return RedirectResponse(url="/users", status_code=303)
+
+
+@app.post("/usuarios/{usuario_id}/desactivar")
+async def desactivar_usuario_form(
+    request: Request,
+    usuario_id: str,
+):
+    """Desactiva usuario desde formulario HTML (solo admin).
+
+    No permite desactivarse a sí mismo para evitar quedar
+    sin administradores en el sistema.
+    """
+    async for session in obtener_session():
+        admin_user = await get_current_user_from_cookie(request, session)
+        if not admin_user or admin_user.role != "admin":
+            return RedirectResponse(url="/users", status_code=303)
+
+        from uuid import UUID
+
+        # No permitir desactivarse a sí mismo
+        if usuario_id == str(admin_user.id):
+            return RedirectResponse(url="/users", status_code=303)
+
+        from app.models.user import User
+        user = await session.get(User, UUID(usuario_id))
+        if user:
+            user.active = False
+            await session.commit()
+
+        return RedirectResponse(url="/users", status_code=303)

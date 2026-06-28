@@ -10,10 +10,12 @@
     <h2 class="text-base sm:text-lg font-semibold">Reglas</h2>
     <div class="flex gap-2 sm:gap-3 items-center">
         <span class="text-xs sm:text-sm text-gray-400">{{ total_reglas }} total</span>
+        {% if user.role == 'admin' %}
         <a href="/docs"
            class="px-2.5 py-1 rounded text-xs bg-cyan-700 text-white hover:bg-cyan-600 transition-colors">
             + Nueva
         </a>
+        {% endif %}
     </div>
 </div>
 
@@ -97,6 +99,7 @@
                         </div>
                     </td>
                     <td class="py-1.5 sm:py-2 px-3 sm:px-4">
+                        {% if user.role == 'admin' %}
                         <form action="/rules/{{ r.id }}/toggle" method="post">
                             {% if r.status == 'active' %}
                             <button type="submit"
@@ -110,6 +113,9 @@
                             </button>
                             {% endif %}
                         </form>
+                        {% else %}
+                        <span class="text-xs text-gray-500">—</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

@@ -5,7 +5,7 @@ siguiendo el patrón de capa de servicio.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.event import NormalizedEvent
@@ -97,7 +97,7 @@ class EventService:
         total = total_result.scalar() or 0
 
         # Eventos en la última hora
-        hace_una_hora = datetime.now(timezone.utc)
+        hace_una_hora = datetime.now(timezone.utc) - timedelta(hours=1)
         recientes_result = await self.session.execute(
             select(func.count(NormalizedEvent.id)).where(
                 NormalizedEvent.created_at >= hace_una_hora

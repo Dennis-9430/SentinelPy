@@ -4,11 +4,13 @@ Listado, filtrado, y actualización del ciclo de vida de alertas.
 Las alertas se generan automáticamente por el motor de correlación.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.schemas.alert import AlertRead, AlertUpdateStatus
 from app.services.alert_service import AlertService
+from app.auth import require_admin
+from app.models.user import User
 
 # Router con prefijo /api/alerts
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
@@ -82,9 +84,11 @@ async def obtener_alerta(
 async def actualizar_estado_alerta(
     alerta_id: str,
     datos: dict,  # {"status": "investigating", "resolution_notes": "..."}
+    request: Request,
     session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_admin),
 ):
-    """Actualiza el estado de una alerta (ciclo de vida).
+    """Actualiza el estado de una alerta (solo admin).
 
     Estados posibles: open → acknowledged → investigating → resolved | false_positive
     """

@@ -8,7 +8,7 @@ También los envía al motor de correlación (cuando esté implementado).
 import logging
 from datetime import datetime, timezone
 from app.services.parser import SyslogParser, JSONParser
-from app.database import async_session
+from app.database import async_session as _default_session
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +22,18 @@ class Pipeline:
     Detecta automáticamente si el log es JSON o syslog según el primer carácter.
     """
 
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, session_factory=None):
         """Inicializa los parsers disponibles.
 
         Argumentos:
             engine: Instancia opcional de CorrelationEngine para evaluación.
+            session_factory: async_sessionmaker para persistencia.
+                Por defecto usa app.database.async_session.
         """
         self.syslog_parser = SyslogParser()
         self.json_parser = JSONParser()
         self.engine = engine
+        self._session_factory = session_factory or _default_session
 
     async def process(self, raw: str, origen: tuple | None = None) -> dict | None:
         """Procesa un log crudo: detecta formato, parsea y guarda.
@@ -59,6 +62,10 @@ class Pipeline:
         # Si tenemos información del origen, actualizar el source
         if origen and not datos_parseados.get("source"):
             datos_parseados["source"] = f"{origen[0]}:{origen[1]}"
+
+        # Asegurar que source tenga un valor (columna NOT NULL en DB)
+        if not datos_parseados.get("source"):
+            datos_parseados["source"] = "unknown"
 
         # Guardar en base de datos
         evento = await self._guardar_evento(datos_parseados)
@@ -148,7 +155,7 @@ class Pipeline:
         from app.models.event import NormalizedEvent
 
         try:
-            async with async_session() as session:
+            async with self._session_factory() as session:
                 evento = NormalizedEvent(**datos)
                 session.add(evento)
                 await session.commit()

@@ -4,11 +4,13 @@ CRUD completo de reglas estilo Sigma. Las reglas activas se cargan
 en el motor de correlación al iniciar la aplicación.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.schemas.rule import RuleCreate, RuleRead
 from app.services.rule_service import RuleService
+from app.auth import require_admin
+from app.models.user import User
 
 # Router con prefijo /api/rules
 router = APIRouter(prefix="/api/rules", tags=["rules"])
@@ -84,9 +86,11 @@ async def obtener_regla(
 @router.post("", response_model=dict, status_code=201)
 async def crear_regla(
     datos: RuleCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_admin),
 ):
-    """Crea una nueva regla de detección.
+    """Crea una nueva regla de detección (solo admin).
 
     La regla se guarda en la base de datos y, si está activa,
     se cargará en el motor de correlación en el próximo ciclo.
@@ -110,9 +114,11 @@ async def crear_regla(
 async def actualizar_regla(
     regla_id: str,
     datos: RuleCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_admin),
 ):
-    """Actualiza una regla existente."""
+    """Actualiza una regla existente (solo admin)."""
     service = RuleService(session)
     regla = await service.actualizar_regla(regla_id, datos.model_dump(exclude_unset=True))
 
@@ -133,9 +139,11 @@ async def actualizar_regla(
 @router.delete("/{regla_id}", status_code=204)
 async def eliminar_regla(
     regla_id: str,
+    request: Request,
     session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_admin),
 ):
-    """Elimina una regla por su ID."""
+    """Elimina una regla por su ID (solo admin)."""
     service = RuleService(session)
     eliminado = await service.eliminar_regla(regla_id)
 
