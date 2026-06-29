@@ -28,9 +28,9 @@ Thumbs.db
 
 # Package managers
 node_modules/
-pnpm-lock.yaml
 package-lock.json
 yarn.lock
+!frontend/pnpm-lock.yaml
 
 # Markdown — solo README.md y docs/ se suben
 *.md
@@ -39,3 +39,4 @@ yarn.lock
 
 # Project specific
 *.db
+cookies.txt
