@@ -154,6 +154,44 @@ async def eliminar_regla(
     await _recargar_engine(session)
 
 
+def _toggle_status(current_status: str) -> str:
+    """Retorna el estado opuesto para toggle active/disabled.
+
+    Args:
+        current_status: Estado actual ('active' o 'disabled').
+
+    Returns:
+        'disabled' si current_status es 'active', 'active' en caso contrario.
+    """
+    return "disabled" if current_status == "active" else "active"
+
+
+@router.patch("/{regla_id}/toggle", response_model=dict)
+async def toggle_regla(
+    regla_id: str,
+    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_admin),
+):
+    """Activa/desactiva una regla (solo admin). Retorna JSON.
+
+    El estado cambia entre active y disabled. Después del toggle
+    recarga el motor de correlación para aplicar el cambio.
+    """
+    service = RuleService(session)
+    regla = await service.obtener_regla(regla_id)
+
+    if not regla:
+        raise HTTPException(status_code=404, detail="Regla no encontrada")
+
+    nuevo_estado = _toggle_status(regla.status)
+    await service.actualizar_regla(regla_id, {"status": nuevo_estado})
+
+    # Recargar engine para aplicar el cambio
+    await _recargar_engine(session)
+
+    return {"status": nuevo_estado}
+
+
 async def _recargar_engine(session: AsyncSession):
     """Recarga las reglas activas en el motor de correlación.
 

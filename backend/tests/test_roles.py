@@ -83,6 +83,28 @@ def mock_session():
     return session
 
 
+# ── Tests de lógica de toggle ─────────────────────────────────────────────
+
+class TestToggleStatus:
+    """Prueba la lógica pura de toggle active/disabled."""
+
+    def test_toggle_active_returns_disabled(self):
+        """Toggle desde 'active' retorna 'disabled'."""
+        from app.api.rules import _toggle_status
+        assert _toggle_status("active") == "disabled"
+
+    def test_toggle_disabled_returns_active(self):
+        """Toggle desde 'disabled' retorna 'active'."""
+        from app.api.rules import _toggle_status
+        assert _toggle_status("disabled") == "active"
+
+    def test_toggle_unknown_returns_active(self):
+        """Cualquier otro estado se trata como no-activo → active."""
+        from app.api.rules import _toggle_status
+        assert _toggle_status("test") == "active"
+        assert _toggle_status("") == "active"
+
+
 # ── Tests de lógica de roles ──────────────────────────────────────────────
 
 class TestVerificarAdmin:
@@ -216,6 +238,20 @@ async def test_api_users_crear_sin_auth():
             json={"username": "hacker", "password": "pass123"},
         )
         assert resp.status_code == 401
+
+@pytest.mark.asyncio
+async def test_api_rules_toggle_sin_auth():
+    """PATCH /api/rules/{id}/toggle sin auth debe devolver 401."""
+    from httpx import AsyncClient, ASGITransport
+    from app.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.patch(
+            "/api/rules/00000000-0000-0000-0000-000000000000/toggle",
+        )
+        assert resp.status_code == 401
+
 
 # ── Tests con BD real — pendientes ─────────────────────────────────────────
 #
