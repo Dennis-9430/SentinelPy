@@ -30,8 +30,8 @@ services:
   # ── API FastAPI ───────────────────────────────────────────────────────────
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
@@ -44,7 +44,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
-      NOTIFY_TO: ${NOTIFY_TO:-}
+      # NOTIFY_TO: omitido — usa default [] en Settings
       # Webhook
       WEBHOOK_URL: ${WEBHOOK_URL:-}
       NOTIFY_MIN_SEVERITY: ${NOTIFY_MIN_SEVERITY:-high}

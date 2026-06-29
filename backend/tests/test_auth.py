@@ -206,66 +206,40 @@ async def test_health_check():
 
 
 @pytest.mark.asyncio
-async def test_login_page_render():
-    """Verifica que la página de login se renderice correctamente."""
+async def test_spa_serves_index_html():
+    """Verifica que las rutas SPA devuelven index.html (modo SPA)."""
     from httpx import AsyncClient, ASGITransport
     from app.main import app
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # /login debe servir la SPA
         resp = await client.get("/login")
         assert resp.status_code == 200
-        assert "Iniciar Sesión" in resp.text
-        assert "SentinelPy" in resp.text
+        assert "text/html" in resp.headers.get("content-type", "")
+        assert '<div id="root"></div>' in resp.text
 
+        # / debe servir la SPA
+        resp = await client.get("/")
+        assert resp.status_code == 200
+        assert '<div id="root"></div>' in resp.text
 
-@pytest.mark.asyncio
-async def test_dashboard_redirect_when_not_authenticated():
-    """Verifica que el dashboard redirija a /login sin autenticación."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
+        # /events debe servir la SPA
+        resp = await client.get("/events")
+        assert resp.status_code == 200
+        assert '<div id="root"></div>' in resp.text
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/", follow_redirects=False)
-        assert resp.status_code == 303
-        assert resp.headers.get("location") == "/login"
+        # /alerts debe servir la SPA
+        resp = await client.get("/alerts")
+        assert resp.status_code == 200
+        assert '<div id="root"></div>' in resp.text
 
+        # /rules debe servir la SPA
+        resp = await client.get("/rules")
+        assert resp.status_code == 200
+        assert '<div id="root"></div>' in resp.text
 
-@pytest.mark.asyncio
-async def test_events_redirect_when_not_authenticated():
-    """Verifica que /events redirija a /login sin autenticación."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/events", follow_redirects=False)
-        assert resp.status_code == 303
-        assert resp.headers.get("location") == "/login"
-
-
-@pytest.mark.asyncio
-async def test_alerts_redirect_when_not_authenticated():
-    """Verifica que /alerts redirija a /login sin autenticación."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/alerts", follow_redirects=False)
-        assert resp.status_code == 303
-        assert resp.headers.get("location") == "/login"
-
-
-@pytest.mark.asyncio
-async def test_rules_redirect_when_not_authenticated():
-    """Verifica que /rules redirija a /login sin autenticación."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/rules", follow_redirects=False)
-        assert resp.status_code == 303
-        assert resp.headers.get("location") == "/login"
+        # /users debe servir la SPA
+        resp = await client.get("/users")
+        assert resp.status_code == 200
+        assert '<div id="root"></div>' in resp.text
