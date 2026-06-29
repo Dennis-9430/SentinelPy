@@ -86,8 +86,7 @@ async def client(session):
     from app.database import get_session
 
     async def override_get_session():
-        while True:
-            yield session
+        yield session
 
     app.dependency_overrides[get_session] = override_get_session
     transport = ASGITransport(app=app)

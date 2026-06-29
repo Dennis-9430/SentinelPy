@@ -63,7 +63,9 @@ def run_migrations(sync_url):
     from alembic import command
 
     alembic_cfg = Config("alembic.ini")
-    alembic_cfg.set_main_option("sqlalchemy.url", sync_url)
+    # Usar settings.database_url (async+asyncpg) en vez de sync_url (psycopg2)
+    # porque env.py usa create_async_engine que requiere driver async
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
     command.upgrade(alembic_cfg, "head")
     return True  # señal de que las tablas están listas
 
