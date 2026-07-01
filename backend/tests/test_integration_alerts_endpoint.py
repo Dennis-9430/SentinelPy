@@ -81,7 +81,7 @@ async def test_alerta(session):
 
 @pytest_asyncio.fixture
 async def client(session):
-    """App FastAPI con get_session override para usar DB del testcontainer."""
+    """App FastAPI sin autenticar — para tests de 401."""
     from app.main import app
     from app.database import get_session
 
@@ -95,18 +95,29 @@ async def client(session):
     app.dependency_overrides.clear()
 
 
+@pytest_asyncio.fixture
+async def admin_client(client, admin_token):
+    """App FastAPI autenticada como admin (cookie seteada en el cliente)."""
+    client.cookies.set("access_token", admin_token)
+    return client
+
+
+@pytest_asyncio.fixture
+async def analyst_client(client, analyst_token):
+    """App FastAPI autenticada como analyst (cookie seteada en el cliente)."""
+    client.cookies.set("access_token", analyst_token)
+    return client
+
+
 class TestPatchAlertStatusEndpoint:
     """Prueba el endpoint PATCH /api/alerts/{id}/estado."""
 
     @pytest.mark.asyncio
-    async def test_patch_open_to_investigating(
-        self, client, test_alerta, admin_token
-    ):
+    async def test_patch_open_to_investigating(self, admin_client, test_alerta):
         """Transición open → investigating devuelve status actualizado."""
-        response = await client.patch(
+        response = await admin_client.patch(
             f"/api/alerts/{test_alerta.id}/estado",
             json={"status": "investigating"},
-            cookies={"access_token": admin_token},
         )
         assert response.status_code == 200
         data = response.json()
@@ -114,51 +125,40 @@ class TestPatchAlertStatusEndpoint:
         assert data["id"] == str(test_alerta.id)
 
     @pytest.mark.asyncio
-    async def test_patch_open_to_acknowledged(
-        self, client, test_alerta, admin_token
-    ):
+    async def test_patch_open_to_acknowledged(self, admin_client, test_alerta):
         """Transición open → acknowledged devuelve status actualizado."""
-        response = await client.patch(
+        response = await admin_client.patch(
             f"/api/alerts/{test_alerta.id}/estado",
             json={"status": "acknowledged"},
-            cookies={"access_token": admin_token},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "acknowledged"
 
     @pytest.mark.asyncio
-    async def test_patch_returns_403_for_non_admin(
-        self, client, test_alerta, analyst_token
-    ):
+    async def test_patch_returns_403_for_non_admin(self, analyst_client, test_alerta):
         """Non-admin recibe 403 Forbidden."""
-        response = await client.patch(
+        response = await analyst_client.patch(
             f"/api/alerts/{test_alerta.id}/estado",
             json={"status": "investigating"},
-            cookies={"access_token": analyst_token},
         )
         assert response.status_code == 403
         data = response.json()
         assert "detail" in data
 
     @pytest.mark.asyncio
-    async def test_patch_returns_404_for_missing_alert(
-        self, client, admin_token
-    ):
+    async def test_patch_returns_404_for_missing_alert(self, admin_client):
         """Alerta inexistente devuelve 404."""
-        response = await client.patch(
+        response = await admin_client.patch(
             "/api/alerts/00000000-0000-0000-0000-000000000000/estado",
             json={"status": "resolved"},
-            cookies={"access_token": admin_token},
         )
         assert response.status_code == 404
         data = response.json()
         assert "detail" in data
 
     @pytest.mark.asyncio
-    async def test_patch_returns_401_without_auth(
-        self, client, test_alerta
-    ):
+    async def test_patch_returns_401_without_auth(self, client, test_alerta):
         """Sin cookie de acceso devuelve 401."""
         response = await client.patch(
             f"/api/alerts/{test_alerta.id}/estado",
@@ -169,28 +169,22 @@ class TestPatchAlertStatusEndpoint:
         assert "detail" in data
 
     @pytest.mark.asyncio
-    async def test_patch_returns_400_for_invalid_status(
-        self, client, test_alerta, admin_token
-    ):
+    async def test_patch_returns_400_for_invalid_status(self, admin_client, test_alerta):
         """Estado inválido devuelve 400."""
-        response = await client.patch(
+        response = await admin_client.patch(
             f"/api/alerts/{test_alerta.id}/estado",
             json={"status": "invalid_status"},
-            cookies={"access_token": admin_token},
         )
         assert response.status_code == 400
         data = response.json()
         assert "detail" in data
 
     @pytest.mark.asyncio
-    async def test_patch_persists_state_change(
-        self, session, client, test_alerta, admin_token
-    ):
+    async def test_patch_persists_state_change(self, session, admin_client, test_alerta):
         """El cambio de estado persiste en la base de datos."""
-        await client.patch(
+        await admin_client.patch(
             f"/api/alerts/{test_alerta.id}/estado",
             json={"status": "investigating"},
-            cookies={"access_token": admin_token},
         )
 
         service = AlertService(session)
@@ -199,17 +193,14 @@ class TestPatchAlertStatusEndpoint:
         assert alerta.status == "investigating"
 
     @pytest.mark.asyncio
-    async def test_patch_with_resolution_notes(
-        self, client, test_alerta, admin_token
-    ):
+    async def test_patch_with_resolution_notes(self, admin_client, test_alerta):
         """PATCH con resolution_notes se guarda correctamente."""
-        response = await client.patch(
+        response = await admin_client.patch(
             f"/api/alerts/{test_alerta.id}/estado",
             json={
                 "status": "resolved",
                 "resolution_notes": "Se investigó y se cerró",
             },
-            cookies={"access_token": admin_token},
         )
         assert response.status_code == 200
         data = response.json()

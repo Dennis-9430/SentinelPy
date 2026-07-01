@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     )
 
     # ── Seguridad ────────────────────────────────────────────────────────
-    # En producción cambiar con un secreto generado con: openssl rand -hex 32
-    secret_key: str = "change-me-in-production"
+    # En producción cambiar con: openssl rand -hex 32
+    secret_key: str = "05a0fb8849c109e045ed487f1e1975c056f6cf09368e90f35812ed986d671876"
     access_token_expire_minutes: int = 480  # 8 horas
     jwt_algorithm: str = "HS256"
 

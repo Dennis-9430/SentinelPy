@@ -81,11 +81,7 @@ async def disabled_rule(session):
 
 @pytest_asyncio.fixture
 async def client(session):
-    """App FastAPI con get_session override para usar DB del testcontainer.
-
-    La sesión se reutiliza para todas las dependencias que llamen
-    a get_session (require_admin + route handler).
-    """
+    """App FastAPI sin autenticar — para tests de 401."""
     from app.main import app
     from app.database import get_session
 
@@ -99,48 +95,52 @@ async def client(session):
     app.dependency_overrides.clear()
 
 
+@pytest_asyncio.fixture
+async def admin_client(client, admin_token):
+    """App FastAPI autenticada como admin (cookie seteada en el cliente)."""
+    client.cookies.set("access_token", admin_token)
+    return client
+
+
+@pytest_asyncio.fixture
+async def analyst_client(client, analyst_token):
+    """App FastAPI autenticada como analyst (cookie seteada en el cliente)."""
+    client.cookies.set("access_token", analyst_token)
+    return client
+
+
 class TestToggleRuleEndpoint:
     """Prueba el endpoint PATCH /api/rules/{id}/toggle."""
 
     @pytest.mark.asyncio
-    async def test_toggle_active_to_disabled(self, client, test_rule, admin_token):
+    async def test_toggle_active_to_disabled(self, admin_client, test_rule):
         """Toggle sobre regla activa → status disabled, 200."""
-        response = await client.patch(
-            f"/api/rules/{test_rule.id}/toggle",
-            cookies={"access_token": admin_token},
-        )
+        response = await admin_client.patch(f"/api/rules/{test_rule.id}/toggle")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "disabled"
 
     @pytest.mark.asyncio
-    async def test_toggle_disabled_to_active(self, client, disabled_rule, admin_token):
+    async def test_toggle_disabled_to_active(self, admin_client, disabled_rule):
         """Toggle sobre regla desactivada → status active, 200."""
-        response = await client.patch(
-            f"/api/rules/{disabled_rule.id}/toggle",
-            cookies={"access_token": admin_token},
-        )
+        response = await admin_client.patch(f"/api/rules/{disabled_rule.id}/toggle")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "active"
 
     @pytest.mark.asyncio
-    async def test_toggle_returns_403_for_non_admin(self, client, test_rule, analyst_token):
+    async def test_toggle_returns_403_for_non_admin(self, analyst_client, test_rule):
         """Non-admin recibe 403 Forbidden."""
-        response = await client.patch(
-            f"/api/rules/{test_rule.id}/toggle",
-            cookies={"access_token": analyst_token},
-        )
+        response = await analyst_client.patch(f"/api/rules/{test_rule.id}/toggle")
         assert response.status_code == 403
         data = response.json()
         assert "detail" in data
 
     @pytest.mark.asyncio
-    async def test_toggle_returns_404_for_missing_rule(self, client, admin_token):
+    async def test_toggle_returns_404_for_missing_rule(self, admin_client):
         """Regla inexistente devuelve 404."""
-        response = await client.patch(
+        response = await admin_client.patch(
             "/api/rules/00000000-0000-0000-0000-000000000000/toggle",
-            cookies={"access_token": admin_token},
         )
         assert response.status_code == 404
         data = response.json()
@@ -149,20 +149,15 @@ class TestToggleRuleEndpoint:
     @pytest.mark.asyncio
     async def test_toggle_returns_401_without_auth(self, client, test_rule):
         """Sin cookie de acceso devuelve 401."""
-        response = await client.patch(
-            f"/api/rules/{test_rule.id}/toggle",
-        )
+        response = await client.patch(f"/api/rules/{test_rule.id}/toggle")
         assert response.status_code == 401
         data = response.json()
         assert "detail" in data
 
     @pytest.mark.asyncio
-    async def test_toggle_persists_state_change(self, session, client, test_rule, admin_token):
+    async def test_toggle_persists_state_change(self, session, admin_client, test_rule):
         """El cambio de estado persiste en la base de datos."""
-        await client.patch(
-            f"/api/rules/{test_rule.id}/toggle",
-            cookies={"access_token": admin_token},
-        )
+        await admin_client.patch(f"/api/rules/{test_rule.id}/toggle")
 
         service = RuleService(session)
         regla = await service.obtener_regla(str(test_rule.id))
@@ -170,9 +165,6 @@ class TestToggleRuleEndpoint:
         assert regla.status == "disabled"
 
         # Toggle again
-        await client.patch(
-            f"/api/rules/{test_rule.id}/toggle",
-            cookies={"access_token": admin_token},
-        )
+        await admin_client.patch(f"/api/rules/{test_rule.id}/toggle")
         regla = await service.obtener_regla(str(test_rule.id))
         assert regla.status == "active"
