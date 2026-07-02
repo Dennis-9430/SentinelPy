@@ -26,8 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = useCallback(async () => {
     try {
-      const data = await apiFetch<{ user: User }>("/auth/me")
-      setUser(data.user)
+      const data = await apiFetch<User>("/auth/me")
+      setUser(data)
       setError(null)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

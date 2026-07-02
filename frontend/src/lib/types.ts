@@ -4,12 +4,8 @@ export interface User {
   id: string
   username: string
   role: "admin" | "analyst"
-  active: boolean
-  created_at: string
-}
-
-export interface AuthMeResponse {
-  user: User
+  active?: boolean
+  created_at?: string
 }
 
 // ── Eventos ──────────────────────────────────────────────────────────────
@@ -83,6 +79,29 @@ export interface RulesResponse {
 
 export interface ToggleRuleResponse {
   status: string
+}
+
+export interface CreateRulePayload {
+  title: string
+  description: string
+  severity: string
+  alert_title: string
+  alert_severity: string
+  author?: string
+  status?: string
+  conditions: Record<string, unknown>
+  correlation_window?: number
+  tags?: string[]
+  references?: string[]
+  false_positives?: string
+}
+
+export interface CreateRuleResponse {
+  id: string
+  title: string
+  severity: string
+  status: string
+  created_at: string
 }
 
 // ── Usuarios ─────────────────────────────────────────────────────────────

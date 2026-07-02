@@ -52,7 +52,7 @@ function roleBadge(role: string) {
 }
 
 // ── Active status badge ────────────────────────────────────────────────
-function activeBadge(active: boolean) {
+function activeBadge(active: boolean | undefined) {
   return active ? (
     <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
       <CheckCircle2 className="h-3 w-3" />
@@ -67,7 +67,8 @@ function activeBadge(active: boolean) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
-function formatDate(iso: string): string {
+function formatDate(iso: string | undefined): string {
+  if (!iso) return "—"
   const d = new Date(iso)
   return d.toLocaleDateString("es-AR", {
     year: "numeric",

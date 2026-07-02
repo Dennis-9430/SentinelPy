@@ -1,12 +1,18 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api"
-import type { RulesResponse, ToggleRuleResponse } from "@/lib/types"
+import type {
+  RulesResponse,
+  ToggleRuleResponse,
+  CreateRulePayload,
+  CreateRuleResponse,
+} from "@/lib/types"
 import { useAuth } from "@/hooks/useAuth"
 import { Card, CardContent } from "@/components/ui/card"
 import { SeverityBadge } from "@/components/SeverityBadge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -16,16 +22,34 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   ChevronLeft,
   ChevronRight,
   Power,
   PowerOff,
   Loader2,
+  Plus,
+  Trash2,
 } from "lucide-react"
 
 const PAGE_SIZE = 20
 
-// ── Status badge config ──────────────────────────────────────────────
+// ── Status badge ───────────────────────────────────────────────────────
 function statusBadge(status: string) {
   const isActive = status === "active"
   return (
@@ -42,21 +66,267 @@ function statusBadge(status: string) {
   )
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text
   return text.slice(0, max) + "…"
 }
 
-// ── Rules Page ───────────────────────────────────────────────────────
+// ── Create Rule Dialog ────────────────────────────────────────────────
+function CreateRuleDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [severity, setSeverity] = useState("medium")
+  const [alertTitle, setAlertTitle] = useState("")
+  const [alertSeverity, setAlertSeverity] = useState("medium")
+  const [eventType, setEventType] = useState("")
+  const [threshold, setThreshold] = useState("5")
+  const [windowMinutes, setWindowMinutes] = useState("10")
+  const [author, setAuthor] = useState("")
+  const [tags, setTags] = useState("")
+  const [status, setStatus] = useState("active")
+
+  const createMutation = useMutation({
+    mutationFn: (payload: CreateRulePayload) =>
+      apiFetch<CreateRuleResponse>("/rules", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rules"] })
+      onOpenChange(false)
+      // Reset form
+      setTitle("")
+      setDescription("")
+      setSeverity("medium")
+      setAlertTitle("")
+      setAlertSeverity("medium")
+      setEventType("")
+      setThreshold("5")
+      setWindowMinutes("10")
+      setAuthor("")
+      setTags("")
+      setStatus("active")
+    },
+  })
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const conditions: Record<string, unknown> = {
+      event_type: eventType,
+      threshold: Number(threshold),
+    }
+    const payload: CreateRulePayload = {
+      title,
+      description,
+      severity,
+      alert_title: alertTitle,
+      alert_severity: alertSeverity,
+      conditions,
+      correlation_window: Number(windowMinutes),
+      status,
+      author: author || undefined,
+      tags: tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    }
+    createMutation.mutate(payload)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Crear regla</DialogTitle>
+          <DialogDescription>
+            Nueva regla de detección estilo Sigma. Se cargará automáticamente
+            en el motor de correlación.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* ── Title ────────────────────────────────────────────────── */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Título *</label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Detección de fuerza bruta SSH"
+              required
+            />
+          </div>
+
+          {/* ── Description ──────────────────────────────────────────── */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Descripción *</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+              rows={3}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Detecta múltiples fallos de autenticación SSH en un período corto"
+            />
+          </div>
+
+          {/* ── Severity + Status ────────────────────────────────────── */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Severidad *</label>
+              <Select value={severity} onValueChange={setSeverity}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Estado</label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Activa</SelectItem>
+                  <SelectItem value="disabled">Desactivada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* ── Alert title + Alert severity ─────────────────────────── */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Título de alerta *</label>
+              <Input
+                value={alertTitle}
+                onChange={(e) => setAlertTitle(e.target.value)}
+                placeholder="Alerta: Fuerza bruta SSH"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Severidad alerta</label>
+              <Select value={alertSeverity} onValueChange={setAlertSeverity}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* ── Condiciones: Event type + Threshold + Window ──────────── */}
+          <div className="rounded-md border bg-muted/30 p-3">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Condiciones de detección
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Tipo de evento</label>
+                <Input
+                  value={eventType}
+                  onChange={(e) => setEventType(e.target.value)}
+                  placeholder="auth_failure"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Umbral</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={threshold}
+                  onChange={(e) => setThreshold(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Ventana (min)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={windowMinutes}
+                  onChange={(e) => setWindowMinutes(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Author + Tags ────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Autor</label>
+              <Input
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                placeholder="Tu nombre"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Tags</label>
+              <Input
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="ssh, brute-force"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancelar
+              </Button>
+            </DialogClose>
+            <Button
+              type="submit"
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                "Crear regla"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Rules Page ─────────────────────────────────────────────────────────
 export default function RulesPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(0)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const desde = page * PAGE_SIZE
 
-  // ── Fetch rules ───────────────────────────────────────────────────
+  // ── Fetch rules ─────────────────────────────────────────────────────
   const { data, isLoading, isError } = useQuery({
     queryKey: ["rules", desde],
     queryFn: () =>
@@ -68,7 +338,7 @@ export default function RulesPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  // ── Toggle mutation ───────────────────────────────────────────────
+  // ── Toggle mutation ──────────────────────────────────────────────────
   const toggleMutation = useMutation({
     mutationFn: (ruleId: string) =>
       apiFetch<ToggleRuleResponse>(`/rules/${ruleId}/toggle`, {
@@ -76,12 +346,9 @@ export default function RulesPage() {
       }),
     onMutate: async (ruleId) => {
       await queryClient.cancelQueries({ queryKey: ["rules"] })
-
       const previousData = queryClient.getQueriesData<RulesResponse>({
         queryKey: ["rules"],
       })
-
-      // Optimistically toggle the status
       queryClient.setQueriesData<RulesResponse>(
         { queryKey: ["rules"] },
         (old) => {
@@ -99,7 +366,6 @@ export default function RulesPage() {
           }
         },
       )
-
       return { previousData }
     },
     onError: (_err, _vars, context) => {
@@ -114,8 +380,23 @@ export default function RulesPage() {
     },
   })
 
+  // ── Delete mutation ──────────────────────────────────────────────────
+  const deleteMutation = useMutation({
+    mutationFn: (ruleId: string) =>
+      apiFetch<void>(`/rules/${ruleId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rules"] })
+    },
+  })
+
   function handleToggle(ruleId: string) {
     toggleMutation.mutate(ruleId)
+  }
+
+  function handleDelete(ruleId: string) {
+    if (window.confirm("¿Eliminar esta regla definitivamente?")) {
+      deleteMutation.mutate(ruleId)
+    }
   }
 
   function handlePrevPage() {
@@ -130,12 +411,18 @@ export default function RulesPage() {
 
   return (
     <div className="space-y-6">
-      {/* ── Header ────────────────────────────────────────────────── */}
+      {/* ── Header ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Reglas</h1>
+        {isAdmin && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            Nueva regla
+          </Button>
+        )}
       </div>
 
-      {/* ── Table ─────────────────────────────────────────────────── */}
+      {/* ── Table ────────────────────────────────────────────────────── */}
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -153,6 +440,12 @@ export default function RulesPage() {
               <p className="text-sm text-muted-foreground">
                 No se encontraron reglas
               </p>
+              {isAdmin && (
+                <Button variant="outline" onClick={() => setCreateOpen(true)}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Crear primera regla
+                </Button>
+              )}
             </div>
           ) : (
             <Table>
@@ -162,14 +455,19 @@ export default function RulesPage() {
                   <TableHead>Descripción</TableHead>
                   <TableHead>Severidad</TableHead>
                   <TableHead>Estado</TableHead>
-                  {isAdmin && <TableHead className="text-right">Acción</TableHead>}
+                  {isAdmin && (
+                    <TableHead className="text-right">Acción</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {reglas.map((rule) => {
-                  const isPending =
+                  const isToggling =
                     toggleMutation.isPending &&
                     toggleMutation.variables === rule.id
+                  const isDeleting =
+                    deleteMutation.isPending &&
+                    deleteMutation.variables === rule.id
                   const isActive = rule.status === "active"
 
                   return (
@@ -186,21 +484,35 @@ export default function RulesPage() {
                       <TableCell>{statusBadge(rule.status)}</TableCell>
                       {isAdmin && (
                         <TableCell className="text-right">
-                          <Button
-                            variant={isActive ? "destructive" : "default"}
-                            size="sm"
-                            disabled={isPending}
-                            onClick={() => handleToggle(rule.id)}
-                          >
-                            {isPending ? (
-                              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                            ) : isActive ? (
-                              <PowerOff className="mr-1 h-4 w-4" />
-                            ) : (
-                              <Power className="mr-1 h-4 w-4" />
-                            )}
-                            {isActive ? "Desactivar" : "Activar"}
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant={isActive ? "destructive" : "default"}
+                              size="sm"
+                              disabled={isToggling || isDeleting}
+                              onClick={() => handleToggle(rule.id)}
+                            >
+                              {isToggling ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : isActive ? (
+                                <PowerOff className="h-4 w-4" />
+                              ) : (
+                                <Power className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isToggling || isDeleting}
+                              onClick={() => handleDelete(rule.id)}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              {isDeleting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -212,7 +524,7 @@ export default function RulesPage() {
         </CardContent>
       </Card>
 
-      {/* ── Pagination ────────────────────────────────────────────── */}
+      {/* ── Pagination ───────────────────────────────────────────────── */}
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
@@ -239,6 +551,11 @@ export default function RulesPage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* ── Create Rule Dialog ────────────────────────────────────────── */}
+      {isAdmin && (
+        <CreateRuleDialog open={createOpen} onOpenChange={setCreateOpen} />
       )}
     </div>
   )
