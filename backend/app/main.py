@@ -18,6 +18,8 @@ from app.config import settings
 from app.api import events, rules, alerts
 from app.api import auth as auth_router
 from app.api import users as users_router
+from app.api import admin as admin_router
+from app.api import agents as agents_router
 from app.services.pipeline import Pipeline
 from app.services.engine import CorrelationEngine
 from app.services.notifier import ConsoleNotifier, MultiNotifier
@@ -206,6 +208,8 @@ app.include_router(rules.router)
 app.include_router(alerts.router)
 app.include_router(auth_router.router)
 app.include_router(users_router.router)
+app.include_router(admin_router.router)
+app.include_router(agents_router.router)
 
 # ═════════════════════════════════════════════════════════════════════════
 # PÁGINAS DEL DASHBOARD WEB (Server-Side Rendering)

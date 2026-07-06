@@ -72,7 +72,7 @@ def run_migrations(sync_url):
 
 # ── SQLAlchemy async engine ──────────────────────────────────────────────
 
-TABLAS = ["alerts", "events", "rules", "users"]
+TABLAS = ["agents", "alerts", "events", "rules", "users"]
 
 
 @pytest_asyncio.fixture
