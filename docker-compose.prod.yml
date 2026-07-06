@@ -14,3 +14,10 @@ services:
     # La imagen ya tiene el código copiado
     environment:
       DEBUG: "false"
+
+  agent:
+    # En producción no se montan volúmenes de demo;
+    # la config y logs van dentro del contenedor.
+    volumes: []
+    environment:
+      DEBUG: "false"

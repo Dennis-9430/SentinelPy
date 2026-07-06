@@ -67,5 +67,28 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ── Agente Remoto (demo) ──────────────────────────────────────────────
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      SENTINEL_SERVER_URL: http://api:8000
+      SENTINEL_API_KEY: ${AGENT_API_KEY:-spy_demo-key-change-me}
+      SENTINEL_HOSTNAME: demo-agent
+      SENTINEL_WATCH_PATHS: /var/log/app.json
+    volumes:
+      - ./agent/config.toml:/etc/sentinelpy/config.toml:ro
+      - ./demo-logs:/var/log:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   pgdata:
