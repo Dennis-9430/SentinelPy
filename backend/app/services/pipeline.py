@@ -80,29 +80,80 @@ class Pipeline:
 
             # ── Evaluar contra el motor de correlación ──────────────────
             if self.engine:
-                evento_dict = {
-                    "id": str(evento.id),
-                    "source": evento.source,
-                    "collector_type": evento.collector_type,
-                    "event_timestamp": evento.event_timestamp,
-                    "event_type": evento.event_type,
-                    "severity": evento.severity,
-                    "description": evento.description,
-                    "source_ip": evento.source_ip,
-                    "destination_ip": evento.destination_ip,
-                    "source_port": evento.source_port,
-                    "destination_port": evento.destination_port,
-                    "protocol": evento.protocol,
-                    "user_name": evento.user_name,
-                    "process_name": evento.process_name,
-                    "file_path": evento.file_path,
-                }
+                evento_dict = self._evento_to_dict(evento)
                 alertas = await self.engine.evaluate(evento_dict)
                 if alertas:
                     logger.info(
                         "Evento %s generó %d alerta(s)",
                         evento.event_type, len(alertas),
                     )
+
+        return evento
+
+    @staticmethod
+    def _evento_to_dict(evento) -> dict:
+        """Convierte un ORM event a dict para pasarlo al engine.
+
+        Argumentos:
+            evento: Instancia de NormalizedEvent.
+
+        Retorna:
+            Dict con campos serializados para engine.evaluate().
+        """
+        return {
+            "id": str(evento.id),
+            "source": evento.source,
+            "collector_type": evento.collector_type,
+            "event_timestamp": evento.event_timestamp,
+            "event_type": evento.event_type,
+            "severity": evento.severity,
+            "description": evento.description,
+            "source_ip": evento.source_ip,
+            "destination_ip": evento.destination_ip,
+            "source_port": evento.source_port,
+            "destination_port": evento.destination_port,
+            "protocol": evento.protocol,
+            "user_name": evento.user_name,
+            "process_name": evento.process_name,
+            "file_path": evento.file_path,
+        }
+
+    async def process_from_dict(self, datos: dict, collector_type: str | None = None) -> object | None:
+        """Procesa un dict de evento ya normalizado a través del pipeline completo.
+
+        Similar a process() pero recibe un dict ya parseado en lugar de raw text.
+        Guarda en DB y evalúa contra el motor de correlación.
+
+        Útil para endpoints REST donde el evento ya viene normalizado (EventCreate).
+
+        Argumentos:
+            datos: Dict con campos normalizados del evento.
+            collector_type: Si se provee, sobreescribe collector_type en los datos.
+
+        Retorna:
+            Instancia de NormalizedEvent, o None si falló la persistencia.
+        """
+        if collector_type:
+            datos["collector_type"] = collector_type
+
+        if not datos.get("source"):
+            datos["source"] = "unknown"
+
+        # Guardar en base de datos
+        evento = await self._guardar_evento(datos)
+
+        if evento and self.engine:
+            evento_dict = self._evento_to_dict(evento)
+
+            try:
+                alertas = await self.engine.evaluate(evento_dict)
+                if alertas:
+                    logger.info(
+                        "Evento %s generó %d alerta(s)",
+                        evento.event_type, len(alertas),
+                    )
+            except Exception as e:
+                logger.error("Error en engine.evaluate: %s", e, exc_info=True)
 
         return evento
 

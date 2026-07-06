@@ -9,6 +9,8 @@ from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
 from app.services.event_service import EventService
+from app.services.pipeline import Pipeline
+from app.services.rule_service import RuleService
 from app.models.event import NormalizedEvent
 
 
@@ -191,3 +193,105 @@ class TestEstadisticas:
 
         assert stats["total_eventos"] == 3
         assert stats["eventos_ultima_hora"] == 3  # Todos son recientes
+
+
+class TestPipelineEngineIntegration:
+    """Prueba que POST /api/events ejecute engine.evaluate() vía pipeline.
+
+    Verifica que cuando un evento se crea a través del pipeline, el motor
+    de correlación evalúa el evento y los callbacks de alerta se ejecutan.
+    """
+
+    @pytest.mark.asyncio
+    async def test_process_from_dict_ejecuta_engine_y_callback(
+        self, session, async_engine
+    ):
+        """process_from_dict con engine + regla activa ejecuta callback de alerta."""
+        from app.services.engine import CorrelationEngine
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+        # Crear regla activa en DB
+        rule_service = RuleService(session)
+        regla = await rule_service.crear_regla({
+            "title": "Regla Pipeline Events",
+            "description": "Regla para test de integración events",
+            "severity": "high",
+            "status": "active",
+            "conditions": {
+                "operator": "AND",
+                "conditions": [
+                    {"field": "event_type", "operator": "eq", "value": "test_event"},
+                ],
+            },
+            "alert_title": "Pipeline Events Alert",
+            "alert_severity": "medium",
+            "correlation_window": 300,
+        })
+
+        # Engine con callback spy
+        engine = CorrelationEngine()
+        callback_called = False
+        alerta_recibida = None
+
+        async def spy_callback(datos_alerta):
+            nonlocal callback_called, alerta_recibida
+            callback_called = True
+            alerta_recibida = datos_alerta
+
+        engine.registrar_callback(spy_callback)
+        engine.cargar_reglas([regla])
+
+        # Pipeline con session_factory apuntando al testcontainer
+        factory = async_sessionmaker(
+            async_engine, class_=AsyncSession, expire_on_commit=False
+        )
+        pipeline = Pipeline(engine=engine, session_factory=factory)
+
+        # Act: llamar process_from_dict con datos que matchean la regla
+        evento_dict = {
+            "source": "test-server-events",
+            "collector_type": "rest",
+            "event_timestamp": datetime.now(timezone.utc),
+            "event_type": "test_event",
+            "severity": "low",
+            "description": "Evento de test para pipeline+engine",
+        }
+
+        evento = await pipeline.process_from_dict(evento_dict)
+
+        # Assert
+        assert evento is not None
+        assert evento.id is not None
+        assert evento.event_type == "test_event"
+        assert callback_called, (
+            "El callback de alerta del engine NO se ejecutó — "
+            "engine.evaluate() no fue llamado o no matcheó la regla"
+        )
+        assert alerta_recibida is not None
+        assert alerta_recibida["title"] == "Pipeline Events Alert"
+
+    @pytest.mark.asyncio
+    async def test_process_from_dict_sin_engine_no_callback(
+        self, async_engine
+    ):
+        """Sin engine, process_from_dict no ejecuta callback."""
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+        factory = async_sessionmaker(
+            async_engine, class_=AsyncSession, expire_on_commit=False
+        )
+        pipeline = Pipeline(engine=None, session_factory=factory)
+
+        evento_dict = {
+            "source": "test-server-no-engine",
+            "collector_type": "rest",
+            "event_timestamp": datetime.now(timezone.utc),
+            "event_type": "test_event",
+            "severity": "low",
+            "description": "Evento sin engine",
+        }
+
+        evento = await pipeline.process_from_dict(evento_dict)
+
+        assert evento is not None
+        assert evento.id is not None
