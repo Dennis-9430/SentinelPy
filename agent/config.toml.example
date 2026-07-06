@@ -1,0 +1,26 @@
+# SentinelPy Agent Configuration
+server_url = "http://localhost:8000"
+api_key = "spy_your-api-key-here"
+hostname = "server-01"
+
+[watcher]
+poll_interval = 1.0
+
+[sender]
+batch_size = 50
+batch_interval = 5.0
+heartbeat_interval = 30.0
+queue_max_size = 10000
+
+[[watches]]
+path = "/var/log/syslog"
+parser = "syslog"
+
+[[watches]]
+path = "/var/log/app.json"
+parser = "json"
+
+[[watches]]
+path = "/var/log/custom.log"
+parser = "regex"
+pattern = "^(?P<timestamp>\\S+)\\s+(?P<level>\\S+)\\s+(?P<message>.*)$"

@@ -1,0 +1,17 @@
+# SentinelPy Agent Configuration — Docker demo
+server_url = "http://api:8000"
+api_key = "${API_KEY}"
+hostname = "${HOSTNAME}"
+
+[watcher]
+poll_interval = 1.0
+
+[sender]
+batch_size = 50
+batch_interval = 5.0
+heartbeat_interval = 30.0
+queue_max_size = 10000
+
+[[watches]]
+path = "/var/log/app.json"
+parser = "json"

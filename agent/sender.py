@@ -1,0 +1,170 @@
+"""HTTP event sender with exponential backoff, batching, and heartbeat.
+
+Sends events to the SentinelPy server via POST /api/v2/events and
+periodic heartbeats via POST /api/v2/agent/heartbeat.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import random
+from typing import Any, Optional
+
+import httpx
+
+
+class EventSender:
+    """Async HTTP sender with backoff, batching, and heartbeat support.
+
+    Accumulates events in a buffer and flushes them either when the buffer
+    reaches batch_size or when flush() is called (e.g. via timer).
+    """
+
+    def __init__(
+        self,
+        server_url: str,
+        api_key: str,
+        hostname: str,
+        batch_size: int = 50,
+        batch_interval: float = 5.0,
+        heartbeat_interval: float = 30.0,
+        os_name: str = "unknown",
+        agent_version: str = "0.1.0",
+    ):
+        self._server_url = server_url.rstrip("/")
+        self._api_key = api_key
+        self._hostname = hostname
+        self._os_name = os_name
+        self._agent_version = agent_version
+        self._batch_size = batch_size
+        self._batch_interval = batch_interval
+        self._heartbeat_interval = heartbeat_interval
+
+        self.buffer: list[dict] = []
+        self._http_client: Optional[httpx.AsyncClient] = None
+        self._max_retries = 5
+
+    def _get_client(self) -> httpx.AsyncClient:
+        """Return the HTTP client, creating it lazily if needed."""
+        if self._http_client is None:
+            self._http_client = httpx.AsyncClient(timeout=30.0)
+        return self._http_client
+
+    # ── Batching ─────────────────────────────────────────────────────────────
+
+    def accumulate(self, event: dict) -> None:
+        """Add an event to the buffer for batched sending."""
+        self.buffer.append(event)
+
+    def flush(self) -> list[dict]:
+        """Return and clear the current buffer contents.
+
+        Returns:
+            The list of accumulated events, or empty list.
+        """
+        batch = self.buffer[:]
+        self.buffer.clear()
+        return batch
+
+    # ── HTTP operations ──────────────────────────────────────────────────────
+
+    async def send_batch(self, events: list[dict]) -> bool:
+        """Send a batch of events to the server with retry logic.
+
+        Args:
+            events: List of event dicts to send.
+
+        Returns:
+            True if the batch was sent successfully, False if all retries failed.
+        """
+        client = self._get_client()
+
+        for attempt in range(self._max_retries + 1):
+            try:
+                response = await client.post(
+                    f"{self._server_url}/api/v2/events",
+                    json={"events": events, "hostname": self._hostname},
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                    timeout=30,
+                )
+
+                if response.status_code == 200:
+                    return True
+
+                # 401/403 means the API key is invalid — don't retry
+                if response.status_code in (401, 403):
+                    return False
+
+                # Server errors — retry
+                if attempt < self._max_retries:
+                    delay = self._get_backoff(attempt)
+                    await asyncio.sleep(delay)
+                    continue
+                return False
+
+            except (httpx.HTTPError, OSError) as exc:
+                if attempt < self._max_retries:
+                    delay = self._get_backoff(attempt)
+                    await asyncio.sleep(delay)
+                    continue
+                return False
+
+    async def send_heartbeat(self) -> bool:
+        """Send a heartbeat to the server.
+
+        Returns:
+            True if the heartbeat was sent successfully.
+        """
+        client = self._get_client()
+
+        try:
+            response = await client.post(
+                f"{self._server_url}/api/v2/agent/heartbeat",
+                json={
+                    "hostname": self._hostname,
+                    "os": self._os_name,
+                    "agent_version": self._agent_version,
+                },
+                headers={"Authorization": f"Bearer {self._api_key}"},
+                timeout=30,
+            )
+            return response.status_code == 200
+        except (httpx.HTTPError, OSError):
+            return False
+
+    async def reconnect(self) -> None:
+        """Close the current client and create a fresh one."""
+        if self._http_client is not None:
+            try:
+                await self._http_client.aclose()
+            except Exception:
+                pass
+        self._http_client = httpx.AsyncClient(timeout=30.0)
+
+    async def close(self) -> None:
+        """Close the HTTP client."""
+        if self._http_client is not None:
+            try:
+                await self._http_client.aclose()
+            except Exception:
+                pass
+            self._http_client = None
+
+    # ── Backoff ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _get_backoff(attempt: int) -> float:
+        """Calculate backoff delay with jitter.
+
+        Base delays: 0.5s, 1s, 2s, 4s, 8s, 16s, capped at 30s.
+        Jitter: ±20% random variation.
+
+        Args:
+            attempt: Zero-based attempt number.
+
+        Returns:
+            Delay in seconds (float).
+        """
+        base = min(0.5 * (2**attempt), 30.0)
+        jitter = base * 0.2
+        return base + random.uniform(-jitter, jitter)
