@@ -9,6 +9,7 @@ const EventsPage = lazy(() => import("./pages/EventsPage"))
 const AlertsPage = lazy(() => import("./pages/AlertsPage"))
 const RulesPage = lazy(() => import("./pages/RulesPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
+const AgentsPage = lazy(() => import("./pages/AgentsPage"))
 
 function LazyFallback() {
   return (
@@ -72,6 +73,16 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<LazyFallback />}>
             <UsersPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "agents",
+        element: (
+          <Suspense fallback={<LazyFallback />}>
+            <ProtectedRoute requiredRole="admin">
+              <AgentsPage />
+            </ProtectedRoute>
           </Suspense>
         ),
       },

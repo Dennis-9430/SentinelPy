@@ -116,3 +116,35 @@ export interface CreateUserPayload {
   password: string
   role: string
 }
+
+// ── Agents ─────────────────────────────────────────────────────────────
+
+export interface Agent {
+  id: number
+  name: string
+  hostname: string
+  last_seen: string | null
+  active: boolean
+  version?: string
+  created_at: string
+}
+
+export interface AgentsResponse {
+  agents: Agent[]
+  total: number
+}
+
+export interface CreateAgentPayload {
+  name: string
+  hostname: string
+}
+
+export interface CreateAgentResponse {
+  id: number
+  name: string
+  api_key: string
+}
+
+export interface DeactivateAgentResponse {
+  mensaje: string
+}
