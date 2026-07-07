@@ -1,0 +1,57 @@
+[project]
+name = "sentinelpy"
+version = "0.1.0"
+description = "SIEM para PyMEs"
+requires-python = ">=3.12"
+
+[tool.ruff]
+# Targeted rules: lint + format, sin ser demasiado agresivo
+target-version = "py312"
+
+# Directorios a ignorar
+exclude = ["alembic/versions/"]
+
+[tool.ruff.lint]
+# Seleccionar reglas por categoría (no ALL — sería demasiado para una adopción inicial)
+select = [
+    "F",   # Pyflakes (errores)
+    "E",   # Pycodestyle (errores)
+    "W",   # Pycodestyle (warnings)
+    "I",   # Import sorting
+    "N",   # Naming
+    "UP",  # pyupgrade (compatibilidad Python moderna)
+    "B",   # bugbear (bugs potenciales)
+    "SIM", # simplificaciones
+]
+ignore = [
+    "E501",  # líneas largas — no molestar en adopción inicial
+    "N812",  # lowercase imported as uppercase — muy común en FastAPI
+    "B008",  # Depends() en argumentos — patrón estándar de FastAPI
+    "B904",  # raise from en except — estándar en FastAPI con HTTPException
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["N802", "N803", "N806", "F841"]  # tests: naming relajado, vars no usadas son OK
+"scripts/*.py" = ["F841", "E402"]  # scripts: import tardío es necesario para sys.path
+"app/main.py" = ["E402"]  # main.py: imports despues de logging.basicConfig
+"tests/test_e2e_agent.py" = ["E402", "SIM105"]  # e2e: import tardío para agent/ + suppress OK
+
+[tool.ruff.format]
+# Usar comillas simples como el proyecto existente
+quote-style = "double"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: tests que requieren PostgreSQL via testcontainers",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/alembic/*", "*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 0  # empezar sin mínimo — subir gradualmente
