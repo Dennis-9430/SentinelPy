@@ -40,3 +40,6 @@ yarn.lock
 # Project specific
 *.db
 cookies.txt
+
+# TypeScript build info
+*.tsbuildinfo
