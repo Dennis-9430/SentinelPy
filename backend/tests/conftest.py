@@ -15,6 +15,7 @@ Los tests unitarios comunes NO usan estas fixtures — solo los archivos
 test_integration_*.py solicitan explícitamente la fixture `session`.
 """
 
+import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
@@ -70,10 +71,14 @@ def run_migrations(sync_url):
     # Alembic's script_location is relative to CWD, not the ini file location.
     # Force it to an absolute path so it works regardless of where pytest runs.
     alembic_cfg.set_main_option("script_location", str(backend_dir / "alembic"))
-    # Usar settings.database_url (async+asyncpg) en vez de sync_url (psycopg2)
-    # porque env.py usa create_async_engine que requiere driver async
+    # env.py reads DATABASE_URL from the environment and overrides the URL.
+    # During tests, the testcontainer URL is set via settings.database_url,
+    # so we must prevent env.py from reading the CI/production DATABASE_URL.
+    old_db_url = os.environ.pop("DATABASE_URL", None)
     alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
     command.upgrade(alembic_cfg, "head")
+    if old_db_url is not None:
+        os.environ["DATABASE_URL"] = old_db_url
     return True  # señal de que las tablas están listas
 
 
