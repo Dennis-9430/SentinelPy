@@ -64,8 +64,12 @@ def run_migrations(sync_url):
 
     from alembic import command
 
-    alembic_ini = str(Path(__file__).resolve().parent.parent / "alembic.ini")
+    backend_dir = Path(__file__).resolve().parent.parent
+    alembic_ini = str(backend_dir / "alembic.ini")
     alembic_cfg = Config(alembic_ini)
+    # Alembic's script_location is relative to CWD, not the ini file location.
+    # Force it to an absolute path so it works regardless of where pytest runs.
+    alembic_cfg.set_main_option("script_location", str(backend_dir / "alembic"))
     # Usar settings.database_url (async+asyncpg) en vez de sync_url (psycopg2)
     # porque env.py usa create_async_engine que requiere driver async
     alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
