@@ -186,4 +186,4 @@ class EventSender:
         """
         base = min(0.5 * (2**attempt), 30.0)
         jitter = base * 0.2
-        return base + random.uniform(-jitter, jitter)
+        return min(base + random.uniform(-jitter, jitter), 30.0)

@@ -275,9 +275,7 @@ async def test_webhook_notifier_send_discord():
     """WebhookNotifier debe enviar payload con formato Discord."""
     from app.services.webhook_notifier import WebhookNotifier
 
-    notifier = WebhookNotifier(
-        webhook_url="https://discord.com/api/webhooks/123/token"
-    )
+    notifier = WebhookNotifier(webhook_url="https://discord.com/api/webhooks/123/token")
     mock_post = AsyncMock()
     mock_post.return_value = MagicMock(status_code=200)
     mock_post.return_value.raise_for_status = MagicMock()
@@ -348,9 +346,7 @@ def test_webhook_notifier_payload_slack():
     }
 
     for severity, expected_color in color_expected.items():
-        payload = notifier._payload_slack(
-            severity, f"Test {severity}", "desc", alerta
-        )
+        payload = notifier._payload_slack(severity, f"Test {severity}", "desc", alerta)
         attachment = payload["attachments"][0]
         assert attachment["color"] == expected_color
         assert attachment["title"] == f"🚨 [{severity.upper()}] Test {severity}"
