@@ -16,6 +16,7 @@ test_integration_*.py solicitan explícitamente la fixture `session`.
 """
 
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -63,7 +64,8 @@ def run_migrations(sync_url):
 
     from alembic import command
 
-    alembic_cfg = Config("alembic.ini")
+    alembic_ini = str(Path(__file__).resolve().parent.parent / "alembic.ini")
+    alembic_cfg = Config(alembic_ini)
     # Usar settings.database_url (async+asyncpg) en vez de sync_url (psycopg2)
     # porque env.py usa create_async_engine que requiere driver async
     alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
