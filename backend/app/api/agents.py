@@ -16,7 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import require_agent
 from app.database import get_session
 from app.models.agent import Agent
+from app.ratelimit import RateLimiter
 from app.services.pipeline import Pipeline
+
+# ── Rate limiter compartido ───────────────────────────────────────────────
+
+rate_limiter = RateLimiter()
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +79,7 @@ class AgentHeartbeat(BaseModel):
 async def ingestar_eventos_batch(
     batch: AgentEventBatch,
     request: Request,
-    agent: Agent = Depends(require_agent),
+    agent: Agent = Depends(rate_limiter),
 ):
     """Ingesta un batch de eventos desde un agente remoto autenticado.
 
