@@ -5,8 +5,11 @@ Todos los endpoints requieren rol admin autenticado.
 """
 
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth import require_admin
 from app.database import get_session
 from app.models.user import User
 from app.schemas.agent import (
@@ -17,7 +20,6 @@ from app.schemas.agent import (
     AgentUpdate,
 )
 from app.services.agent_service import AgentService
-from app.auth import require_admin
 
 logger = logging.getLogger(__name__)
 

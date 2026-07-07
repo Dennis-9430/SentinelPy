@@ -5,6 +5,7 @@ de los de lectura (nunca expone api_key_hash) y listado.
 """
 
 from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -15,8 +16,12 @@ class AgentCreate(BaseModel):
     automáticamente con secrets.token_urlsafe(32).
     """
 
-    name: str = Field(min_length=1, max_length=100, description="Nombre único del agente")
-    hostname: str = Field(min_length=1, max_length=255, description="Hostname del equipo")
+    name: str = Field(
+        min_length=1, max_length=100, description="Nombre único del agente"
+    )
+    hostname: str = Field(
+        min_length=1, max_length=255, description="Hostname del equipo"
+    )
 
 
 class AgentRead(BaseModel):
@@ -48,11 +53,15 @@ class AgentUpdate(BaseModel):
     """
 
     name: str | None = Field(
-        default=None, min_length=1, max_length=100,
+        default=None,
+        min_length=1,
+        max_length=100,
         description="Nuevo nombre del agente",
     )
     hostname: str | None = Field(
-        default=None, min_length=1, max_length=255,
+        default=None,
+        min_length=1,
+        max_length=255,
         description="Nuevo hostname del agente",
     )
 

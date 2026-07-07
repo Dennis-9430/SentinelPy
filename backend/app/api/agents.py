@@ -7,10 +7,12 @@ POST /api/v2/agent/heartbeat.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth import require_agent
 from app.database import get_session
 from app.models.agent import Agent
@@ -103,7 +105,7 @@ async def ingestar_eventos_batch(
             raise HTTPException(
                 status_code=400,
                 detail=f"Evento {i}: faltan campos requeridos "
-                       f"(event_type, severity, message)",
+                f"(event_type, severity, message)",
             )
 
     pipeline: Pipeline | None = getattr(request.app.state, "pipeline", None)
@@ -117,7 +119,7 @@ async def ingestar_eventos_batch(
     failed = 0
     event_ids: list[str] = []
 
-    ahora = datetime.now(timezone.utc)
+    ahora = datetime.now(UTC)
 
     for ev in batch.events:
         evento_dict = ev.model_dump(exclude_none=True)
@@ -174,13 +176,15 @@ async def heartbeat(
     Returns:
         Dict con status=ok y server_time en ISO 8601.
     """
-    ahora = datetime.now(timezone.utc)
+    ahora = datetime.now(UTC)
     agent.last_seen = ahora
     await session.commit()
 
     logger.debug(
         "Heartbeat recibido de %s (id=%d, hostname=%s)",
-        agent.name, agent.id, payload.hostname,
+        agent.name,
+        agent.id,
+        payload.hostname,
     )
 
     return {

@@ -1,6 +1,7 @@
 """Esquemas Pydantic para el modelo DetectionRule."""
 
 from datetime import datetime
+
 from pydantic import BaseModel
 
 

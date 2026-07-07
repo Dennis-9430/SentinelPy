@@ -1,7 +1,8 @@
 """Modelo de usuario del sistema para autenticación y roles."""
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
+
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
@@ -15,7 +16,9 @@ class User(Base, TimestampMixin, UUIDMixin):
     __tablename__ = "users"
 
     username: Mapped[str] = mapped_column(
-        String(100), unique=True, index=True,
+        String(100),
+        unique=True,
+        index=True,
         comment="Nombre de usuario único para login",
     )
     hashed_password: Mapped[str] = mapped_column(
@@ -23,7 +26,8 @@ class User(Base, TimestampMixin, UUIDMixin):
         comment="Password hasheada con bcrypt",
     )
     role: Mapped[str] = mapped_column(
-        String(20), default="analyst",
+        String(20),
+        default="analyst",
         comment="Rol: admin | analyst",
     )
     active: Mapped[bool] = mapped_column(

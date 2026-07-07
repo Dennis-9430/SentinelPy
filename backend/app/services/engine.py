@@ -10,8 +10,9 @@ la alerta dentro de esa ventana.
 
 import logging
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
+
 from app.models.rule import DetectionRule
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,7 @@ class CorrelationEngine:
         Argumentos:
             reglas: Lista de DetectionRule o dict con status='active'.
         """
+
         def _status(regla):
             if isinstance(regla, dict):
                 return regla.get("status", "")
@@ -88,7 +90,8 @@ class CorrelationEngine:
         self._ventanas.clear()
         logger.info(
             "Motor de correlación: %d reglas activas cargadas (de %d recibidas)",
-            len(self._reglas), len(reglas),
+            len(self._reglas),
+            len(reglas),
         )
 
     async def evaluate(self, evento: dict) -> list[dict]:
@@ -144,7 +147,7 @@ class CorrelationEngine:
         if not correlation_window or not rule_id:
             return await self._crear_alerta(regla, evento)
 
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         ventana = self._ventanas.get(rule_id)
         ts_evento = evento.get("event_timestamp", ahora)
 
@@ -156,7 +159,8 @@ class CorrelationEngine:
 
             logger.info(
                 "Ventana temporal activa para regla %s: %d eventos",
-                rule_id, ventana["event_count"],
+                rule_id,
+                ventana["event_count"],
             )
 
             # Ejecutar callbacks de actualización
@@ -186,7 +190,9 @@ class CorrelationEngine:
         Permite que el motor reciba tanto objetos DetectionRule
         (desde la app) como dicts (desde tests o fixtures).
         """
-        return regla.get(campo) if isinstance(regla, dict) else getattr(regla, campo, None)
+        return (
+            regla.get(campo) if isinstance(regla, dict) else getattr(regla, campo, None)
+        )
 
     def _evaluar_regla(self, regla: DetectionRule | dict, evento: dict) -> bool:
         """Evalúa si un evento cumple las condiciones de una regla.
@@ -230,9 +236,13 @@ class CorrelationEngine:
         condiciones = grupo.get("conditions", [])
 
         if operador == "and":
-            return all(self._evaluar_regla({"conditions": c}, evento) for c in condiciones)
+            return all(
+                self._evaluar_regla({"conditions": c}, evento) for c in condiciones
+            )
         elif operador == "or":
-            return any(self._evaluar_regla({"conditions": c}, evento) for c in condiciones)
+            return any(
+                self._evaluar_regla({"conditions": c}, evento) for c in condiciones
+            )
         elif operador == "not":
             if condiciones:
                 return not self._evaluar_regla({"conditions": condiciones[0]}, evento)
@@ -365,7 +375,9 @@ class CorrelationEngine:
             return False
         return str(valor_evento).lower().endswith(str(value).lower())
 
-    async def _crear_alerta(self, regla: DetectionRule | dict, evento: dict) -> dict | None:
+    async def _crear_alerta(
+        self, regla: DetectionRule | dict, evento: dict
+    ) -> dict | None:
         """Crea una alerta usando los callbacks registrados.
 
         Argumentos:
@@ -386,8 +398,8 @@ class CorrelationEngine:
             ),
             "status": "open",
             "event_count": 1,
-            "first_event_at": evento.get("event_timestamp", datetime.now(timezone.utc)),
-            "last_event_at": evento.get("event_timestamp", datetime.now(timezone.utc)),
+            "first_event_at": evento.get("event_timestamp", datetime.now(UTC)),
+            "last_event_at": evento.get("event_timestamp", datetime.now(UTC)),
         }
 
         # Ejecutar todos los callbacks registrados
@@ -423,5 +435,5 @@ class CorrelationEngine:
     @property
     def ventanas_activas(self) -> int:
         """Cantidad de ventanas temporales activas."""
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         return sum(1 for v in self._ventanas.values() if v["expires_at"] > ahora)

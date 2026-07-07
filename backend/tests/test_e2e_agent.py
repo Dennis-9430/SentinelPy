@@ -11,12 +11,10 @@ PR-6.2: Buffer offline — SQLite queue acumula eventos sin conexión
 
 import os
 import tempfile
-from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-
+from httpx import ASGITransport, AsyncClient
 
 # ── Helpers compartidos ──────────────────────────────────────────────────────
 
@@ -46,13 +44,11 @@ async def e2e_env(session, async_engine, run_migrations):
 
     Retorna (client, api_key, agent_data, session) para los tests.
     """
-    from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from app.database import get_session
     from app.main import app
     from app.models.alert import Alert
-    from app.models.user import User
     from app.services.auth_service import AuthService
     from app.services.engine import CorrelationEngine
     from app.services.pipeline import Pipeline
@@ -67,21 +63,23 @@ async def e2e_env(session, async_engine, run_migrations):
 
     # ── Seed regla de prueba ────────────────────────────────────────────
     rule_svc = RuleService(session)
-    regla = await rule_svc.crear_regla({
-        "title": "E2E Login Failure",
-        "description": "Detecta fallos de autenticación remota",
-        "severity": "high",
-        "status": "active",
-        "conditions": {
-            "operator": "AND",
-            "conditions": [
-                {"field": "event_type", "operator": "eq", "value": "login_failure"},
-                {"field": "severity", "operator": "eq", "value": "high"},
-            ],
-        },
-        "alert_title": "E2E: Login Failure Detected",
-        "alert_severity": "high",
-    })
+    regla = await rule_svc.crear_regla(
+        {
+            "title": "E2E Login Failure",
+            "description": "Detecta fallos de autenticación remota",
+            "severity": "high",
+            "status": "active",
+            "conditions": {
+                "operator": "AND",
+                "conditions": [
+                    {"field": "event_type", "operator": "eq", "value": "login_failure"},
+                    {"field": "severity", "operator": "eq", "value": "high"},
+                ],
+            },
+            "alert_title": "E2E: Login Failure Detected",
+            "alert_severity": "high",
+        }
+    )
 
     # ── Engine con callback que persiste alertas en DB ──────────────────
     engine = CorrelationEngine()
@@ -122,7 +120,8 @@ async def e2e_env(session, async_engine, run_migrations):
     # ── Crear agente vía admin API y retornar client ───────────────────
     transport = ASGITransport(app=app)
     async with AsyncClient(
-        transport=transport, base_url="http://test",
+        transport=transport,
+        base_url="http://test",
     ) as client:
         create_resp = await client.post(
             "/api/admin/agents",
@@ -157,6 +156,7 @@ class TestE2EFullCycle:
     async def test_batch_3_eventos_procesados_con_alertas(self, e2e_env):
         """Batch de 3 eventos que matchean regla → processed=3, alertas en DB."""
         from sqlalchemy import select
+
         from app.models.alert import Alert
 
         client, api_key, _, session = e2e_env
@@ -179,7 +179,9 @@ class TestE2EFullCycle:
         # Verificar que el engine generó alertas
         result = await session.execute(select(Alert))
         alerts = list(result.scalars().all())
-        assert len(alerts) >= 1, "El motor de correlación debió generar al menos 1 alerta"
+        assert len(alerts) >= 1, (
+            "El motor de correlación debió generar al menos 1 alerta"
+        )
         assert alerts[0].title == "E2E: Login Failure Detected"
         assert alerts[0].severity == "high"
 
@@ -245,6 +247,7 @@ class TestE2EFullCycle:
     async def test_eventos_persistidos_con_collector_agent(self, e2e_env):
         """Eventos se persisten con collector_type=agent y source=hostname."""
         from sqlalchemy import select
+
         from app.models.event import NormalizedEvent
 
         client, api_key, agent_data, session = e2e_env
@@ -266,6 +269,7 @@ class TestE2EFullCycle:
     async def test_evento_source_propio_respetado(self, e2e_env):
         """Si el evento tiene source propio, se respeta (no hostname del agente)."""
         from sqlalchemy import select
+
         from app.models.event import NormalizedEvent
 
         client, api_key, _, session = e2e_env
@@ -295,6 +299,7 @@ class TestE2EFullCycle:
     async def test_evento_no_match_no_genera_alerta(self, e2e_env):
         """Evento que no matchea la regla → se procesa pero sin alerta."""
         from sqlalchemy import select
+
         from app.models.alert import Alert
 
         client, api_key, _, session = e2e_env
@@ -316,9 +321,7 @@ class TestE2EFullCycle:
         # No deberían haber alertas
         result = await session.execute(select(Alert))
         alerts = list(result.scalars().all())
-        assert len(alerts) == 0, (
-            "Evento que no matchea regla NO debe generar alertas"
-        )
+        assert len(alerts) == 0, "Evento que no matchea regla NO debe generar alertas"
 
     @pytest.mark.asyncio
     async def test_batch_vacio_retorna_400(self, e2e_env):
@@ -340,7 +343,9 @@ class TestE2EFullCycle:
 
 # El módulo agent/ está fuera de backend/, en la raíz del proyecto.
 # Necesitamos agregarlo al path para importar agent.queue y agent.sender.
+import contextlib
 import sys as _sys
+
 _PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if _PROJECT_ROOT not in _sys.path:
     _sys.path.insert(0, _PROJECT_ROOT)
@@ -369,12 +374,14 @@ class TestBufferOffline:
 
             # Encolar eventos sin conexión al servidor
             for i in range(5):
-                eid = queue.enqueue({
-                    "source_ip": f"10.0.0.{i}",
-                    "event_type": "login_failure",
-                    "severity": "high",
-                    "message": f"Offline event {i}",
-                })
+                eid = queue.enqueue(
+                    {
+                        "source_ip": f"10.0.0.{i}",
+                        "event_type": "login_failure",
+                        "severity": "high",
+                        "message": f"Offline event {i}",
+                    }
+                )
                 assert eid > 0
 
             assert queue.count() == 5
@@ -424,10 +431,8 @@ class TestBufferOffline:
             queue.close()
         finally:
             if os.path.exists(db_path):
-                try:
+                with contextlib.suppress(PermissionError):
                     os.unlink(db_path)
-                except PermissionError:
-                    pass
 
     @pytest.mark.asyncio
     async def test_queue_mark_sent_libera_espacio(self):
@@ -454,10 +459,8 @@ class TestBufferOffline:
             queue.close()
         finally:
             if os.path.exists(db_path):
-                try:
+                with contextlib.suppress(PermissionError):
                     os.unlink(db_path)
-                except PermissionError:
-                    pass
 
     # ── Sender reconnect ──────────────────────────────────────────────────────
 
@@ -510,8 +513,9 @@ class TestBufferOffline:
         """Eventos acumulados en SQLite queue se envían correctamente
         vía API tras reconexión (simula reenvío offline→online)."""
         from sqlalchemy import select
-        from app.models.event import NormalizedEvent
+
         from app.models.alert import Alert
+        from app.models.event import NormalizedEvent
 
         client, api_key, _, session = e2e_env
 

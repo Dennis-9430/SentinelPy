@@ -4,15 +4,13 @@ Verifica que cada parser convierta correctamente logs crudos
 al formato normalizado de SentinelPy.
 """
 
-import pytest
-from datetime import datetime
-
 
 class TestSyslogParser:
     """Pruebas para el parser de syslog RFC 3164."""
 
     def setup_method(self):
         from app.services.parser import SyslogParser
+
         self.parser = SyslogParser()
 
     def test_parse_rfc3164_completo(self):
@@ -64,6 +62,7 @@ class TestJSONParser:
 
     def setup_method(self):
         from app.services.parser import JSONParser
+
         self.parser = JSONParser()
 
     def test_parse_json_completo(self):
@@ -103,6 +102,7 @@ class TestJSONParser:
     def test_normalizar_severidad(self):
         """Normaliza distintos formatos de severidad."""
         from app.services.parser import JSONParser
+
         parser_local = JSONParser()
 
         # Probar distintos inputs

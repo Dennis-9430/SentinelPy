@@ -15,18 +15,18 @@ Los tests unitarios comunes NO usan estas fixtures — solo los archivos
 test_integration_*.py solicitan explícitamente la fixture `session`.
 """
 
+from collections.abc import AsyncGenerator
+
 import pytest
 import pytest_asyncio
-from typing import AsyncGenerator
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
 from app.config import settings
 
-
 # ── PostgreSQL Testcontainer ─────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def postgres_container():
@@ -60,6 +60,7 @@ def run_migrations(sync_url):
     Corre una sola vez al inicio de la sesión de tests.
     """
     from alembic.config import Config
+
     from alembic import command
 
     alembic_cfg = Config("alembic.ini")

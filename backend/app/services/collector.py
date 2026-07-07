@@ -6,6 +6,7 @@ al pipeline para su parsing y almacenamiento.
 
 import asyncio
 import logging
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,9 @@ class SyslogCollector:
             )
             logger.info("Colector syslog UDP iniciado en puerto %s", self.port)
         except OSError as e:
-            logger.error("No se pudo iniciar colector syslog en puerto %s: %s", self.port, e)
+            logger.error(
+                "No se pudo iniciar colector syslog en puerto %s: %s", self.port, e
+            )
             raise
 
     async def stop(self):

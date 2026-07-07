@@ -5,10 +5,12 @@ Los colectores internos también pueden enviar eventos directamente por este can
 """
 
 import logging
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_session
-from app.schemas.event import EventCreate, EventRead
+from app.schemas.event import EventCreate
 from app.services.event_service import EventService
 from app.services.pipeline import Pipeline
 
@@ -90,7 +92,8 @@ async def crear_evento(
         except Exception as e:
             logger.warning(
                 "Pipeline.process_from_dict falló, guardando evento sin engine: %s",
-                e, exc_info=True,
+                e,
+                exc_info=True,
             )
             evento = None
     else:

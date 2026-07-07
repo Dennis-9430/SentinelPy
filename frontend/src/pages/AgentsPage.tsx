@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Loader2, Plus, Power, PowerOff } from "lucide-react"
+import { Loader2, Plus, PowerOff } from "lucide-react"
 import { CreateAgentDialog } from "./CreateAgentDialog"
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -76,7 +76,6 @@ export default function AgentsPage() {
   })
 
   const agents = data?.agents ?? []
-  const total = data?.total ?? 0
 
   // ── Deactivate mutation ─────────────────────────────────────────────
   const deactivateMutation = useMutation({

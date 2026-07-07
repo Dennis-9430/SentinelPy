@@ -4,17 +4,17 @@ Verifica CRUD de alertas, ciclo de vida (cambios de estado),
 y actualización de contadores de ventana temporal.
 """
 
+from datetime import UTC, datetime
+from uuid import UUID
+
 import pytest
 import pytest_asyncio
-from datetime import datetime, timezone, timedelta
-from uuid import uuid4, UUID
 
 from app.services.alert_service import AlertService
 from app.services.rule_service import RuleService
-from app.models.alert import Alert
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _regla_base() -> dict:
     """Retorna datos mínimos de una regla para crear alertas vinculadas."""
@@ -49,6 +49,7 @@ def _alerta_base(rule_id: UUID) -> dict:
 
 # ── Fixture ────────────────────────────────────────────────────────────────
 
+
 @pytest_asyncio.fixture
 async def rule_id(session) -> UUID:
     """Crea una regla y retorna su ID para usar en alertas."""
@@ -58,6 +59,7 @@ async def rule_id(session) -> UUID:
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────
+
 
 class TestCrearAlerta:
     """Prueba la creación de alertas vinculadas a reglas."""
@@ -82,7 +84,7 @@ class TestCrearAlerta:
     @pytest.mark.asyncio
     async def test_crear_alerta_con_campos_opcionales(self, session, rule_id):
         """Crea alerta con campos de ventana temporal."""
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         service = AlertService(session)
         datos = _alerta_base(rule_id)
         datos["first_event_at"] = ahora
@@ -166,9 +168,7 @@ class TestCicloDeVida:
         service = AlertService(session)
         alerta = await service.crear_alerta(_alerta_base(rule_id))
 
-        actualizada = await service.actualizar_estado(
-            str(alerta.id), "acknowledged"
-        )
+        actualizada = await service.actualizar_estado(str(alerta.id), "acknowledged")
 
         assert actualizada is not None
         assert actualizada.status == "acknowledged"
@@ -193,9 +193,7 @@ class TestCicloDeVida:
         service = AlertService(session)
         alerta = await service.crear_alerta(_alerta_base(rule_id))
 
-        actualizada = await service.actualizar_estado(
-            str(alerta.id), "false_positive"
-        )
+        actualizada = await service.actualizar_estado(str(alerta.id), "false_positive")
 
         assert actualizada.status == "false_positive"
         assert actualizada.resolved_at is not None
@@ -218,9 +216,9 @@ class TestActualizarContadores:
     async def test_actualizar_contadores_alerta_abierta(self, session, rule_id):
         """Actualiza event_count y last_event_at en alerta open."""
         service = AlertService(session)
-        alerta = await service.crear_alerta(_alerta_base(rule_id))
+        await service.crear_alerta(_alerta_base(rule_id))
 
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         actualizada = await service.actualizar_contadores(
             str(rule_id), event_count=5, last_event_at=ahora
         )
@@ -238,7 +236,7 @@ class TestActualizarContadores:
         # Resolver la alerta
         await service.actualizar_estado(str(alerta.id), "resolved")
 
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         result = await service.actualizar_contadores(
             str(rule_id), event_count=5, last_event_at=ahora
         )
@@ -251,7 +249,7 @@ class TestActualizarContadores:
         service = AlertService(session)
         await service.crear_alerta(_alerta_base(rule_id))
 
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         for count in [2, 3, 7]:
             actualizada = await service.actualizar_contadores(
                 str(rule_id), event_count=count, last_event_at=ahora
@@ -263,7 +261,7 @@ class TestActualizarContadores:
         """UUID inválido no causa crash."""
         service = AlertService(session)
         result = await service.actualizar_contadores(
-            "no-soy-uuid", event_count=1, last_event_at=datetime.now(timezone.utc)
+            "no-soy-uuid", event_count=1, last_event_at=datetime.now(UTC)
         )
         assert result is None
 
@@ -287,7 +285,7 @@ class TestEstadisticasAlertas:
         service = AlertService(session)
         # 2 abiertas
         await service.crear_alerta(_alerta_base(rule_id))
-        a2 = await service.crear_alerta(_alerta_base(rule_id))
+        await service.crear_alerta(_alerta_base(rule_id))
         # 1 resuelta
         a3 = await service.crear_alerta(_alerta_base(rule_id))
         await service.actualizar_estado(str(a3.id), "resolved")

@@ -4,10 +4,11 @@ Representa un log ya procesado y convertido al Modelo de Información Común (CI
 Cada fila es un evento individual con campos normalizados para búsqueda y correlación.
 """
 
-import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, Integer, String, Text, Index
+
+from sqlalchemy import DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
+
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
@@ -22,7 +23,8 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
 
     # ── Metadatos de origen ──────────────────────────────────────────────
     source: Mapped[str] = mapped_column(
-        String(255), index=True,
+        String(255),
+        index=True,
         comment="Identificador del origen (ej: servidor-web-01, firewall-panel)",
     )
     collector_type: Mapped[str] = mapped_column(
@@ -32,17 +34,20 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
 
     # ── Timestamp del evento (no confundir con created_at) ───────────────
     event_timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), index=True,
+        DateTime(timezone=True),
+        index=True,
         comment="Timestamp del log original (no cuándo lo ingirió SentinelPy)",
     )
 
     # ── Campos normalizados (Common Information Model) ───────────────────
     event_type: Mapped[str] = mapped_column(
-        String(100), index=True,
+        String(100),
+        index=True,
         comment="Tipo de evento normalizado: process_create, auth_failure, port_scan, etc.",
     )
     severity: Mapped[str] = mapped_column(
-        String(20), index=True,
+        String(20),
+        index=True,
         comment="Severidad: critical, high, medium, low, info",
     )
     description: Mapped[str] = mapped_column(

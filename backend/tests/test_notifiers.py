@@ -1,7 +1,9 @@
 """Tests para el sistema de notificaciones."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from app.services.notifier import ConsoleNotifier, MultiNotifier
 
 
@@ -64,6 +66,7 @@ async def test_multi_notifier_error_no_detiene():
     # Hacer que el método send del mock_fallido lance excepción
     async def fallar(_):
         raise RuntimeError("Fallo simulado")
+
     mock_fallido.send = fallar
 
     multi = MultiNotifier()
@@ -80,6 +83,7 @@ async def test_multi_notifier_error_no_detiene():
 async def test_email_notifier_skips_sin_config():
     """EmailNotifier debe hacer skip si no hay configuración SMTP."""
     from app.services import email_notifier as en_mod
+
     with patch.object(en_mod, "settings") as mock_settings:
         mock_settings.smtp_user = ""
         mock_settings.smtp_host = ""

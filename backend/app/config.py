@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # ── Colector syslog ──────────────────────────────────────────────────
     syslog_host: str = "0.0.0.0"  # Escucha en todas las interfaces
-    syslog_port: int = 5140       # Puerto no privilegiado (el 514 requiere sudo)
+    syslog_port: int = 5140  # Puerto no privilegiado (el 514 requiere sudo)
 
     # ── Notificaciones Email ────────────────────────────────────────────
     smtp_host: str = ""

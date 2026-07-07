@@ -5,9 +5,11 @@ en el motor de correlación para evaluación rápida.
 """
 
 import logging
-from datetime import datetime, timezone
-from sqlalchemy import select, func, delete
+from datetime import UTC, datetime
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.rule import DetectionRule
 
 logger = logging.getLogger(__name__)
@@ -85,6 +87,7 @@ class RuleService:
             DetectionRule o None si no existe.
         """
         from uuid import UUID
+
         try:
             result = await self.session.execute(
                 select(DetectionRule).where(DetectionRule.id == UUID(regla_id))
@@ -94,7 +97,9 @@ class RuleService:
             logger.warning("Error al obtener regla %s: %s", regla_id, e)
             return None
 
-    async def actualizar_regla(self, regla_id: str, datos: dict) -> DetectionRule | None:
+    async def actualizar_regla(
+        self, regla_id: str, datos: dict
+    ) -> DetectionRule | None:
         """Actualiza una regla existente.
 
         Argumentos:
@@ -112,7 +117,7 @@ class RuleService:
             if hasattr(regla, key) and value is not None:
                 setattr(regla, key, value)
 
-        regla.updated_at = datetime.now(timezone.utc)
+        regla.updated_at = datetime.now(UTC)
         await self.session.commit()
         await self.session.refresh(regla)
         logger.info("Regla actualizada: %s", regla_id)
@@ -128,6 +133,7 @@ class RuleService:
             True si se eliminó, False si no existía.
         """
         from uuid import UUID
+
         try:
             result = await self.session.execute(
                 delete(DetectionRule).where(DetectionRule.id == UUID(regla_id))

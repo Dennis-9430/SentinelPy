@@ -5,13 +5,14 @@ Los tests corren sin base de datos — el lifespan maneja errores gracefulmente.
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture
 def app():
     """Fixture que provee la instancia de la aplicación FastAPI."""
     from app.main import app
+
     return app
 
 

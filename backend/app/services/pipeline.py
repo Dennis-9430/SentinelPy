@@ -6,9 +6,9 @@ También los envía al motor de correlación (cuando esté implementado).
 """
 
 import logging
-from datetime import datetime, timezone
-from app.services.parser import SyslogParser, JSONParser
+
 from app.database import async_session as _default_session
+from app.services.parser import JSONParser, SyslogParser
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,9 @@ class Pipeline:
         datos_parseados = self._detectar_y_parsear(raw)
 
         if not datos_parseados:
-            logger.warning("No se pudo parsear el log (formato desconocido): %s", raw[:100])
+            logger.warning(
+                "No se pudo parsear el log (formato desconocido): %s", raw[:100]
+            )
             return None
 
         # Si tenemos información del origen, actualizar el source
@@ -85,7 +87,8 @@ class Pipeline:
                 if alertas:
                     logger.info(
                         "Evento %s generó %d alerta(s)",
-                        evento.event_type, len(alertas),
+                        evento.event_type,
+                        len(alertas),
                     )
 
         return evento
@@ -118,7 +121,9 @@ class Pipeline:
             "file_path": evento.file_path,
         }
 
-    async def process_from_dict(self, datos: dict, collector_type: str | None = None) -> object | None:
+    async def process_from_dict(
+        self, datos: dict, collector_type: str | None = None
+    ) -> object | None:
         """Procesa un dict de evento ya normalizado a través del pipeline completo.
 
         Similar a process() pero recibe un dict ya parseado en lugar de raw text.
@@ -150,7 +155,8 @@ class Pipeline:
                 if alertas:
                     logger.info(
                         "Evento %s generó %d alerta(s)",
-                        evento.event_type, len(alertas),
+                        evento.event_type,
+                        len(alertas),
                     )
             except Exception as e:
                 logger.error("Error en engine.evaluate: %s", e, exc_info=True)

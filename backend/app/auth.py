@@ -7,15 +7,17 @@ y autenticación de agentes remotos via Bearer token (require_agent).
 
 import logging
 from uuid import UUID
+
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import settings
 from app.database import get_session
-from app.models.user import User
 from app.models.agent import Agent
-from app.services.auth_service import AuthService
+from app.models.user import User
 from app.services.agent_service import AgentService
+from app.services.auth_service import AuthService
 
 logger = logging.getLogger(__name__)
 

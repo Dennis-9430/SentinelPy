@@ -5,11 +5,11 @@ caché de reglas, y el mecanismo de callbacks.
 """
 
 import pytest
-from datetime import datetime, timezone
+
 from app.services.engine import CorrelationEngine
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def engine():
@@ -73,14 +73,22 @@ def regla_or():
                     "operator": "AND",
                     "conditions": [
                         {"field": "severity", "operator": "eq", "value": "critical"},
-                        {"field": "event_type", "operator": "eq", "value": "authentication"},
+                        {
+                            "field": "event_type",
+                            "operator": "eq",
+                            "value": "authentication",
+                        },
                     ],
                 },
                 {
                     "operator": "AND",
                     "conditions": [
                         {"field": "severity", "operator": "eq", "value": "high"},
-                        {"field": "source_ip", "operator": "in", "value": ["10.0.0.1", "192.168.1.1"]},
+                        {
+                            "field": "source_ip",
+                            "operator": "in",
+                            "value": ["10.0.0.1", "192.168.1.1"],
+                        },
                     ],
                 },
             ],
@@ -170,6 +178,7 @@ def evento_puerto80():
 
 # ── Tests de evaluación de condiciones ───────────────────────────────────
 
+
 class TestEvaluacionCondiciones:
     """Prueba la evaluación de condiciones individuales."""
 
@@ -225,7 +234,11 @@ class TestEvaluacionCondiciones:
     def test_in_cumple(self, engine):
         """in: el valor está en la lista."""
         assert engine._evaluar_condicion(
-            {"field": "source_ip", "operator": "in", "value": ["10.0.0.1", "192.168.1.1"]},
+            {
+                "field": "source_ip",
+                "operator": "in",
+                "value": ["10.0.0.1", "192.168.1.1"],
+            },
             {"source_ip": "10.0.0.1"},
         )
 
@@ -267,6 +280,7 @@ class TestEvaluacionCondiciones:
 
 # ── Tests de evaluación de grupos ────────────────────────────────────────
 
+
 class TestEvaluacionGrupos:
     """Prueba la evaluación de grupos AND/OR/NOT."""
 
@@ -278,9 +292,13 @@ class TestEvaluacionGrupos:
         """AND: una condición falla → todo falla."""
         assert not engine._evaluar_grupo(regla_simple["conditions"], evento_normal)
 
-    def test_and_multi_operador_cumple(self, engine, regla_multi_operador, evento_sospechoso):
+    def test_and_multi_operador_cumple(
+        self, engine, regla_multi_operador, evento_sospechoso
+    ):
         """AND con múltiples operadores."""
-        assert engine._evaluar_grupo(regla_multi_operador["conditions"], evento_sospechoso)
+        assert engine._evaluar_grupo(
+            regla_multi_operador["conditions"], evento_sospechoso
+        )
 
     def test_or_primera_cumple(self, engine, regla_or, evento_critico):
         """OR: la primera rama cumple."""
@@ -307,6 +325,7 @@ class TestEvaluacionGrupos:
 
 
 # ── Tests del flujo completo ─────────────────────────────────────────────
+
 
 class TestEngineCompleto:
     """Prueba el flujo evaluate() con reglas cargadas y callbacks."""
@@ -432,6 +451,7 @@ class TestEngineCompleto:
 
 # ── Tests de operadores borde ────────────────────────────────────────────
 
+
 class TestOperadoresBorde:
     """Casos borde para los operadores."""
 
@@ -466,6 +486,7 @@ class TestOperadoresBorde:
 
 
 # ── Tests de correlación temporal ─────────────────────────────────────────
+
 
 class TestCorrelacionTemporal:
     """Prueba el manejo de ventanas temporales en el engine."""
@@ -608,6 +629,7 @@ class TestCorrelacionTemporal:
 
         # La ventana expira instantáneamente (0 segundos)
         import asyncio
+
         await asyncio.sleep(0.01)
 
         alertas = await engine.evaluate({"severity": "critical"})

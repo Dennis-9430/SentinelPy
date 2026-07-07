@@ -7,24 +7,29 @@ y maneja el ciclo de vida (inicio/cierre).
 import csv
 import io
 import logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select, func
-from app.config import settings
-from app.api import events, rules, alerts
-from app.api import auth as auth_router
-from app.api import users as users_router
+from sqlalchemy import func, select
+
 from app.api import admin as admin_router
 from app.api import agents as agents_router
-from app.services.pipeline import Pipeline
+from app.api import alerts, events, rules
+from app.api import auth as auth_router
+from app.api import users as users_router
+from app.config import settings
+from app.models.user import User  # noqa: F401 — usado por seed en lifespan
+from app.services.auth_service import AuthService
 from app.services.engine import CorrelationEngine
 from app.services.notifier import ConsoleNotifier, MultiNotifier
-from app.services.auth_service import AuthService
-from app.models.user import User  # noqa: F401 — usado por seed en lifespan
+from app.services.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +42,8 @@ pipeline = Pipeline(engine=engine)
 async def crear_alerta_desde_engine(datos_alerta: dict) -> dict | None:
     """Callback que persiste alertas generadas por el motor de correlación."""
     try:
-        from app.models.alert import Alert
         from app.database import async_session as db_session
+        from app.models.alert import Alert
 
         async with db_session() as session:
             alerta = Alert(**datos_alerta)
@@ -57,7 +62,8 @@ async def crear_alerta_desde_engine(datos_alerta: dict) -> dict | None:
             await multi_notifier.send_all(alerta_dict)
             logger.info(
                 "Alerta creada por engine: %s | %s",
-                alerta.title, alerta.severity,
+                alerta.title,
+                alerta.severity,
             )
             return alerta_dict
     except Exception as e:
@@ -137,9 +143,7 @@ async def lifespan(app: FastAPI):
         engine.registrar_callback(crear_alerta_desde_engine)
         engine.registrar_callback_actualizar(actualizar_alerta_desde_engine)
         app.state.engine = engine
-        logger.info(
-            "Motor de correlación: %d reglas activas", engine.reglas_activas
-        )
+        logger.info("Motor de correlación: %d reglas activas", engine.reglas_activas)
     except Exception as e:
         logger.warning("No se pudo inicializar motor de correlación: %s", e)
         app.state.engine = None
@@ -150,14 +154,26 @@ async def lifespan(app: FastAPI):
     # EmailNotifier (solo si hay configuración SMTP)
     if settings.smtp_user:
         from app.services.email_notifier import EmailNotifier
-        multi_notifier.agregar(EmailNotifier(), min_severity=settings.notify_min_severity)
-        logger.info("EmailNotifier configurado para severidad >= %s", settings.notify_min_severity)
+
+        multi_notifier.agregar(
+            EmailNotifier(), min_severity=settings.notify_min_severity
+        )
+        logger.info(
+            "EmailNotifier configurado para severidad >= %s",
+            settings.notify_min_severity,
+        )
 
     # WebhookNotifier (solo si hay URL configurada)
     if settings.webhook_url:
         from app.services.webhook_notifier import WebhookNotifier
-        multi_notifier.agregar(WebhookNotifier(), min_severity=settings.notify_min_severity)
-        logger.info("WebhookNotifier configurado para severidad >= %s", settings.notify_min_severity)
+
+        multi_notifier.agregar(
+            WebhookNotifier(), min_severity=settings.notify_min_severity
+        )
+        logger.info(
+            "WebhookNotifier configurado para severidad >= %s",
+            settings.notify_min_severity,
+        )
 
     app.state.notifier = multi_notifier
     logger.info("Notificadores configurados")
@@ -198,6 +214,7 @@ app = FastAPI(
 
 # ── Archivos estáticos (CSS, JS, imágenes) ──────────────────────────────
 import os
+
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -249,7 +266,7 @@ async def stats_eventos(horas: int = 24):
     async with _db_session() as session:
         from app.models.event import NormalizedEvent
 
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         desde = ahora - timedelta(hours=horas)
 
         # ── Timeline: eventos por hora ──────────────────────────────────
@@ -257,13 +274,13 @@ async def stats_eventos(horas: int = 24):
             select(
                 func.date_trunc("hour", NormalizedEvent.event_timestamp).label("hora"),
                 func.count(NormalizedEvent.id).label("total"),
-            ).where(
-                NormalizedEvent.event_timestamp >= desde
-            ).group_by("hora").order_by("hora")
+            )
+            .where(NormalizedEvent.event_timestamp >= desde)
+            .group_by("hora")
+            .order_by("hora")
         )
         timeline = [
-            {"hora": row.hora.isoformat(), "total": row.total}
-            for row in timeline_raw
+            {"hora": row.hora.isoformat(), "total": row.total} for row in timeline_raw
         ]
 
         # ── Por severidad ────────────────────────────────────────────────
@@ -342,22 +359,34 @@ async def exportar_alertas_csv(
 
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow([
-            "id", "titulo", "severidad", "estado",
-            "eventos", "creada", "resuelta", "descripcion",
-        ])
+        writer.writerow(
+            [
+                "id",
+                "titulo",
+                "severidad",
+                "estado",
+                "eventos",
+                "creada",
+                "resuelta",
+                "descripcion",
+            ]
+        )
 
         for a in alertas:
-            writer.writerow([
-                str(a.id),
-                a.title,
-                a.severity,
-                a.status,
-                a.event_count,
-                a.created_at.strftime("%Y-%m-%d %H:%M:%S") if a.created_at else "",
-                a.resolved_at.strftime("%Y-%m-%d %H:%M:%S") if a.resolved_at else "",
-                a.description or "",
-            ])
+            writer.writerow(
+                [
+                    str(a.id),
+                    a.title,
+                    a.severity,
+                    a.status,
+                    a.event_count,
+                    a.created_at.strftime("%Y-%m-%d %H:%M:%S") if a.created_at else "",
+                    a.resolved_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if a.resolved_at
+                    else "",
+                    a.description or "",
+                ]
+            )
 
         output.seek(0)
         return StreamingResponse(
@@ -376,12 +405,15 @@ async def exportar_alertas_csv(
 # TODAS las rutas de API. Usa un middleware 404 fallback + StaticFiles
 # para assets de Vite.
 import os as _os
+
 from fastapi.responses import FileResponse
 
 _base = _os.path.dirname(__file__)
 _spa_candidates = [
-    _os.path.normpath(_os.path.join(_base, "..", "..", "frontend", "dist")),  # local dev
-    _os.path.normpath(_os.path.join(_base, "..", "frontend", "dist")),        # docker
+    _os.path.normpath(
+        _os.path.join(_base, "..", "..", "frontend", "dist")
+    ),  # local dev
+    _os.path.normpath(_os.path.join(_base, "..", "frontend", "dist")),  # docker
 ]
 _spa_dir = next((d for d in _spa_candidates if _os.path.isdir(d)), None)
 

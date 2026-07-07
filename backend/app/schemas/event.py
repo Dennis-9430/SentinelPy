@@ -5,6 +5,7 @@ la estructura de salida (response) de la API.
 """
 
 from datetime import datetime
+
 from pydantic import BaseModel
 
 

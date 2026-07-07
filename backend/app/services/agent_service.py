@@ -7,8 +7,9 @@ UNA SOLA VEZ en la respuesta de creación.
 
 import logging
 import secrets
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import select, func, update as sql_update
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
@@ -62,9 +63,7 @@ class AgentService:
         nombre = name.strip()
 
         # Verificar duplicado
-        existe = await self.session.execute(
-            select(Agent).where(Agent.name == nombre)
-        )
+        existe = await self.session.execute(select(Agent).where(Agent.name == nombre))
         if existe.scalar_one_or_none():
             raise ValueError(f"El agente '{nombre}' ya existe")
 
@@ -144,9 +143,7 @@ class AgentService:
         Returns:
             Agent si encuentra match (activo o no), None en caso contrario.
         """
-        result = await self.session.execute(
-            select(Agent)
-        )
+        result = await self.session.execute(select(Agent))
         for agente in result.scalars().all():
             if AuthService.verify_password(api_key, agente.api_key_hash):
                 return agente
@@ -224,12 +221,10 @@ class AgentService:
         Returns:
             Número de agentes desactivados.
         """
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
 
         # Obtener todos los agentes activos
-        result = await self.session.execute(
-            select(Agent).where(Agent.active.is_(True))
-        )
+        result = await self.session.execute(select(Agent).where(Agent.active.is_(True)))
         agentes_activos = list(result.scalars().all())
 
         desactivados = 0
@@ -244,7 +239,9 @@ class AgentService:
                 logger.info(
                     "Agente desactivado por heartbeat timeout: %s (id=%d, "
                     "last_seen=%s, timeout=%d min)",
-                    agente.name, agente.id, agente.last_seen,
+                    agente.name,
+                    agente.id,
+                    agente.last_seen,
                     agente.heartbeat_timeout_minutes,
                 )
 

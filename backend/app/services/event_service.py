@@ -5,9 +5,11 @@ siguiendo el patrón de capa de servicio.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
-from sqlalchemy import select, func
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.event import NormalizedEvent
 
 logger = logging.getLogger(__name__)
@@ -77,9 +79,7 @@ class EventService:
         total = total_result.scalar() or 0
 
         # Ejecutar query con paginación
-        result = await self.session.execute(
-            query.offset(desde).limit(limite)
-        )
+        result = await self.session.execute(query.offset(desde).limit(limite))
         eventos = list(result.scalars().all())
 
         return eventos, total
@@ -97,7 +97,7 @@ class EventService:
         total = total_result.scalar() or 0
 
         # Eventos en la última hora
-        hace_una_hora = datetime.now(timezone.utc) - timedelta(hours=1)
+        hace_una_hora = datetime.now(UTC) - timedelta(hours=1)
         recientes_result = await self.session.execute(
             select(func.count(NormalizedEvent.id)).where(
                 NormalizedEvent.created_at >= hace_una_hora

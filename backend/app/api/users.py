@@ -6,14 +6,16 @@ Todos los endpoints requieren rol admin autenticado.
 
 import logging
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth import require_admin
 from app.database import get_session
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.services.auth_service import AuthService
-from app.auth import require_admin
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +28,7 @@ async def listar_usuarios(
     admin: User = Depends(require_admin),
 ):
     """Lista todos los usuarios del sistema (solo admin)."""
-    result = await session.execute(
-        select(User).order_by(User.created_at.desc())
-    )
+    result = await session.execute(select(User).order_by(User.created_at.desc()))
     usuarios = result.scalars().all()
 
     return {

@@ -1,9 +1,11 @@
 """Endpoints de autenticación: login, logout, perfil."""
 
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import settings
 from app.database import get_session
 from app.schemas.user import UserLogin

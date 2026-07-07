@@ -95,5 +95,6 @@ class MultiNotifier:
             except Exception as e:
                 logger.error(
                     "Error en notificador %s: %s",
-                    type(notificador).__name__, e,
+                    type(notificador).__name__,
+                    e,
                 )

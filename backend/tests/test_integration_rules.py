@@ -4,14 +4,14 @@ Verifica CRUD completo de reglas de detección, paginación,
 filtros, y carga de reglas activas contra base de datos real.
 """
 
-import pytest
 from uuid import UUID
 
-from app.services.rule_service import RuleService
-from app.models.rule import DetectionRule
+import pytest
 
+from app.services.rule_service import RuleService
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _regla_base() -> dict:
     """Retorna un dict con campos mínimos de una regla."""
@@ -38,6 +38,7 @@ def _regla_base() -> dict:
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────
+
 
 class TestCrearRegla:
     """Prueba la creación de reglas en PostgreSQL real."""
@@ -234,9 +235,7 @@ class TestEliminarRegla:
     async def test_eliminar_regla_inexistente(self, session):
         """Eliminar regla que no existe devuelve False."""
         service = RuleService(session)
-        eliminado = await service.eliminar_regla(
-            "00000000-0000-0000-0000-000000000000"
-        )
+        eliminado = await service.eliminar_regla("00000000-0000-0000-0000-000000000000")
 
         assert eliminado is False
 

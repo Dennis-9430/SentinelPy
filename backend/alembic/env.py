@@ -10,10 +10,11 @@ en vez del engine_from_config síncrono que usan los ejemplos por defecto.
 import asyncio
 import os
 import sys
-from pathlib import Path
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import create_async_engine
+
 from alembic import context
 
 # Agregar el directorio raíz del backend al path para que Alembic

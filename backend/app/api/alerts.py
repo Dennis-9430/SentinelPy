@@ -4,13 +4,13 @@ Listado, filtrado, y actualización del ciclo de vida de alertas.
 Las alertas se generan automáticamente por el motor de correlación.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_session
-from app.schemas.alert import AlertRead, AlertUpdateStatus
-from app.services.alert_service import AlertService
+
 from app.auth import require_admin
+from app.database import get_session
 from app.models.user import User
+from app.services.alert_service import AlertService
 
 # Router con prefijo /api/alerts
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
@@ -20,7 +20,10 @@ router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 async def listar_alertas(
     limite: int = Query(50, ge=1, le=500, description="Cantidad máxima de alertas"),
     desde: int = Query(0, ge=0, description="Offset para paginación"),
-    estado: str | None = Query(None, description="Filtrar por estado: open, acknowledged, investigating, resolved, false_positive"),
+    estado: str | None = Query(
+        None,
+        description="Filtrar por estado: open, acknowledged, investigating, resolved, false_positive",
+    ),
     severidad: str | None = Query(None, description="Filtrar por severidad"),
     session: AsyncSession = Depends(get_session),
 ):
@@ -40,8 +43,12 @@ async def listar_alertas(
                 "description": a.description[:200] if a.description else "",
                 "status": a.status,
                 "event_count": a.event_count,
-                "first_event_at": a.first_event_at.isoformat() if a.first_event_at else None,
-                "last_event_at": a.last_event_at.isoformat() if a.last_event_at else None,
+                "first_event_at": a.first_event_at.isoformat()
+                if a.first_event_at
+                else None,
+                "last_event_at": a.last_event_at.isoformat()
+                if a.last_event_at
+                else None,
                 "created_at": a.created_at.isoformat(),
                 "resolved_at": a.resolved_at.isoformat() if a.resolved_at else None,
             }
@@ -71,8 +78,12 @@ async def obtener_alerta(
         "description": alerta.description,
         "status": alerta.status,
         "event_count": alerta.event_count,
-        "first_event_at": alerta.first_event_at.isoformat() if alerta.first_event_at else None,
-        "last_event_at": alerta.last_event_at.isoformat() if alerta.last_event_at else None,
+        "first_event_at": alerta.first_event_at.isoformat()
+        if alerta.first_event_at
+        else None,
+        "last_event_at": alerta.last_event_at.isoformat()
+        if alerta.last_event_at
+        else None,
         "created_at": alerta.created_at.isoformat(),
         "updated_at": alerta.updated_at.isoformat(),
         "resolved_at": alerta.resolved_at.isoformat() if alerta.resolved_at else None,
@@ -98,7 +109,13 @@ async def actualizar_estado_alerta(
     if not nuevo_estado:
         raise HTTPException(status_code=400, detail="El campo 'status' es requerido")
 
-    estados_validos = {"open", "acknowledged", "investigating", "resolved", "false_positive"}
+    estados_validos = {
+        "open",
+        "acknowledged",
+        "investigating",
+        "resolved",
+        "false_positive",
+    }
     if nuevo_estado not in estados_validos:
         raise HTTPException(
             status_code=400,

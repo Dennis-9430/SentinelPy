@@ -7,21 +7,21 @@ comunes para almacenarlos como NormalizedEvent.
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
 # ── Mapeo de severidad syslog a severidad SentinelPy ─────────────────────
 # Los niveles 0-7 de syslog se mapean a nuestro modelo
 SYSLOG_SEVERITY_MAP = {
-    0: "critical",   # Emergency
-    1: "critical",   # Alert
-    2: "critical",   # Critical
-    3: "high",       # Error
-    4: "medium",     # Warning
-    5: "low",        # Notice
-    6: "info",       # Informational
-    7: "info",       # Debug
+    0: "critical",  # Emergency
+    1: "critical",  # Alert
+    2: "critical",  # Critical
+    3: "high",  # Error
+    4: "medium",  # Warning
+    5: "low",  # Notice
+    6: "info",  # Informational
+    7: "info",  # Debug
 }
 
 # ── Mapeo de facility syslog ─────────────────────────────────────────────
@@ -47,14 +47,14 @@ SYSLOG_FACILITY_MAP = {
 # Formato: <PRI>Timestamp Hostname App[PID]: Mensaje
 # También soporta sin PID: <PRI>Timestamp Hostname App: Mensaje
 RFC3164_PATTERN = re.compile(
-    r"^<(\d{1,3})>"                           # 1: Priority (facility*8 + severity)
+    r"^<(\d{1,3})>"  # 1: Priority (facility*8 + severity)
     r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+"  # 2: Mes
-    r"(\d{1,2})\s+"                           # 3: Día
-    r"(\d{2}:\d{2}:\d{2})\s+"                 # 4: Hora
-    r"(\S+)\s+"                               # 5: Hostname
-    r"(\S+?)"                                 # 6: App name
-    r"(?:\[(\d+)\])?"                         # 7: PID (opcional)
-    r":\s*(.*)"                               # 8: Mensaje
+    r"(\d{1,2})\s+"  # 3: Día
+    r"(\d{2}:\d{2}:\d{2})\s+"  # 4: Hora
+    r"(\S+)\s+"  # 5: Hostname
+    r"(\S+?)"  # 6: App name
+    r"(?:\[(\d+)\])?"  # 7: PID (opcional)
+    r":\s*(.*)"  # 8: Mensaje
 )
 
 
@@ -83,7 +83,10 @@ class SyslogParser:
         # Intentar matchear con RFC 3164
         match = RFC3164_PATTERN.match(raw.strip())
         if not match:
-            logger.warning("No se pudo parsear mensaje syslog (formato no reconocido): %s", raw[:100])
+            logger.warning(
+                "No se pudo parsear mensaje syslog (formato no reconocido): %s",
+                raw[:100],
+            )
             return None
 
         # Extraer grupos
@@ -93,27 +96,27 @@ class SyslogParser:
         hora = match.group(4)
         hostname = match.group(5)
         app_name = match.group(6)
-        pid = match.group(7)  # Puede ser None
+        match.group(7)  # Puede ser None
         mensaje = match.group(8)
 
         # Calcular facility y severity desde el priority
         # Syslog: PRI = facility * 8 + severity
-        facility_code = priority // 8
+        priority // 8
         severity_code = priority % 8
 
         # Construir timestamp combinando fecha del syslog con año actual
         # RFC 3164 no incluye año, así que usamos el año actual
-        año_actual = datetime.now(timezone.utc).year
+        año_actual = datetime.now(UTC).year
         timestamp_str = f"{mes} {dia} {hora} {año_actual}"
 
         try:
             # Parsear fecha estilo syslog: "Oct  9 22:33:20 2026"
             event_timestamp = datetime.strptime(timestamp_str, "%b %d %H:%M:%S %Y")
-            event_timestamp = event_timestamp.replace(tzinfo=timezone.utc)
+            event_timestamp = event_timestamp.replace(tzinfo=UTC)
         except ValueError:
             # Si falla, usar timestamp actual
             logger.warning("No se pudo parsear timestamp syslog, usando hora actual")
-            event_timestamp = datetime.now(timezone.utc)
+            event_timestamp = datetime.now(UTC)
 
         # Determinar tipo de evento según el app name
         event_type = self._detectar_tipo_evento(app_name, mensaje)
@@ -238,9 +241,11 @@ class JSONParser:
         evento = {
             "source": self._extraer_campo(data, "source"),
             "collector_type": "json",
-            "event_timestamp": self._parsear_timestamp(data) or datetime.now(timezone.utc),
+            "event_timestamp": self._parsear_timestamp(data) or datetime.now(UTC),
             "event_type": self._extraer_campo(data, "event_type") or "json_event",
-            "severity": self._normalizar_severidad(self._extraer_campo(data, "severity")),
+            "severity": self._normalizar_severidad(
+                self._extraer_campo(data, "severity")
+            ),
             "description": self._extraer_campo(data, "description") or raw,
             "source_ip": self._extraer_campo(data, "source_ip"),
             "destination_ip": self._extraer_campo(data, "destination_ip"),
@@ -300,7 +305,14 @@ class JSONParser:
             datetime con timezone, o None.
         """
         # Campos de timestamp a probar
-        for key in ("timestamp", "time", "date", "datetime", "event_timestamp", "@timestamp"):
+        for key in (
+            "timestamp",
+            "time",
+            "date",
+            "datetime",
+            "event_timestamp",
+            "@timestamp",
+        ):
             valor = data.get(key)
             if not valor:
                 continue
@@ -309,18 +321,18 @@ class JSONParser:
 
             # Intentar formatos comunes
             formatos = [
-                "%Y-%m-%dT%H:%M:%S.%fZ",      # ISO 8601 con microsegundos
-                "%Y-%m-%dT%H:%M:%SZ",          # ISO 8601 sin microsegundos
-                "%Y-%m-%dT%H:%M:%S.%f%z",      # ISO 8601 con timezone
-                "%Y-%m-%d %H:%M:%S",            # Fecha hora simple
-                "%Y-%m-%dT%H:%M:%S",            # ISO sin Z
+                "%Y-%m-%dT%H:%M:%S.%fZ",  # ISO 8601 con microsegundos
+                "%Y-%m-%dT%H:%M:%SZ",  # ISO 8601 sin microsegundos
+                "%Y-%m-%dT%H:%M:%S.%f%z",  # ISO 8601 con timezone
+                "%Y-%m-%d %H:%M:%S",  # Fecha hora simple
+                "%Y-%m-%dT%H:%M:%S",  # ISO sin Z
             ]
 
             for fmt in formatos:
                 try:
                     dt = datetime.strptime(valor_str, fmt)
                     if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
+                        dt = dt.replace(tzinfo=UTC)
                     return dt
                 except ValueError:
                     continue
@@ -343,12 +355,23 @@ class JSONParser:
 
         # Mapeo de valores comunes
         mapeo = {
-            "critical": "critical", "crit": "critical", "emergency": "critical",
-            "alert": "critical", "fatal": "critical",
-            "high": "high", "error": "high", "err": "high",
-            "medium": "medium", "warn": "medium", "warning": "medium",
-            "low": "low", "notice": "low", "info": "info",
-            "informational": "info", "debug": "info", "trace": "info",
+            "critical": "critical",
+            "crit": "critical",
+            "emergency": "critical",
+            "alert": "critical",
+            "fatal": "critical",
+            "high": "high",
+            "error": "high",
+            "err": "high",
+            "medium": "medium",
+            "warn": "medium",
+            "warning": "medium",
+            "low": "low",
+            "notice": "low",
+            "info": "info",
+            "informational": "info",
+            "debug": "info",
+            "trace": "info",
         }
 
         return mapeo.get(severidad_lower, "info")

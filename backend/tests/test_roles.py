@@ -10,17 +10,17 @@ que un analyst no pueda crear reglas, etc.) requieren una BD
 real con datos seed. Se documentan los casos pendientes al final.
 """
 
-import pytest
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
-from datetime import datetime, timezone
 
-from app.config import settings
-from app.services.auth_service import AuthService
+import pytest
+
 from app.models.user import User
-
+from app.services.auth_service import AuthService
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _make_mock_result(scalar_return):
     """Crea un mock de Result de SQLAlchemy con scalar_one_or_none."""
@@ -31,6 +31,7 @@ def _make_mock_result(scalar_return):
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def admin_user():
     """Fixture que provee un usuario admin de prueba."""
@@ -40,8 +41,8 @@ def admin_user():
         hashed_password=AuthService.hash_password("pass123"),
         role="admin",
         active=True,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
 
@@ -54,8 +55,8 @@ def analyst_user():
         hashed_password=AuthService.hash_password("pass123"),
         role="analyst",
         active=True,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
 
@@ -68,8 +69,8 @@ def inactive_user():
         hashed_password=AuthService.hash_password("pass123"),
         role="analyst",
         active=False,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
 
@@ -85,27 +86,32 @@ def mock_session():
 
 # ── Tests de lógica de toggle ─────────────────────────────────────────────
 
+
 class TestToggleStatus:
     """Prueba la lógica pura de toggle active/disabled."""
 
     def test_toggle_active_returns_disabled(self):
         """Toggle desde 'active' retorna 'disabled'."""
         from app.api.rules import _toggle_status
+
         assert _toggle_status("active") == "disabled"
 
     def test_toggle_disabled_returns_active(self):
         """Toggle desde 'disabled' retorna 'active'."""
         from app.api.rules import _toggle_status
+
         assert _toggle_status("disabled") == "active"
 
     def test_toggle_unknown_returns_active(self):
         """Cualquier otro estado se trata como no-activo → active."""
         from app.api.rules import _toggle_status
+
         assert _toggle_status("test") == "active"
         assert _toggle_status("") == "active"
 
 
 # ── Tests de lógica de roles ──────────────────────────────────────────────
+
 
 class TestVerificarAdmin:
     """Prueba la lógica de verificación de rol admin."""
@@ -143,6 +149,7 @@ class TestVerificarAdmin:
 
 # ── Tests de integración HTTP ─────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_api_rules_listar_sin_auth():
     """GET /api/rules sin auth — verifica que no requiera admin.
@@ -152,7 +159,8 @@ async def test_api_rules_listar_sin_auth():
     ConnectionRefusedError. La verificación importante acá es que el
     endpoint NO requiere autenticación (a diferencia de POST/PUT/DELETE).
     """
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)
@@ -161,9 +169,7 @@ async def test_api_rules_listar_sin_auth():
             resp = await client.get("/api/rules")
             # Sin BD disponible, puede fallar con error de conexión.
             # Lo importante es que NO requiera autenticación.
-            assert resp.status_code != 401, (
-                "GET /api/rules no debería requerir auth"
-            )
+            assert resp.status_code != 401, "GET /api/rules no debería requerir auth"
     except ConnectionRefusedError:
         # Sin PostgreSQL corriendo — es esperable. Este test requiere BD real.
         pass
@@ -172,7 +178,8 @@ async def test_api_rules_listar_sin_auth():
 @pytest.mark.asyncio
 async def test_api_rules_crear_sin_auth():
     """POST /api/rules sin auth debe devolver 401 (no autenticado)."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)
@@ -181,15 +188,14 @@ async def test_api_rules_crear_sin_auth():
             "/api/rules",
             json={"title": "test", "conditions": {}, "alert_title": "test"},
         )
-        assert resp.status_code == 401, (
-            f"Se esperaba 401, se obtuvo {resp.status_code}"
-        )
+        assert resp.status_code == 401, f"Se esperaba 401, se obtuvo {resp.status_code}"
 
 
 @pytest.mark.asyncio
 async def test_api_rules_eliminar_sin_auth():
     """DELETE /api/rules/{id} sin auth debe devolver 401."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)
@@ -201,7 +207,8 @@ async def test_api_rules_eliminar_sin_auth():
 @pytest.mark.asyncio
 async def test_api_alerts_patch_estado_sin_auth():
     """PATCH /api/alerts/{id}/estado sin auth debe devolver 401."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)
@@ -216,7 +223,8 @@ async def test_api_alerts_patch_estado_sin_auth():
 @pytest.mark.asyncio
 async def test_api_users_listar_sin_auth():
     """GET /api/users sin auth debe devolver 401."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)
@@ -228,7 +236,8 @@ async def test_api_users_listar_sin_auth():
 @pytest.mark.asyncio
 async def test_api_users_crear_sin_auth():
     """POST /api/users sin auth debe devolver 401."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)
@@ -239,10 +248,12 @@ async def test_api_users_crear_sin_auth():
         )
         assert resp.status_code == 401
 
+
 @pytest.mark.asyncio
 async def test_api_rules_toggle_sin_auth():
     """PATCH /api/rules/{id}/toggle sin auth debe devolver 401."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)

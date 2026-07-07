@@ -4,17 +4,18 @@ Usa httpx con ASGITransport para testear los endpoints sin levantar servidor.
 Para los tests de AuthService se usa pytest-asyncio con sesiones mock.
 """
 
-import pytest
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID, uuid4
-from datetime import datetime, timezone
+from uuid import uuid4
+
+import pytest
 
 from app.config import settings
-from app.services.auth_service import AuthService
 from app.models.user import User
-
+from app.services.auth_service import AuthService
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _make_mock_result(scalar_return):
     """Crea un mock de Result de SQLAlchemy con scalar_one_or_none."""
@@ -25,12 +26,15 @@ def _make_mock_result(scalar_return):
 
 def _make_async_execute(session, return_value):
     """Configura session.execute como async function que retorna return_value."""
+
     async def mock_execute(*args, **kwargs):
         return return_value
+
     session.execute = mock_execute
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_session():
@@ -57,13 +61,14 @@ def sample_user():
         hashed_password=AuthService.hash_password("pass123"),
         role="analyst",
         active=True,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     return user
 
 
 # ── Tests de AuthService ──────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_crear_usuario(auth_service, mock_session):
@@ -73,6 +78,7 @@ async def test_crear_usuario(auth_service, mock_session):
     # Mock refresh para setear el id
     async def mock_refresh(user):
         user.id = uuid4()
+
     mock_session.refresh.side_effect = mock_refresh
 
     user = await auth_service.crear_usuario(
@@ -191,10 +197,12 @@ async def test_hash_password_verification():
 
 # ── Tests de integración HTTP ─────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_health_check():
     """Verifica que el health endpoint siga funcionando."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)
@@ -208,7 +216,8 @@ async def test_health_check():
 @pytest.mark.asyncio
 async def test_spa_serves_index_html():
     """Verifica que las rutas SPA devuelven index.html (modo SPA)."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     transport = ASGITransport(app=app)

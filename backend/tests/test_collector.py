@@ -4,6 +4,7 @@ Verifica que el colector reciba datagramas y los pase al pipeline.
 """
 
 import asyncio
+
 import pytest
 
 
@@ -46,6 +47,7 @@ class TestSyslogCollector:
             # Enviar datagrama UDP al colector
             mensaje = b"<30>Oct  9 22:33:20 testhost testapp[123]: mensaje de prueba"
             from socket import AF_INET, SOCK_DGRAM, socket
+
             with socket(AF_INET, SOCK_DGRAM) as sock:
                 sock.sendto(mensaje, ("127.0.0.1", colector.port))
 

@@ -4,19 +4,22 @@ Verifica batch ingest con pipeline, heartbeat, y auth failures
 contra PostgreSQL real via Testcontainers.
 """
 
+from datetime import datetime
+
 import pytest
 import pytest_asyncio
-from datetime import datetime, timezone
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from app.services.agent_service import AgentService
 
-
 # ── Fixtures ────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def app():
     """Fixture que provee la instancia de la aplicación FastAPI."""
     from app.main import app
+
     return app
 
 
@@ -28,13 +31,16 @@ async def agent_client_and_auth(app, session, async_engine):
     se pasa como Bearer token en cada request.
     El pipeline se configura para usar el testcontainer DB.
     """
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
     from app.database import get_session
     from app.services.pipeline import Pipeline
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     # Crear pipeline que apunte al testcontainer
     factory = async_sessionmaker(
-        async_engine, class_=AsyncSession, expire_on_commit=False,
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
     )
     pipeline = Pipeline(engine=None, session_factory=factory)
     app.state.pipeline = pipeline
@@ -80,6 +86,7 @@ def _evento_valido(**kwargs) -> dict:
 
 # ── Tests: POST /api/v2/events ─────────────────────────────────────────────
 
+
 class TestAgentIngestV2:
     """Prueba POST /api/v2/events — batch ingest autenticado."""
 
@@ -87,10 +94,7 @@ class TestAgentIngestV2:
     async def test_batch_exitoso(self, agent_client_and_auth):
         """Batch de 3 eventos válidos se procesa y retorna IDs."""
         client, api_key, _ = agent_client_and_auth
-        eventos = [
-            _evento_valido(source_ip=f"10.0.0.{i}")
-            for i in range(3)
-        ]
+        eventos = [_evento_valido(source_ip=f"10.0.0.{i}") for i in range(3)]
         response = await client.post(
             "/api/v2/events",
             json={"events": eventos},
@@ -133,7 +137,8 @@ class TestAgentIngestV2:
 
     @pytest.mark.asyncio
     async def test_batch_campos_requeridos_faltan_retorna_400(
-        self, agent_client_and_auth,
+        self,
+        agent_client_and_auth,
     ):
         """Evento sin event_type/severity/message retorna 400.
 
@@ -185,11 +190,14 @@ class TestAgentIngestV2:
 
     @pytest.mark.asyncio
     async def test_batch_eventos_persistidos_en_db(
-        self, agent_client_and_auth, session,
+        self,
+        agent_client_and_auth,
+        session,
     ):
         """Eventos enviados se persisten en la base de datos con collector_type=agent."""
-        from app.models.event import NormalizedEvent
         from sqlalchemy import select
+
+        from app.models.event import NormalizedEvent
 
         client, api_key, agent = agent_client_and_auth
         eventos = [
@@ -214,11 +222,14 @@ class TestAgentIngestV2:
 
     @pytest.mark.asyncio
     async def test_batch_source_respetado_si_provisto(
-        self, agent_client_and_auth, session,
+        self,
+        agent_client_and_auth,
+        session,
     ):
         """Si el evento tiene source propio, se respeta (no el hostname del agente)."""
+        from sqlalchemy import select
+
         from app.models.event import NormalizedEvent
-        from sqlalchemy import select, func
 
         client, api_key, agent = agent_client_and_auth
         response = await client.post(
@@ -229,9 +240,7 @@ class TestAgentIngestV2:
         assert response.status_code == 201, response.text
 
         result = await session.execute(
-            select(NormalizedEvent).where(
-                NormalizedEvent.source == "mi-propio-source"
-            )
+            select(NormalizedEvent).where(NormalizedEvent.source == "mi-propio-source")
         )
         ev = result.scalar_one_or_none()
         assert ev is not None
@@ -240,6 +249,7 @@ class TestAgentIngestV2:
 
 
 # ── Tests: POST /api/v2/agent/heartbeat ────────────────────────────────────
+
 
 class TestAgentHeartbeat:
     """Prueba POST /api/v2/agent/heartbeat."""

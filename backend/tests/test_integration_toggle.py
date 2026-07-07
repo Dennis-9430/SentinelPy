@@ -6,7 +6,7 @@ autenticación → toggle → respuesta JSON.
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from app.services.auth_service import AuthService
 from app.services.rule_service import RuleService
@@ -82,8 +82,8 @@ async def disabled_rule(session):
 @pytest_asyncio.fixture
 async def client(session):
     """App FastAPI sin autenticar — para tests de 401."""
-    from app.main import app
     from app.database import get_session
+    from app.main import app
 
     async def override_get_session():
         yield session

@@ -2,7 +2,9 @@
 
 import logging
 from email.message import EmailMessage
+
 import aiosmtplib
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -31,7 +33,7 @@ class EmailNotifier:
 
         severity = alerta.get("severity", "info").upper()
         title = alerta.get("title", "Alerta sin título")
-        description = alerta.get("description", "")
+        alerta.get("description", "")
 
         msg = EmailMessage()
         msg["From"] = self.from_addr or self.user

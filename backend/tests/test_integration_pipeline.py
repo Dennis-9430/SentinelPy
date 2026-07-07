@@ -5,18 +5,16 @@ PostgreSQL, y (opcionalmente) evalúe reglas de correlación.
 """
 
 import pytest
-import pytest_asyncio
-from datetime import datetime, timezone
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.event import NormalizedEvent
+from app.services.engine import CorrelationEngine
 from app.services.pipeline import Pipeline
 from app.services.rule_service import RuleService
-from app.services.engine import CorrelationEngine
-
 
 # ── Helper ─────────────────────────────────────────────────────────────────
+
 
 def _pipeline_factory(async_engine, engine=None):
     """Crea un Pipeline con session_factory apuntando al testcontainer."""
@@ -27,6 +25,7 @@ def _pipeline_factory(async_engine, engine=None):
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────
+
 
 class TestPipelinePersistencia:
     """Prueba que Pipeline procese y persista eventos correctamente."""
@@ -49,9 +48,7 @@ class TestPipelinePersistencia:
         assert evento.severity == "high"
 
         # Verificar que está persistido
-        result = await session.execute(
-            select(func.count(NormalizedEvent.id))
-        )
+        result = await session.execute(select(func.count(NormalizedEvent.id)))
         total = result.scalar() or 0
         assert total >= 1
 
@@ -118,36 +115,39 @@ class TestPipelineConEngine:
     """Prueba Pipeline con CorrelationEngine integrado."""
 
     @pytest.mark.asyncio
-    async def test_engine_evalua_regla_y_crea_alerta(
-        self, session, async_engine
-    ):
+    async def test_engine_evalua_regla_y_crea_alerta(self, session, async_engine):
         """Pipeline + Engine: evento que matchea regla activa genera alerta."""
         from app.models.alert import Alert
 
         # Crear regla activa
         rule_service = RuleService(session)
-        regla = await rule_service.crear_regla({
-            "title": "Detectar auth_failure",
-            "description": "Regla para test",
-            "severity": "high",
-            "status": "active",
-            "conditions": {
-                "operator": "AND",
-                "conditions": [
-                    {"field": "event_type", "operator": "eq", "value": "auth_failure"},
-                ],
-            },
-            "alert_title": "Auth Failure Detectado",
-            "alert_severity": "high",
-            "correlation_window": 300,
-        })
+        regla = await rule_service.crear_regla(
+            {
+                "title": "Detectar auth_failure",
+                "description": "Regla para test",
+                "severity": "high",
+                "status": "active",
+                "conditions": {
+                    "operator": "AND",
+                    "conditions": [
+                        {
+                            "field": "event_type",
+                            "operator": "eq",
+                            "value": "auth_failure",
+                        },
+                    ],
+                },
+                "alert_title": "Auth Failure Detectado",
+                "alert_severity": "high",
+                "correlation_window": 300,
+            }
+        )
 
         # Engine con callback que persiste alertas
         engine = CorrelationEngine()
         alertas_creadas = []
 
         async def callback(datos_alerta):
-            from app.models.alert import Alert
             async with async_sessionmaker(
                 session.bind, class_=AsyncSession, expire_on_commit=False
             )() as ses:
@@ -177,33 +177,32 @@ class TestPipelineConEngine:
         assert alertas_creadas[0].severity == "high"
 
     @pytest.mark.asyncio
-    async def test_engine_no_genera_alerta_si_no_matchea(
-        self, session, async_engine
-    ):
+    async def test_engine_no_genera_alerta_si_no_matchea(self, session, async_engine):
         """Evento que no matchea ninguna regla no genera alerta."""
         from app.models.alert import Alert
 
         rule_service = RuleService(session)
-        regla = await rule_service.crear_regla({
-            "title": "Detectar solo port_scan",
-            "description": "Regla para test",
-            "severity": "high",
-            "status": "active",
-            "conditions": {
-                "operator": "AND",
-                "conditions": [
-                    {"field": "event_type", "operator": "eq", "value": "port_scan"},
-                ],
-            },
-            "alert_title": "Port Scan Detectado",
-            "alert_severity": "high",
-        })
+        regla = await rule_service.crear_regla(
+            {
+                "title": "Detectar solo port_scan",
+                "description": "Regla para test",
+                "severity": "high",
+                "status": "active",
+                "conditions": {
+                    "operator": "AND",
+                    "conditions": [
+                        {"field": "event_type", "operator": "eq", "value": "port_scan"},
+                    ],
+                },
+                "alert_title": "Port Scan Detectado",
+                "alert_severity": "high",
+            }
+        )
 
         engine = CorrelationEngine()
         alertas_creadas = []
 
         async def callback(datos_alerta):
-            from app.models.alert import Alert
             async with async_sessionmaker(
                 session.bind, class_=AsyncSession, expire_on_commit=False
             )() as ses:

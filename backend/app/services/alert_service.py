@@ -5,9 +5,11 @@ Este servicio solo permite consultarlas y actualizar su estado.
 """
 
 import logging
-from datetime import datetime, timezone
-from sqlalchemy import select, func, update
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.alert import Alert
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,9 @@ class AlertService:
         await self.session.refresh(alerta)
         logger.info(
             "Alerta creada: %s | %s | %s",
-            alerta.id, alerta.severity, alerta.title,
+            alerta.id,
+            alerta.severity,
+            alerta.title,
         )
         return alerta
 
@@ -88,6 +92,7 @@ class AlertService:
             Alert o None si no existe.
         """
         from uuid import UUID
+
         try:
             result = await self.session.execute(
                 select(Alert).where(Alert.id == UUID(alerta_id))
@@ -117,10 +122,10 @@ class AlertService:
             return None
 
         alerta.status = nuevo_estado
-        alerta.updated_at = datetime.now(timezone.utc)
+        alerta.updated_at = datetime.now(UTC)
 
         if nuevo_estado in ("resolved", "false_positive"):
-            alerta.resolved_at = datetime.now(timezone.utc)
+            alerta.resolved_at = datetime.now(UTC)
 
         if notas:
             alerta.resolution_notes = notas
@@ -148,17 +153,22 @@ class AlertService:
             La alerta actualizada, o None si no encontró ninguna abierta.
         """
         from uuid import UUID
+
         try:
             result = await self.session.execute(
-                select(Alert).where(
+                select(Alert)
+                .where(
                     Alert.rule_id == UUID(rule_id),
                     Alert.status == "open",
-                ).order_by(Alert.created_at.desc()).limit(1)
+                )
+                .order_by(Alert.created_at.desc())
+                .limit(1)
             )
             alerta = result.scalar_one_or_none()
             if not alerta:
                 logger.warning(
-                    "No se encontró alerta abierta para regla %s", rule_id,
+                    "No se encontró alerta abierta para regla %s",
+                    rule_id,
                 )
                 return None
 
@@ -167,7 +177,9 @@ class AlertService:
             await self.session.commit()
             await self.session.refresh(alerta)
             logger.debug(
-                "Alerta %s actualizada: %d eventos", alerta.id, event_count,
+                "Alerta %s actualizada: %d eventos",
+                alerta.id,
+                event_count,
             )
             return alerta
         except (ValueError, Exception) as e:
@@ -181,9 +193,7 @@ class AlertService:
             Dict con conteo por estado y severidad.
         """
         # Total por estado
-        total_result = await self.session.execute(
-            select(func.count(Alert.id))
-        )
+        total_result = await self.session.execute(select(func.count(Alert.id)))
         total = total_result.scalar() or 0
 
         # Abiertas (open + acknowledged + investigating)

@@ -8,20 +8,22 @@ Verifica que el método:
 5. Use "unknown" como source default
 """
 
-import pytest
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
-from datetime import datetime, timezone
 
-from app.services.pipeline import Pipeline
+import pytest
+
 from app.services.engine import CorrelationEngine
+from app.services.pipeline import Pipeline
 
 
 class FakeEvent:
     """Evento simulado para evitar dependencia de BD en tests unitarios."""
+
     id = "550e8400-e29b-41d4-a716-446655440000"
     source = "test-server"
     collector_type = "rest"
-    event_timestamp = datetime.now(timezone.utc)
+    event_timestamp = datetime.now(UTC)
     event_type = "test_event"
     severity = "low"
     description = "Evento de test unitario"
@@ -48,16 +50,24 @@ def _pipeline_con_engine_mock() -> tuple[Pipeline, CorrelationEngine, list]:
         alertas_creadas.append(datos_alerta)
 
     engine.registrar_callback(spy_callback)
-    engine.cargar_reglas([{
-        "id": "test-rule-1",
-        "title": "Detectar test_event",
-        "alert_title": "Test Alert from Pipeline",
-        "alert_severity": "medium",
-        "event_type": "test_event",
-        "severity": "low",
-        "conditions": {"field": "event_type", "operator": "eq", "value": "test_event"},
-        "status": "active",
-    }])
+    engine.cargar_reglas(
+        [
+            {
+                "id": "test-rule-1",
+                "title": "Detectar test_event",
+                "alert_title": "Test Alert from Pipeline",
+                "alert_severity": "medium",
+                "event_type": "test_event",
+                "severity": "low",
+                "conditions": {
+                    "field": "event_type",
+                    "operator": "eq",
+                    "value": "test_event",
+                },
+                "status": "active",
+            }
+        ]
+    )
 
     pipeline = Pipeline(engine=engine)
     # Mockear _guardar_evento para evitar DB
@@ -77,7 +87,7 @@ class TestProcessFromDict:
         evento_dict = {
             "source": "test-server",
             "collector_type": "rest",
-            "event_timestamp": datetime.now(timezone.utc),
+            "event_timestamp": datetime.now(UTC),
             "event_type": "test_event",
             "severity": "low",
             "description": "Evento que debe matchear regla",
@@ -100,7 +110,7 @@ class TestProcessFromDict:
         evento_dict = {
             "source": "test-server",
             "collector_type": "rest",
-            "event_timestamp": datetime.now(timezone.utc),
+            "event_timestamp": datetime.now(UTC),
             "event_type": "test_event",
             "severity": "low",
             "description": "Evento sin engine",
@@ -120,18 +130,18 @@ class TestProcessFromDict:
         evento_dict = {
             "source": "test-server",
             "collector_type": "original",
-            "event_timestamp": datetime.now(timezone.utc),
+            "event_timestamp": datetime.now(UTC),
             "event_type": "test_event",
             "severity": "low",
             "description": "Test collector_type override",
         }
 
         # Verificar que el dict fue modificado ANTES de _guardar_evento
-        original_guardar = pipeline._guardar_evento
 
         async def assert_guardar(datos):
-            assert datos["collector_type"] == "rest", \
+            assert datos["collector_type"] == "rest", (
                 f"Expected 'rest', got '{datos.get('collector_type')}'"
+            )
             return FakeEvent()
 
         pipeline._guardar_evento = assert_guardar
@@ -145,15 +155,16 @@ class TestProcessFromDict:
         pipeline._guardar_evento = AsyncMock(return_value=FakeEvent())
 
         async def assert_guardar(datos):
-            assert datos["source"] == "unknown", \
+            assert datos["source"] == "unknown", (
                 f"Expected 'unknown', got '{datos.get('source')}'"
+            )
             return FakeEvent()
 
         pipeline._guardar_evento = assert_guardar
 
         evento_dict = {
             "collector_type": "rest",
-            "event_timestamp": datetime.now(timezone.utc),
+            "event_timestamp": datetime.now(UTC),
             "event_type": "test_event",
             "severity": "low",
             "description": "Sin source explícito",
@@ -172,7 +183,7 @@ class TestProcessFromDict:
         evento_dict = {
             "source": "test-server",
             "collector_type": "rest",
-            "event_timestamp": datetime.now(timezone.utc),
+            "event_timestamp": datetime.now(UTC),
             "event_type": "test_event",
             "severity": "low",
             "description": "Evento que causa error en engine",

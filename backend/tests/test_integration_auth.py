@@ -4,8 +4,9 @@ Verifica registro de usuarios, autenticación, y manejo de
 usuarios activos/inactivos contra base de datos real.
 """
 
-import pytest
 from uuid import UUID
+
+import pytest
 
 from app.services.auth_service import AuthService
 
@@ -149,9 +150,12 @@ class TestCRUDUsuarios:
     async def test_obtener_por_id_inexistente(self, session):
         """Obtener usuario con UUID que no existe devuelve None."""
         from uuid import UUID
+
         service = AuthService(session)
 
-        user = await service.obtener_por_id(UUID("00000000-0000-0000-0000-000000000000"))
+        user = await service.obtener_por_id(
+            UUID("00000000-0000-0000-0000-000000000000")
+        )
         assert user is None
 
 
@@ -161,8 +165,8 @@ class TestJWT:
     @pytest.mark.asyncio
     async def test_crear_y_decodificar_token(self, session):
         """Crea un token JWT y lo decodifica correctamente."""
-        from app.models.user import User
         from app.config import settings
+        from app.models.user import User
 
         user = User(username="jwt_user", role="admin")
         service = AuthService(session)

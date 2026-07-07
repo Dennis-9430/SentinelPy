@@ -4,13 +4,14 @@ CRUD completo de reglas estilo Sigma. Las reglas activas se cargan
 en el motor de correlación al iniciar la aplicación.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_session
-from app.schemas.rule import RuleCreate, RuleRead
-from app.services.rule_service import RuleService
+
 from app.auth import require_admin
+from app.database import get_session
 from app.models.user import User
+from app.schemas.rule import RuleCreate
+from app.services.rule_service import RuleService
 
 # Router con prefijo /api/rules
 router = APIRouter(prefix="/api/rules", tags=["rules"])
@@ -20,7 +21,9 @@ router = APIRouter(prefix="/api/rules", tags=["rules"])
 async def listar_reglas(
     limite: int = Query(100, ge=1, le=500, description="Cantidad máxima de reglas"),
     desde: int = Query(0, ge=0, description="Offset para paginación"),
-    estado: str | None = Query(None, description="Filtrar por estado: active, disabled, test"),
+    estado: str | None = Query(
+        None, description="Filtrar por estado: active, disabled, test"
+    ),
     severidad: str | None = Query(None, description="Filtrar por severidad"),
     session: AsyncSession = Depends(get_session),
 ):
@@ -120,7 +123,9 @@ async def actualizar_regla(
 ):
     """Actualiza una regla existente (solo admin)."""
     service = RuleService(session)
-    regla = await service.actualizar_regla(regla_id, datos.model_dump(exclude_unset=True))
+    regla = await service.actualizar_regla(
+        regla_id, datos.model_dump(exclude_unset=True)
+    )
 
     if not regla:
         raise HTTPException(status_code=404, detail="Regla no encontrada")
@@ -208,6 +213,5 @@ async def _recargar_engine(session: AsyncSession):
             engine.cargar_reglas(reglas)
     except Exception as e:
         import logging
-        logging.getLogger(__name__).warning(
-            "No se pudo recargar engine: %s", e
-        )
+
+        logging.getLogger(__name__).warning("No se pudo recargar engine: %s", e)

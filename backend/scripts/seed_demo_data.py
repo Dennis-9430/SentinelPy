@@ -21,7 +21,7 @@ _backend_dir = str(Path(__file__).resolve().parent.parent)
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
@@ -45,24 +45,41 @@ EVENT_TYPES = [
 ]
 
 SOURCES = [
-    "servidor-web-01", "servidor-web-02", "firewall-panel",
-    "servidor-correo-01", "dns-primario", "vpn-gateway",
-    "base-datos-01", "balanceador-01", "waf-01",
+    "servidor-web-01",
+    "servidor-web-02",
+    "firewall-panel",
+    "servidor-correo-01",
+    "dns-primario",
+    "vpn-gateway",
+    "base-datos-01",
+    "balanceador-01",
+    "waf-01",
 ]
 
 PROCESSES = [
-    "powershell.exe", "cmd.exe", "bash", "python3",
-    "nginx", "sshd", "vsftpd", "docker",
+    "powershell.exe",
+    "cmd.exe",
+    "bash",
+    "python3",
+    "nginx",
+    "sshd",
+    "vsftpd",
+    "docker",
 ]
 
 DOMAINS = [
-    "malware-evil.com", "phishing.xyz", "unknown-panel.net",
-    "c2-server.io", "data-exfil.biz",
+    "malware-evil.com",
+    "phishing.xyz",
+    "unknown-panel.net",
+    "c2-server.io",
+    "data-exfil.biz",
 ]
 
 FILES = [
-    "/tmp/ransomware.exe", "/var/www/html/shell.php",
-    "/root/.ssh/authorized_keys", "C:\\Users\\Public\\malware.dll",
+    "/tmp/ransomware.exe",
+    "/var/www/html/shell.php",
+    "/root/.ssh/authorized_keys",
+    "C:\\Users\\Public\\malware.dll",
 ]
 
 SEVERITIES = ["critical", "high", "medium", "low", "info"]
@@ -71,7 +88,7 @@ RULES = [
     {
         "title": "Detección de escaneo de puertos",
         "description": "Genera alerta cuando se detecta un escaneo de puertos desde una IP externa. "
-                       "Indica reconocimiento activo por parte de un atacante.",
+        "Indica reconocimiento activo por parte de un atacante.",
         "severity": "critical",
         "status": "active",
         "conditions": {"field": "event_type", "operator": "eq", "value": "port_scan"},
@@ -86,10 +103,14 @@ RULES = [
     {
         "title": "Fuerza bruta SSH",
         "description": "Múltiples fallos de autenticación SSH en ventana de 5 minutos. "
-                       "Indica intento de acceso no autorizado.",
+        "Indica intento de acceso no autorizado.",
         "severity": "high",
         "status": "active",
-        "conditions": {"field": "event_type", "operator": "eq", "value": "auth_failure"},
+        "conditions": {
+            "field": "event_type",
+            "operator": "eq",
+            "value": "auth_failure",
+        },
         "alert_title": "Posible Fuerza Bruta SSH",
         "alert_severity": "high",
         "author": "Equipo SOC",
@@ -101,10 +122,14 @@ RULES = [
     {
         "title": "Malware detectado en endpoints",
         "description": "Alerta cuando se detecta un archivo malicioso en algún endpoint. "
-                       "Requiere investigación inmediata.",
+        "Requiere investigación inmediata.",
         "severity": "critical",
         "status": "active",
-        "conditions": {"field": "event_type", "operator": "eq", "value": "malware_detected"},
+        "conditions": {
+            "field": "event_type",
+            "operator": "eq",
+            "value": "malware_detected",
+        },
         "alert_title": "Malware Detectado",
         "alert_severity": "critical",
         "author": "Equipo SOC",
@@ -115,10 +140,14 @@ RULES = [
     {
         "title": "Escalada de privilegios",
         "description": "Detección de escalada de privilegios en procesos del sistema. "
-                       "Indica posible compromiso de cuenta.",
+        "Indica posible compromiso de cuenta.",
         "severity": "critical",
         "status": "active",
-        "conditions": {"field": "event_type", "operator": "eq", "value": "privilege_escalation"},
+        "conditions": {
+            "field": "event_type",
+            "operator": "eq",
+            "value": "privilege_escalation",
+        },
         "alert_title": "Escalada de Privilegios",
         "alert_severity": "critical",
         "author": "Equipo SOC",
@@ -130,7 +159,7 @@ RULES = [
     {
         "title": "Conexiones a dominios maliciosos",
         "description": "Detección de consultas DNS a dominios identificados como maliciosos. "
-                       "Indica posible comunicación C2.",
+        "Indica posible comunicación C2.",
         "severity": "high",
         "status": "active",
         "conditions": {"field": "event_type", "operator": "eq", "value": "dns_query"},
@@ -144,10 +173,14 @@ RULES = [
     {
         "title": "Firewall: tráfico bloqueado",
         "description": "Tráfico entrante bloqueado por el firewall perimetral. "
-                       "Monitoreo de intentos de conexión externa.",
+        "Monitoreo de intentos de conexión externa.",
         "severity": "medium",
         "status": "active",
-        "conditions": {"field": "event_type", "operator": "eq", "value": "firewall_block"},
+        "conditions": {
+            "field": "event_type",
+            "operator": "eq",
+            "value": "firewall_block",
+        },
         "alert_title": "Tráfico Bloqueado por Firewall",
         "alert_severity": "medium",
         "author": "Equipo SOC",
@@ -158,10 +191,14 @@ RULES = [
     {
         "title": "Regla legacy: procesos anticuados",
         "description": "Regla desactivada por migración a nueva plataforma. "
-                       "Se mantiene por compatibilidad con informes históricos.",
+        "Se mantiene por compatibilidad con informes históricos.",
         "severity": "low",
         "status": "disabled",
-        "conditions": {"field": "event_type", "operator": "eq", "value": "process_create"},
+        "conditions": {
+            "field": "event_type",
+            "operator": "eq",
+            "value": "process_create",
+        },
         "alert_title": "[LEGACY] Proceso Detectado",
         "alert_severity": "low",
         "author": "Admin",
@@ -191,6 +228,7 @@ RESOLUTION_NOTES = [
 
 # ── Lógica de seed ───────────────────────────────────────────────────────────
 
+
 def _random_ip(seed: int) -> str:
     """Genera una IP pseudo-aleatoria determinista."""
     return f"10.0.{seed % 255}.{(seed * 7) % 255}"
@@ -203,16 +241,14 @@ def _random_choice(seed: int, items: list) -> str:
 
 async def seed_demo_data():
     """Genera datos demo conectándose directo a la base de datos."""
-    from app.config import settings
     from app.database import async_session
+    from app.services.alert_service import AlertService
     from app.services.event_service import EventService
     from app.services.rule_service import RuleService
-    from app.services.alert_service import AlertService
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     async with async_session() as session:
-
         # ── 1. Reglas ─────────────────────────────────────────────────────
         logger.info("Creando reglas de detección...")
         rule_service = RuleService(session)
@@ -274,8 +310,12 @@ async def seed_demo_data():
                 "source_port": 1024 + (i % 32768),
                 "destination_port": [22, 80, 443, 3306, 8080][i % 5],
                 "protocol": _random_choice(i * 19, ["TCP", "UDP", "ICMP"]),
-                "user_name": _random_choice(i * 23, ["admin", "dperez", "jramirez", None, None]),
-                "process_name": _random_choice(i * 29, PROCESSES) if event_type == "process_create" else None,
+                "user_name": _random_choice(
+                    i * 23, ["admin", "dperez", "jramirez", None, None]
+                ),
+                "process_name": _random_choice(i * 29, PROCESSES)
+                if event_type == "process_create"
+                else None,
             }
 
             await event_service.crear_evento(evento_data)
@@ -311,7 +351,7 @@ async def seed_demo_data():
                     "title": rule.alert_title,
                     "severity": rule.alert_severity,
                     "description": f"Alerta generada por regla '{rule.title}'. "
-                                   f"Evento relacionado: {_random_choice(j * 37, EVENT_TYPES)[2].format(ip=_random_ip(j+300), proc='explorer.exe', dominio='example.com', file='malware.exe')}",
+                    f"Evento relacionado: {_random_choice(j * 37, EVENT_TYPES)[2].format(ip=_random_ip(j + 300), proc='explorer.exe', dominio='example.com', file='malware.exe')}",
                     "status": chosen_status,
                     "event_count": 1 + (j * 3),
                     "first_event_at": alert_ts - timedelta(minutes=5),

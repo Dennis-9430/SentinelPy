@@ -6,20 +6,24 @@ autenticación Bearer via require_agent, y endpoints admin.
 Requiere PostgreSQL real via Testcontainers (fixture `session`).
 """
 
+from datetime import UTC
+
 import pytest
 import pytest_asyncio
 from fastapi import HTTPException
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from app.services.agent_service import AgentService
 from app.services.auth_service import AuthService
 
-
 # ── Fixtures ────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def app():
     """Fixture que provee la instancia de la aplicación FastAPI."""
     from app.main import app
+
     return app
 
 
@@ -58,6 +62,7 @@ async def admin_client_and_token(session, app):
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+
 def _assert_valid_key_format(raw_key: str):
     """Verifica que la key tenga prefijo spy_ y formato url-safe base64."""
     assert raw_key.startswith("spy_"), "La API key debe empezar con spy_"
@@ -70,6 +75,7 @@ def _assert_valid_key_format(raw_key: str):
 
 
 # ── AgentService Tests ─────────────────────────────────────────────────────
+
 
 class TestCrearAgente:
     """Prueba creación de agentes con generación de API key."""
@@ -279,7 +285,8 @@ class TestDesactivarAgente:
         """Desactivar agente existente cambia active a False."""
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="to-deactivate", hostname="host",
+            name="to-deactivate",
+            hostname="host",
         )
 
         resultado = await service.desactivar_agente(agente.id)
@@ -301,7 +308,8 @@ class TestDesactivarAgente:
         """Desactivar agente ya inactivo no falla."""
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="already-inactive", hostname="host",
+            name="already-inactive",
+            hostname="host",
         )
 
         await service.desactivar_agente(agente.id)
@@ -311,14 +319,16 @@ class TestDesactivarAgente:
 
 # ── require_agent Dependency Tests ─────────────────────────────────────────
 
+
 class TestRequireAgent:
     """Prueba la dependency require_agent con Bearer token."""
 
     @pytest.mark.asyncio
     async def test_require_agent_token_valido(self, session):
         """Token Bearer válido retorna el agente."""
-        from app.auth import require_agent
         from fastapi import Request
+
+        from app.auth import require_agent
 
         service = AgentService(session)
         agente, raw_key = await service.crear_agente(
@@ -346,8 +356,9 @@ class TestRequireAgent:
     @pytest.mark.asyncio
     async def test_require_agent_sin_token(self, session):
         """Sin header Authorization, require_agent lanza 401."""
-        from app.auth import require_agent
         from fastapi import Request
+
+        from app.auth import require_agent
 
         scope = {
             "type": "http",
@@ -362,8 +373,9 @@ class TestRequireAgent:
     @pytest.mark.asyncio
     async def test_require_agent_token_invalido(self, session):
         """Token inválido lanza 401."""
-        from app.auth import require_agent
         from fastapi import Request
+
+        from app.auth import require_agent
 
         scope = {
             "type": "http",
@@ -380,8 +392,9 @@ class TestRequireAgent:
     @pytest.mark.asyncio
     async def test_require_agent_agent_desactivado(self, session):
         """Agente desactivado con token válido lanza 403."""
-        from app.auth import require_agent
         from fastapi import Request
+
+        from app.auth import require_agent
 
         service = AgentService(session)
         agente, raw_key = await service.crear_agente(
@@ -405,6 +418,7 @@ class TestRequireAgent:
 
 # ── Admin API Endpoint Tests ──────────────────────────────────────────────
 
+
 class TestAdminAgentsAPI:
     """Prueba los endpoints GET/POST /api/admin/agents y PATCH deactivate.
 
@@ -415,7 +429,8 @@ class TestAdminAgentsAPI:
     @pytest.mark.asyncio
     async def test_get_agents_sin_admin_retorna_401(self, app):
         """GET /api/admin/agents sin autenticación retorna 401."""
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
+
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get("/api/admin/agents")
@@ -508,9 +523,7 @@ class TestAdminAgentsAPI:
             assert "api_key_hash" not in agent, (
                 "GET agents NO debe exponer api_key_hash"
             )
-            assert "api_key_raw" not in agent, (
-                "GET agents NO debe exponer api_key_raw"
-            )
+            assert "api_key_raw" not in agent, "GET agents NO debe exponer api_key_raw"
 
     @pytest.mark.asyncio
     async def test_patch_deactivate_agente(self, admin_client_and_token):
@@ -537,13 +550,13 @@ class TestAdminAgentsAPI:
             "/api/admin/agents",
             cookies={"access_token": token},
         )
-        agente = next(
-            a for a in list_resp.json()["agents"] if a["id"] == agent_id
-        )
+        agente = next(a for a in list_resp.json()["agents"] if a["id"] == agent_id)
         assert agente["active"] is False
 
     @pytest.mark.asyncio
-    async def test_patch_deactivate_inexistente_retorna_404(self, admin_client_and_token):
+    async def test_patch_deactivate_inexistente_retorna_404(
+        self, admin_client_and_token
+    ):
         """PATCH a agente que no existe retorna 404."""
         client, token = admin_client_and_token
         response = await client.patch(
@@ -583,7 +596,8 @@ class TestObtenerAgentePorId:
         """Obtener agente existente por ID retorna el agente sin hash."""
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="get-by-id-test", hostname="get-host",
+            name="get-by-id-test",
+            hostname="get-host",
         )
 
         resultado = await service.obtener_por_id(agente.id)
@@ -647,11 +661,14 @@ class TestActualizarAgente:
         """Actualizar name y hostname de un agente."""
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="update-test", hostname="old-host",
+            name="update-test",
+            hostname="old-host",
         )
 
         actualizado = await service.actualizar_agente(
-            agente.id, name="updated-name", hostname="new-host",
+            agente.id,
+            name="updated-name",
+            hostname="new-host",
         )
         assert actualizado is not None
         assert actualizado.name == "updated-name"
@@ -663,11 +680,13 @@ class TestActualizarAgente:
         """Actualizar solo el name mantiene hostname intacto."""
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="partial-update", hostname="partial-host",
+            name="partial-update",
+            hostname="partial-host",
         )
 
         actualizado = await service.actualizar_agente(
-            agente.id, name="solo-name",
+            agente.id,
+            name="solo-name",
         )
         assert actualizado is not None
         assert actualizado.name == "solo-name"
@@ -678,11 +697,13 @@ class TestActualizarAgente:
         """Actualizar solo hostname mantiene name intacto."""
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="partial-host-update", hostname="host-old",
+            name="partial-host-update",
+            hostname="host-old",
         )
 
         actualizado = await service.actualizar_agente(
-            agente.id, hostname="host-new",
+            agente.id,
+            hostname="host-new",
         )
         assert actualizado is not None
         assert actualizado.name == "partial-host-update"
@@ -737,7 +758,8 @@ class TestEliminarAgente:
         """Eliminar agente existente retorna True."""
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="delete-test", hostname="delete-host",
+            name="delete-test",
+            hostname="delete-host",
         )
 
         resultado = await service.eliminar_agente(agente.id)
@@ -796,16 +818,18 @@ class TestDesactivarInactivos:
     @pytest.mark.asyncio
     async def test_desactivar_agentes_stale(self, session):
         """Agentes con last_seen vencido se desactivan."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
+
         from sqlalchemy import update
 
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="stale-agent", hostname="stale-host",
+            name="stale-agent",
+            hostname="stale-host",
         )
 
         # Poner last_seen hace 10 minutos (timeout default es 5)
-        hace_10min = datetime.now(timezone.utc) - timedelta(minutes=10)
+        hace_10min = datetime.now(UTC) - timedelta(minutes=10)
         await session.execute(
             update(agente.__class__)
             .where(agente.__class__.id == agente.id)
@@ -822,16 +846,18 @@ class TestDesactivarInactivos:
     @pytest.mark.asyncio
     async def test_no_desactiva_agentes_recientes(self, session):
         """Agentes con last_seen reciente NO se desactivan."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
+
         from sqlalchemy import update
 
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="fresh-agent", hostname="fresh-host",
+            name="fresh-agent",
+            hostname="fresh-host",
         )
 
         # Poner last_seen hace 1 minuto (timeout default es 5)
-        hace_1min = datetime.now(timezone.utc) - timedelta(minutes=1)
+        hace_1min = datetime.now(UTC) - timedelta(minutes=1)
         await session.execute(
             update(agente.__class__)
             .where(agente.__class__.id == agente.id)
@@ -850,7 +876,8 @@ class TestDesactivarInactivos:
         """Agentes sin last_seen (nunca hicieron heartbeat) se consideran inactivos."""
         service = AgentService(session)
         await service.crear_agente(
-            name="no-heartbeat-agent", hostname="no-hb-host",
+            name="no-heartbeat-agent",
+            hostname="no-hb-host",
         )
 
         desactivados = await service.desactivar_inactivos()
@@ -858,9 +885,12 @@ class TestDesactivarInactivos:
         assert desactivados >= 1
 
     @pytest.mark.asyncio
-    async def test_desactivar_inactivos_api_endpoint(self, admin_client_and_token, session):
+    async def test_desactivar_inactivos_api_endpoint(
+        self, admin_client_and_token, session
+    ):
         """POST /api/admin/agents/desactivar-inactivos ejecuta la limpieza."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
+
         from sqlalchemy import update
 
         client, token = admin_client_and_token
@@ -868,9 +898,10 @@ class TestDesactivarInactivos:
         # Crear agente stale
         service = AgentService(session)
         agente, _ = await service.crear_agente(
-            name="stale-for-api", hostname="stale-api-host",
+            name="stale-for-api",
+            hostname="stale-api-host",
         )
-        hace_10min = datetime.now(timezone.utc) - timedelta(minutes=10)
+        hace_10min = datetime.now(UTC) - timedelta(minutes=10)
         await session.execute(
             update(agente.__class__)
             .where(agente.__class__.id == agente.id)

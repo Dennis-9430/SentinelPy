@@ -4,24 +4,23 @@ Verifica que las operaciones CRUD, paginación, filtros y estadísticas
 funcionen correctamente contra una base de datos real (Testcontainers).
 """
 
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from uuid import uuid4
 
 from app.services.event_service import EventService
 from app.services.pipeline import Pipeline
 from app.services.rule_service import RuleService
-from app.models.event import NormalizedEvent
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _evento_base() -> dict:
     """Retorna un dict con los campos mínimos de un evento normalizado."""
     return {
         "source": "test-server-01",
         "collector_type": "test",
-        "event_timestamp": datetime.now(timezone.utc),
+        "event_timestamp": datetime.now(UTC),
         "event_type": "test_event",
         "severity": "low",
         "description": "Evento de test",
@@ -29,6 +28,7 @@ def _evento_base() -> dict:
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────
+
 
 class TestCrearEvento:
     """Prueba la creación de eventos en PostgreSQL real."""
@@ -52,7 +52,7 @@ class TestCrearEvento:
     async def test_crear_evento_con_todos_los_campos(self, session):
         """Crea un evento con todos los campos opcionales."""
         service = EventService(session)
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         datos = {
             "source": "firewall-01",
             "collector_type": "syslog",
@@ -157,13 +157,19 @@ class TestListarEventos:
     async def test_filtros_combinados(self, session):
         """Filtros de tipo y severidad combinados."""
         service = EventService(session)
-        for tipo, sev in [("auth_failure", "high"), ("auth_failure", "low"), ("port_scan", "high")]:
+        for tipo, sev in [
+            ("auth_failure", "high"),
+            ("auth_failure", "low"),
+            ("port_scan", "high"),
+        ]:
             datos = _evento_base()
             datos["event_type"] = tipo
             datos["severity"] = sev
             await service.crear_evento(datos)
 
-        eventos, total = await service.listar_eventos(tipo="auth_failure", severidad="high")
+        eventos, total = await service.listar_eventos(
+            tipo="auth_failure", severidad="high"
+        )
 
         assert total == 1
         assert eventos[0].event_type == "auth_failure"
@@ -207,26 +213,33 @@ class TestPipelineEngineIntegration:
         self, session, async_engine
     ):
         """process_from_dict con engine + regla activa ejecuta callback de alerta."""
-        from app.services.engine import CorrelationEngine
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+        from app.services.engine import CorrelationEngine
 
         # Crear regla activa en DB
         rule_service = RuleService(session)
-        regla = await rule_service.crear_regla({
-            "title": "Regla Pipeline Events",
-            "description": "Regla para test de integración events",
-            "severity": "high",
-            "status": "active",
-            "conditions": {
-                "operator": "AND",
-                "conditions": [
-                    {"field": "event_type", "operator": "eq", "value": "test_event"},
-                ],
-            },
-            "alert_title": "Pipeline Events Alert",
-            "alert_severity": "medium",
-            "correlation_window": 300,
-        })
+        regla = await rule_service.crear_regla(
+            {
+                "title": "Regla Pipeline Events",
+                "description": "Regla para test de integración events",
+                "severity": "high",
+                "status": "active",
+                "conditions": {
+                    "operator": "AND",
+                    "conditions": [
+                        {
+                            "field": "event_type",
+                            "operator": "eq",
+                            "value": "test_event",
+                        },
+                    ],
+                },
+                "alert_title": "Pipeline Events Alert",
+                "alert_severity": "medium",
+                "correlation_window": 300,
+            }
+        )
 
         # Engine con callback spy
         engine = CorrelationEngine()
@@ -251,7 +264,7 @@ class TestPipelineEngineIntegration:
         evento_dict = {
             "source": "test-server-events",
             "collector_type": "rest",
-            "event_timestamp": datetime.now(timezone.utc),
+            "event_timestamp": datetime.now(UTC),
             "event_type": "test_event",
             "severity": "low",
             "description": "Evento de test para pipeline+engine",
@@ -271,9 +284,7 @@ class TestPipelineEngineIntegration:
         assert alerta_recibida["title"] == "Pipeline Events Alert"
 
     @pytest.mark.asyncio
-    async def test_process_from_dict_sin_engine_no_callback(
-        self, async_engine
-    ):
+    async def test_process_from_dict_sin_engine_no_callback(self, async_engine):
         """Sin engine, process_from_dict no ejecuta callback."""
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -285,7 +296,7 @@ class TestPipelineEngineIntegration:
         evento_dict = {
             "source": "test-server-no-engine",
             "collector_type": "rest",
-            "event_timestamp": datetime.now(timezone.utc),
+            "event_timestamp": datetime.now(UTC),
             "event_type": "test_event",
             "severity": "low",
             "description": "Evento sin engine",

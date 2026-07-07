@@ -5,6 +5,7 @@ de FastAPI cuando hacemos consultas a la base de datos.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.config import settings
 
 # ── Engine asíncrono ─────────────────────────────────────────────────────
@@ -15,9 +16,7 @@ engine = create_async_engine(settings.database_url, echo=settings.debug)
 # ── Session factory ──────────────────────────────────────────────────────
 # async_sessionmaker crea sesiones asíncronas que se usan en los endpoints.
 # expire_on_commit=False evita que SQLAlchemy invalide objetos después de commit.
-async_session = async_sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_session() -> AsyncSession:

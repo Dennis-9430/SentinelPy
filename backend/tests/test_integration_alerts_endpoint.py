@@ -6,11 +6,11 @@ e inválidas, y persistencia del cambio.
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
+from app.services.alert_service import AlertService
 from app.services.auth_service import AuthService
 from app.services.rule_service import RuleService
-from app.services.alert_service import AlertService
 
 
 def _regla_base() -> dict:
@@ -82,8 +82,8 @@ async def test_alerta(session):
 @pytest_asyncio.fixture
 async def client(session):
     """App FastAPI sin autenticar — para tests de 401."""
-    from app.main import app
     from app.database import get_session
+    from app.main import app
 
     async def override_get_session():
         yield session
@@ -169,7 +169,9 @@ class TestPatchAlertStatusEndpoint:
         assert "detail" in data
 
     @pytest.mark.asyncio
-    async def test_patch_returns_400_for_invalid_status(self, admin_client, test_alerta):
+    async def test_patch_returns_400_for_invalid_status(
+        self, admin_client, test_alerta
+    ):
         """Estado inválido devuelve 400."""
         response = await admin_client.patch(
             f"/api/alerts/{test_alerta.id}/estado",
@@ -180,7 +182,9 @@ class TestPatchAlertStatusEndpoint:
         assert "detail" in data
 
     @pytest.mark.asyncio
-    async def test_patch_persists_state_change(self, session, admin_client, test_alerta):
+    async def test_patch_persists_state_change(
+        self, session, admin_client, test_alerta
+    ):
         """El cambio de estado persiste en la base de datos."""
         await admin_client.patch(
             f"/api/alerts/{test_alerta.id}/estado",

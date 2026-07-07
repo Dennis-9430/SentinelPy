@@ -6,8 +6,10 @@ Las alertas tienen un ciclo de vida: open → acknowledged → investigating →
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, String, Text, ForeignKey
+
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
+
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
@@ -23,7 +25,8 @@ class Alert(Base, TimestampMixin, UUIDMixin):
 
     # ── Relación con la regla ────────────────────────────────────────────
     rule_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("rules.id"), index=True,
+        ForeignKey("rules.id"),
+        index=True,
         comment="ID de la regla que generó esta alerta",
     )
 
@@ -33,7 +36,8 @@ class Alert(Base, TimestampMixin, UUIDMixin):
         comment="Título descriptivo (se hereda de la regla pero puede personalizarse)",
     )
     severity: Mapped[str] = mapped_column(
-        String(20), index=True,
+        String(20),
+        index=True,
         comment="Severidad: critical, high, medium, low, info",
     )
     description: Mapped[str] = mapped_column(
@@ -43,7 +47,9 @@ class Alert(Base, TimestampMixin, UUIDMixin):
 
     # ── Ciclo de vida ────────────────────────────────────────────────────
     status: Mapped[str] = mapped_column(
-        String(20), default="open", index=True,
+        String(20),
+        default="open",
+        index=True,
         comment=(
             "Estado del ciclo de vida: "
             "open → acknowledged → investigating → resolved | false_positive"

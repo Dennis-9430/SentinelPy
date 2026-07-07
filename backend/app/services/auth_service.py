@@ -1,7 +1,7 @@
 """Servicio de autenticación: crear usuarios, validar credenciales, JWT."""
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import jwt
@@ -38,7 +38,9 @@ class AuthService:
 
     # ── User CRUD ────────────────────────────────────────────────────────
 
-    async def crear_usuario(self, username: str, password: str, role: str = "analyst") -> User:
+    async def crear_usuario(
+        self, username: str, password: str, role: str = "analyst"
+    ) -> User:
         """Crea un nuevo usuario con password hasheada.
 
         Normaliza el username a minúsculas sin espacios. Si el usuario
@@ -121,7 +123,7 @@ class AuthService:
         Retorna:
             String con el JWT firmado.
         """
-        expira = datetime.now(timezone.utc) + timedelta(
+        expira = datetime.now(UTC) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
         payload = {
@@ -149,9 +151,7 @@ class AuthService:
             Payload del token si es válido, None si expiró o es inválido.
         """
         try:
-            payload = jwt.decode(
-                token, secret_key, algorithms=[settings.jwt_algorithm]
-            )
+            payload = jwt.decode(token, secret_key, algorithms=[settings.jwt_algorithm])
             return payload
         except jwt.ExpiredSignatureError:
             logger.warning("Token expirado")
