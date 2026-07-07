@@ -88,14 +88,18 @@ class AgentService:
     async def listar_agentes(
         self,
         solo_activos: bool = False,
+        page: int = 1,
+        per_page: int = 10,
     ) -> tuple[list[Agent], int]:
-        """Lista agentes registrados, opcionalmente solo los activos.
+        """Lista agentes registrados con paginación, opcionalmente solo los activos.
 
         Args:
             solo_activos: Si True, filtra solo agentes con active=True.
+            page: Número de página (empieza en 1).
+            per_page: Cantidad de agentes por página.
 
         Returns:
-            Tupla (lista de agentes, total).
+            Tupla (lista de agentes de la página actual, total de agentes).
         """
         query = select(Agent).order_by(Agent.created_at.desc())
         count_query = select(func.count(Agent.id))
@@ -107,6 +111,7 @@ class AgentService:
         total_result = await self.session.execute(count_query)
         total = total_result.scalar() or 0
 
+        query = query.limit(per_page).offset((page - 1) * per_page)
         result = await self.session.execute(query)
         agentes = list(result.scalars().all())
 

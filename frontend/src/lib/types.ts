@@ -132,6 +132,8 @@ export interface Agent {
 export interface AgentsResponse {
   agents: Agent[]
   total: number
+  page: number
+  per_page: number
 }
 
 export interface CreateAgentPayload {

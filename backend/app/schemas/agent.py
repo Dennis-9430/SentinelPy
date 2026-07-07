@@ -77,7 +77,9 @@ class AgentCreateResponse(AgentRead):
 
 
 class AgentList(BaseModel):
-    """Esquema de listado de agentes con total."""
+    """Esquema de listado de agentes paginado con total."""
 
     agents: list[AgentRead]
     total: int
+    page: int = 1
+    per_page: int = 10

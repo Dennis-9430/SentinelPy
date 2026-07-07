@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api"
 import type { AgentsResponse, DeactivateAgentResponse } from "@/lib/types"
@@ -67,15 +67,28 @@ export default function AgentsPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
+  const [page, setPage] = useState(1)
+  const perPage = 10
 
   // ── Fetch agents ────────────────────────────────────────────────────
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["agents"],
-    queryFn: () => apiFetch<AgentsResponse>("/admin/agents"),
+    queryKey: ["agents", page, perPage],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), per_page: String(perPage) })
+      return apiFetch<AgentsResponse>(`/admin/agents?${params}`)
+    },
     placeholderData: (prev) => prev,
   })
 
   const agents = data?.agents ?? []
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / data.per_page)) : 1
+
+  // Reset to page 1 if current page exceeds total (e.g., after deactivation)
+  useEffect(() => {
+    if (data && page > totalPages) {
+      setPage(1)
+    }
+  }, [data, page, totalPages])
 
   // ── Deactivate mutation ─────────────────────────────────────────────
   const deactivateMutation = useMutation({
@@ -220,6 +233,41 @@ export default function AgentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Pagination ─────────────────────────────────────────────── */}
+      {data && !isLoading && !isError && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Total: <span className="font-medium">{data.total}</span> agente
+            {data.total !== 1 ? "s" : ""}
+          </p>
+
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="text-xs font-normal">
+              Página {page} de {totalPages}
+            </Badge>
+
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Create Agent Dialog ──────────────────────────────────── */}
       <CreateAgentDialog open={createOpen} onOpenChange={setCreateOpen} />

@@ -6,7 +6,7 @@ Todos los endpoints requieren rol admin autenticado.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_admin
@@ -30,18 +30,25 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 async def listar_agentes(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
+    page: int = Query(1, ge=1, description="Número de página"),
+    per_page: int = Query(10, ge=1, le=100, description="Agentes por página"),
 ):
-    """Lista todos los agentes registrados (activos e inactivos).
+    """Lista todos los agentes registrados con paginación (activos e inactivos).
 
     Solo accesible para administradores autenticados.
     Nunca expone api_key_hash ni api_key_raw.
     """
     service = AgentService(session)
-    agentes, total = await service.listar_agentes()
+    agentes, total = await service.listar_agentes(
+        page=page,
+        per_page=per_page,
+    )
 
     return AgentList(
         agents=[AgentRead.model_validate(a) for a in agentes],
         total=total,
+        page=page,
+        per_page=per_page,
     )
 
 
