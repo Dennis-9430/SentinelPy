@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from typing import Optional
 
@@ -28,6 +29,8 @@ class AgentConfig(BaseModel):
     heartbeat_interval: float = 30.0
     queue_max_size: int = 10000
     watches: list[WatchConfig] = []
+    verify_ssl: bool = True
+    server_ca_path: Optional[str] = None
 
     @classmethod
     def from_toml(cls, path: str) -> "AgentConfig":
@@ -35,6 +38,9 @@ class AgentConfig(BaseModel):
 
         The TOML file may use nested sections like [watcher] and [sender]
         whose keys are flattened into the top-level model.
+
+        Supports environment variable overrides:
+        - ``SENTINEL_VERIFY_SSL`` — overrides ``verify_ssl``
         """
         with open(path, "rb") as f:
             data = tomllib.load(f)
@@ -45,4 +51,11 @@ class AgentConfig(BaseModel):
                 data.update(data[section])
                 del data[section]
 
-        return cls(**data)
+        config = cls(**data)
+
+        # Env var override
+        verify_ssl_env = os.environ.get("SENTINEL_VERIFY_SSL")
+        if verify_ssl_env is not None:
+            config.verify_ssl = verify_ssl_env.lower() in ("1", "true", "yes")
+
+        return config

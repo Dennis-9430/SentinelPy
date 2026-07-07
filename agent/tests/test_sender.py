@@ -1,5 +1,7 @@
 """Tests for agent.sender — HTTP batch sender with backoff and heartbeat."""
 
+import logging
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 from uuid import uuid4
@@ -195,3 +197,77 @@ class TestEventSender:
         await sender.close()
         assert sender._http_client is None
         old_client.aclose.assert_awaited_once()
+
+    # ── SSL/TLS options ───────────────────────────────────────────────────────
+
+    @patch("httpx.AsyncClient")
+    def test_verify_ssl_true_default_passes_no_verify(self, mock_client):
+        """Default verify_ssl=True creates client without explicit verify arg."""
+        s = EventSender(
+            server_url="http://localhost:8000",
+            api_key="key",
+            hostname="host",
+        )
+        s._get_client()
+        mock_client.assert_called_once_with(timeout=30.0)
+
+    @patch("httpx.AsyncClient")
+    def test_verify_ssl_false_passes_verify_false(self, mock_client):
+        """verify_ssl=False passes verify=False to AsyncClient."""
+        s = EventSender(
+            server_url="http://localhost:8000",
+            api_key="key",
+            hostname="host",
+            verify_ssl=False,
+        )
+        s._get_client()
+        mock_client.assert_called_once_with(timeout=30.0, verify=False)
+
+    @patch("httpx.AsyncClient")
+    def test_ca_path_passed_as_verify(self, mock_client):
+        """ca_path is passed as verify= to AsyncClient."""
+        s = EventSender(
+            server_url="http://localhost:8000",
+            api_key="key",
+            hostname="host",
+            verify_ssl=True,
+            ca_path="/etc/ssl/certs/ca.pem",
+        )
+        s._get_client()
+        mock_client.assert_called_once_with(
+            timeout=30.0, verify="/etc/ssl/certs/ca.pem"
+        )
+
+    @patch("httpx.AsyncClient")
+    def test_reconnect_uses_tls_settings(self, mock_client):
+        """reconnect respects verify_ssl and ca_path settings."""
+        s = EventSender(
+            server_url="http://localhost:8000",
+            api_key="key",
+            hostname="host",
+            verify_ssl=False,
+        )
+
+        async def fake_reconnect():
+            await s.reconnect()
+
+        import asyncio
+        asyncio.run(fake_reconnect())
+
+        # Second client creation should also use verify=False
+        assert mock_client.call_count == 1
+        mock_client.assert_called_with(timeout=30.0, verify=False)
+
+    @pytest.mark.asyncio
+    async def test_verify_ssl_false_logs_warning(self, caplog):
+        """verify_ssl=False emits a warning log."""
+        caplog.set_level(logging.WARNING)
+        s = EventSender(
+            server_url="http://localhost:8000",
+            api_key="key",
+            hostname="host",
+            verify_ssl=False,
+        )
+        # Trigger client creation
+        await s.send_heartbeat()
+        assert any("SSL verification is disabled" in msg for msg in caplog.messages)

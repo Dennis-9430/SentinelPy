@@ -63,6 +63,8 @@ class Agent:
             heartbeat_interval=config.heartbeat_interval,
             os_name=platform.system().lower() or "unknown",
             agent_version="1.0.0",
+            verify_ssl=config.verify_ssl,
+            ca_path=config.server_ca_path,
         )
 
     # ── Lifecycle ────────────────────────────────────────────────────────────

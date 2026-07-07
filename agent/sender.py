@@ -7,10 +7,13 @@ periodic heartbeats via POST /api/v2/agent/heartbeat.
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from typing import Any, Optional
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class EventSender:
@@ -30,6 +33,8 @@ class EventSender:
         heartbeat_interval: float = 30.0,
         os_name: str = "unknown",
         agent_version: str = "0.1.0",
+        verify_ssl: bool = True,
+        ca_path: str | None = None,
     ):
         self._server_url = server_url.rstrip("/")
         self._api_key = api_key
@@ -39,15 +44,29 @@ class EventSender:
         self._batch_size = batch_size
         self._batch_interval = batch_interval
         self._heartbeat_interval = heartbeat_interval
+        self._verify_ssl = verify_ssl
+        self._ca_path = ca_path
 
         self.buffer: list[dict] = []
         self._http_client: Optional[httpx.AsyncClient] = None
         self._max_retries = 5
 
+    def _make_client(self) -> httpx.AsyncClient:
+        """Create a new HTTP client with the configured TLS settings."""
+        kwargs: dict[str, Any] = {"timeout": 30.0}
+        if not self._verify_ssl:
+            kwargs["verify"] = False
+            logger.warning(
+                "SSL verification is disabled — do not use in production"
+            )
+        elif self._ca_path is not None:
+            kwargs["verify"] = self._ca_path
+        return httpx.AsyncClient(**kwargs)
+
     def _get_client(self) -> httpx.AsyncClient:
         """Return the HTTP client, creating it lazily if needed."""
         if self._http_client is None:
-            self._http_client = httpx.AsyncClient(timeout=30.0)
+            self._http_client = self._make_client()
         return self._http_client
 
     # ── Batching ─────────────────────────────────────────────────────────────
@@ -102,7 +121,7 @@ class EventSender:
                     continue
                 return False
 
-            except (httpx.HTTPError, OSError) as exc:
+            except (httpx.HTTPError, OSError):
                 if attempt < self._max_retries:
                     delay = self._get_backoff(attempt)
                     await asyncio.sleep(delay)
@@ -139,7 +158,7 @@ class EventSender:
                 await self._http_client.aclose()
             except Exception:
                 pass
-        self._http_client = httpx.AsyncClient(timeout=30.0)
+        self._http_client = self._make_client()
 
     async def close(self) -> None:
         """Close the HTTP client."""
