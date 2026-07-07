@@ -8,9 +8,10 @@ import csv
 import io
 import logging
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
+from app.logging_config import setup_logging
+
+setup_logging()
+
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 

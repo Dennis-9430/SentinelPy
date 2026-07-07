@@ -18,6 +18,9 @@ testcontainers[postgres]>=4.9.0
 # Linting / Formato
 ruff>=0.9.0
 
+# Logging estructurado JSON
+python-json-logger>=2.0.0
+
 # Autenticación
 passlib[bcrypt]>=1.7.4
 bcrypt>=4.0.0,<4.1

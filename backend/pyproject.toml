@@ -33,7 +33,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*.py" = ["N802", "N803", "N806", "F841"]  # tests: naming relajado, vars no usadas son OK
 "scripts/*.py" = ["F841", "E402"]  # scripts: import tardío es necesario para sys.path
-"app/main.py" = ["E402"]  # main.py: imports despues de logging.basicConfig
+"app/main.py" = ["E402"]  # main.py: imports tardíos (os dentro de función, etc.)
 "tests/test_e2e_agent.py" = ["E402", "SIM105"]  # e2e: import tardío para agent/ + suppress OK
 
 [tool.ruff.format]

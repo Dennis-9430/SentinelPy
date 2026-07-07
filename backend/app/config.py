@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str = "admin123"
 
+    # ── Logging ─────────────────────────────────────────────────────────
+    log_level: str = "INFO"
+
     # ── Colector syslog ──────────────────────────────────────────────────
     syslog_host: str = "0.0.0.0"  # Escucha en todas las interfaces
     syslog_port: int = 5140  # Puerto no privilegiado (el 514 requiere sudo)
