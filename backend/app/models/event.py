@@ -7,6 +7,7 @@ Cada fila es un evento individual con campos normalizados para búsqueda y corre
 from datetime import datetime
 
 from sqlalchemy import DateTime, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -95,6 +96,13 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
     raw_log: Mapped[str | None] = mapped_column(
         Text,
         comment="Log original sin procesar, para forensia",
+    )
+
+    # ── Datos de análisis ─────────────────────────────────────────────────
+    analysis_data: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Resultados de análisis: z-scores, ML scores, etc.",
     )
 
     # ── Índices compuestos para consultas frecuentes ─────────────────────

@@ -150,3 +150,40 @@ export interface CreateAgentResponse {
 export interface DeactivateAgentResponse {
   mensaje: string
 }
+
+// ── Análisis / IA (Slice 1) ──────────────────────────────────────────────
+
+export interface AnalysisAlert {
+  id: string
+  source: string
+  collector_type: string
+  event_type: string
+  severity: string
+  description: string | null
+  source_ip: string | null
+  destination_ip: string | null
+  source_port: number | null
+  destination_port: number | null
+  user_name: string | null
+  event_timestamp: string
+  analysis_data: {
+    zscores?: Record<string, number>
+    ml_score?: number
+  } | null
+}
+
+export interface RiskScore {
+  entity_key: string
+  risk_score: number
+  updated_at: string | null
+}
+
+export interface AnomaliesResponse {
+  anomalies: AnalysisAlert[]
+  total: number
+}
+
+export interface RisksResponse {
+  risks: RiskScore[]
+  total: number
+}

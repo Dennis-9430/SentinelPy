@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 
 from app.api import admin as admin_router
 from app.api import agents as agents_router
-from app.api import alerts, events, rules
+from app.api import alerts, analysis, events, rules
 from app.api import auth as auth_router
 from app.api import users as users_router
 from app.config import settings
@@ -30,6 +30,7 @@ from app.models.user import User  # noqa: F401 — usado por seed en lifespan
 from app.services.auth_service import AuthService
 from app.services.engine import CorrelationEngine
 from app.services.notifier import ConsoleNotifier, MultiNotifier
+from app.services.analysis_service import AnalysisService
 from app.services.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
@@ -179,6 +180,19 @@ async def lifespan(app: FastAPI):
     app.state.notifier = multi_notifier
     logger.info("Notificadores configurados")
 
+    # ── Inicializar servicio de análisis ─────────────────────────────────
+    try:
+        from app.database import async_session as db_session
+
+        analysis_service = AnalysisService(db_session)
+        await analysis_service.init_async()
+        app.state.analysis_service = analysis_service
+        pipeline.analysis_service = analysis_service
+        logger.info("Servicio de análisis inicializado")
+    except Exception as e:
+        logger.warning("No se pudo inicializar análisis: %s", e)
+        app.state.analysis_service = None
+
     # ── Iniciar colector syslog ──────────────────────────────────────────
     try:
         from app.services.collector import SyslogCollector
@@ -228,6 +242,7 @@ app.include_router(auth_router.router)
 app.include_router(users_router.router)
 app.include_router(admin_router.router)
 app.include_router(agents_router.router)
+app.include_router(analysis.router)
 
 # ═════════════════════════════════════════════════════════════════════════
 # PÁGINAS DEL DASHBOARD WEB (Server-Side Rendering)

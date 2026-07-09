@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     webhook_url: str = ""
     notify_min_severity: str = "high"  # critical | high | medium | low
 
+    # ── Análisis estadístico (Slice 1) ────────────────────────────────────
+    analysis_enabled: bool = True
+    analysis_baseline_window_minutes: int = 60
+    analysis_decay_rate: float = 0.5
+    analysis_max_risk: float = 1.0
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

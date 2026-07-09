@@ -2,9 +2,10 @@
 
 El pipeline es el "middleware" interno de SentinelPy. Recibe logs crudos
 de cualquier colector, los parsea según su formato, y los persiste.
-También los envía al motor de correlación (cuando esté implementado).
+También los envía al motor de correlación y al servicio de análisis.
 """
 
+import asyncio
 import logging
 
 from app.database import async_session as _default_session
@@ -18,21 +19,24 @@ class Pipeline:
 
     Flujo:
         Colector → Pipeline.process(raw) → Parser.detect() → Parser.parse() → DB
+        → (async) AnalysisService.analyze() → Engine.evaluate()
 
     Detecta automáticamente si el log es JSON o syslog según el primer carácter.
     """
 
-    def __init__(self, engine=None, session_factory=None):
+    def __init__(self, engine=None, session_factory=None, analysis_service=None):
         """Inicializa los parsers disponibles.
 
         Argumentos:
             engine: Instancia opcional de CorrelationEngine para evaluación.
             session_factory: async_sessionmaker para persistencia.
                 Por defecto usa app.database.async_session.
+            analysis_service: Instancia opcional de AnalysisService para análisis.
         """
         self.syslog_parser = SyslogParser()
         self.json_parser = JSONParser()
         self.engine = engine
+        self.analysis_service = analysis_service
         self._session_factory = session_factory or _default_session
 
     async def process(self, raw: str, origen: tuple | None = None) -> dict | None:
@@ -79,6 +83,15 @@ class Pipeline:
                 evento.severity,
                 evento.source,
             )
+
+            # ── Análisis estadístico (fire-and-forget) ──────────────────
+            if self.analysis_service:
+                evento_dict = self._evento_to_dict(evento)
+                asyncio.create_task(
+                    self.analysis_service.analyze(
+                        str(evento.id), evento_dict
+                    )
+                )
 
             # ── Evaluar contra el motor de correlación ──────────────────
             if self.engine:
@@ -146,6 +159,16 @@ class Pipeline:
 
         # Guardar en base de datos
         evento = await self._guardar_evento(datos)
+
+        if evento:
+            # ── Análisis estadístico (fire-and-forget) ──────────────────
+            if self.analysis_service:
+                evento_dict_analysis = self._evento_to_dict(evento)
+                asyncio.create_task(
+                    self.analysis_service.analyze(
+                        str(evento.id), evento_dict_analysis
+                    )
+                )
 
         if evento and self.engine:
             evento_dict = self._evento_to_dict(evento)
