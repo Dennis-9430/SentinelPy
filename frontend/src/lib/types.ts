@@ -43,6 +43,30 @@ export interface Alert {
   description: string | null
   created_at: string
   resolved_at: string | null
+  group_key: string | null
+  group_name: string | null
+  risk_score: number | null
+}
+
+export interface AlertGroupItem {
+  group_key: string
+  group_name: string
+  alert_count: number
+  max_severity: string
+  risk_score: number | null
+  alerts: Array<{
+    id: string
+    title: string
+    severity: string
+    status: string
+    event_count: number
+    created_at: string
+  }>
+}
+
+export interface AlertGroupsResponse {
+  groups: AlertGroupItem[]
+  total: number
 }
 
 export interface AlertsResponse {

@@ -58,6 +58,88 @@ async def listar_alertas(
     }
 
 
+@router.get("/groups", response_model=dict)
+async def listar_grupos_alertas(
+    session: AsyncSession = Depends(get_session),
+):
+    """Lista alertas agrupadas por group_key.
+
+    Returns:
+    {
+        "groups": [
+            {
+                "group_key": "uuid:192.168.1.1",
+                "group_name": "Brute Force from 192.168.1.1",
+                "alert_count": 5,
+                "max_severity": "high",
+                "risk_score": 0.75,
+                "alerts": [... alert objects ...]
+            }
+        ],
+        "total": number_of_groups
+    }
+    """
+    from collections import defaultdict
+
+    from sqlalchemy import select
+
+    from app.models.alert import Alert
+
+    # Query open alerts with group_key set
+    result = await session.execute(
+        select(Alert).where(
+            Alert.status.in_(["open", "acknowledged", "investigating"]),
+            Alert.group_key.isnot(None),
+        ).order_by(Alert.created_at.desc())
+    )
+    open_alerts = list(result.scalars().all())
+
+    if not open_alerts:
+        return {"groups": [], "total": 0}
+
+    # Group by group_key
+    groups_map: dict[str, list[Alert]] = defaultdict(list)
+    for a in open_alerts:
+        groups_map[a.group_key].append(a)
+
+    # Severity ranking for max_severity
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
+    groups = []
+    for gk, alerts in groups_map.items():
+        max_sev = min(
+            (a.severity for a in alerts),
+            key=lambda s: severity_order.get(s, 5),
+        )
+        risk = next((a.risk_score for a in alerts if a.risk_score is not None), None)
+
+        groups.append({
+            "group_key": gk,
+            "group_name": alerts[0].group_name or "",
+            "alert_count": len(alerts),
+            "max_severity": max_sev,
+            "risk_score": risk,
+            "alerts": [
+                {
+                    "id": str(a.id),
+                    "rule_id": str(a.rule_id),
+                    "title": a.title,
+                    "severity": a.severity,
+                    "description": (a.description[:200] if a.description else ""),
+                    "status": a.status,
+                    "group_key": a.group_key,
+                    "group_name": a.group_name,
+                    "risk_score": a.risk_score,
+                    "event_count": a.event_count,
+                    "created_at": a.created_at.isoformat(),
+                }
+                for a in alerts
+            ],
+        })
+
+    return {"groups": groups, "total": len(groups)}
+
+
 @router.get("/{alerta_id}", response_model=dict)
 async def obtener_alerta(
     alerta_id: str,

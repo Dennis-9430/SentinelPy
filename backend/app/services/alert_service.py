@@ -5,9 +5,11 @@ Este servicio solo permite consultarlas y actualizar su estado.
 """
 
 import logging
+from collections import defaultdict
 from datetime import UTC, datetime
+from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.alert import Alert
@@ -217,3 +219,78 @@ class AlertService:
             "alertas_abiertas": abiertas,
             "alertas_resueltas": resueltas,
         }
+
+    async def agrupar_alertas_abiertas(self) -> int:
+        """Agrupa alertas abiertas por group_key.
+
+        1. Query all open alerts (status IN open, acknowledged, investigating)
+        2. Group them by group_key (in Python, using defaultdict)
+        3. For each group:
+           - Set group_name = f"{rule_title} from {source_ip}"
+           - Set risk_score from entity_risks table (lookup entity_key = source_ip)
+           - Update all alerts in the group
+        4. Return count of alerts updated
+
+        The group_key format is "{rule_id}:{source_ip}".
+        """
+        # 1. Query open alerts with group_key set
+        result = await self.session.execute(
+            select(Alert).where(
+                Alert.status.in_(["open", "acknowledged", "investigating"]),
+                Alert.group_key.isnot(None),
+            )
+        )
+        open_alerts = list(result.scalars().all())
+
+        if not open_alerts:
+            return 0
+
+        # 2. Group by group_key
+        groups: dict[str, list[Alert]] = defaultdict(list)
+        for alerta in open_alerts:
+            groups[alerta.group_key].append(alerta)
+
+        # 3. For each group, derive group_name and risk_score
+        updated_count = 0
+
+        for group_key, alerts_in_group in groups.items():
+            # Extract source_ip from group_key (format: "{rule_id}:{source_ip}")
+            parts = group_key.split(":", 1)
+            source_ip = parts[1] if len(parts) == 2 else "unknown"
+
+            # Get rule title from the first alert's title
+            rule_title = alerts_in_group[0].title or "Unknown Rule"
+            group_name = f"{rule_title} from {source_ip}"
+
+            # Look up risk_score from entity_risks table
+            risk_score = None
+            try:
+                risk_result = await self.session.execute(
+                    text(
+                        "SELECT risk_score FROM entity_risks WHERE entity_key = :key"
+                    ),
+                    {"key": source_ip},
+                )
+                risk_row = risk_result.first()
+                if risk_row:
+                    risk_score = float(risk_row[0])
+            except Exception as e:
+                logger.debug(
+                    "No se pudo obtener risk_score para %s: %s", source_ip, e
+                )
+                await self.session.rollback()
+
+            # Update all alerts in this group
+            for alerta in alerts_in_group:
+                alerta.group_name = group_name
+                alerta.risk_score = risk_score
+                updated_count += 1
+
+        # 4. Commit all updates
+        await self.session.commit()
+        logger.info(
+            "Agrupación completada: %d alertas actualizadas en %d grupos",
+            updated_count,
+            len(groups),
+        )
+        return updated_count

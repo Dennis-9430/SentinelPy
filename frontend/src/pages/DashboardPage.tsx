@@ -13,9 +13,10 @@ import {
   Legend,
 } from "recharts"
 import { apiFetch } from "@/lib/api"
-import type { Event, EventStats, AlertStats } from "@/lib/types"
+import type { Event, EventStats, AlertStats, AnomaliesResponse, RisksResponse } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SeverityBadge } from "@/components/SeverityBadge"
+import { RiskBadge } from "@/components/RiskBadge"
 import {
   Table,
   TableBody,
@@ -125,10 +126,18 @@ export default function DashboardPage() {
         queryFn: () =>
           apiFetch<{ eventos: Event[]; total: number }>("/events?limite=10"),
       },
+      {
+        queryKey: ["anomalies-count"],
+        queryFn: () => apiFetch<AnomaliesResponse>("/analysis/anomalies?limite=1"),
+      },
+      {
+        queryKey: ["top-risks"],
+        queryFn: () => apiFetch<RisksResponse>("/analysis/risks?limite=5"),
+      },
     ],
   })
 
-  const [eventsStats, alertsStats, rulesData, recentEvents] = queries
+  const [eventsStats, alertsStats, rulesData, recentEvents, anomaliesData, topRisks] = queries
 
   // Computed stats
   const totalEvents = eventsStats.data
@@ -167,7 +176,7 @@ export default function DashboardPage() {
       <h1 className="text-2xl font-bold">Dashboard</h1>
 
       {/* ── Stat Cards ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatCard
           title="Eventos 24h"
           value={totalEvents}
@@ -191,6 +200,18 @@ export default function DashboardPage() {
           value={recentEvents.data?.total ?? 0}
           loading={recentEvents.isLoading}
           error={recentEvents.isError}
+        />
+        <StatCard
+          title="Anomalías"
+          value={anomaliesData.data?.total ?? 0}
+          loading={anomaliesData.isLoading}
+          error={anomaliesData.isError}
+        />
+        <StatCard
+          title="Entidades en riesgo"
+          value={topRisks.data?.total ?? 0}
+          loading={topRisks.isLoading}
+          error={topRisks.isError}
         />
       </div>
 
@@ -284,6 +305,43 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Top Risks ────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Entidades en Riesgo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {topRisks.isLoading ? (
+            <ChartSkeleton />
+          ) : topRisks.isError ? (
+            <ChartError message="Error al cargar riesgos" />
+          ) : (topRisks.data?.risks ?? []).length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Sin datos de riesgo
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Entidad</TableHead>
+                  <TableHead className="text-right">Riesgo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topRisks.data!.risks.map((risk) => (
+                  <TableRow key={risk.entity_key}>
+                    <TableCell className="font-mono text-sm">{risk.entity_key}</TableCell>
+                    <TableCell className="text-right">
+                      <RiskBadge score={risk.risk_score} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Recent Events Table ──────────────────────────────────── */}
       <Card>

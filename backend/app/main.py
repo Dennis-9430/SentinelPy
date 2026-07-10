@@ -49,6 +49,16 @@ async def crear_alerta_desde_engine(datos_alerta: dict) -> dict | None:
 
         async with db_session() as session:
             alerta = Alert(**datos_alerta)
+
+            # Derive group_key from alert data
+            source_ip = (
+                datos_alerta.get("source_ip")
+                or datos_alerta.get("source")
+                or "unknown"
+            )
+            rule_id = str(alerta.rule_id)
+            alerta.group_key = f"{rule_id}:{source_ip}"
+
             session.add(alerta)
             await session.commit()
             await session.refresh(alerta)
@@ -216,6 +226,9 @@ async def lifespan(app: FastAPI):
     if hasattr(app.state, "colector") and app.state.colector:
         await app.state.colector.stop()
         logger.info("Colectores detenidos")
+
+    if hasattr(app.state, "analysis_service") and app.state.analysis_service:
+        await app.state.analysis_service.shutdown()
 
     logger.info("SentinelPy detenido")
 

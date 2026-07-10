@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api"
-import type { AlertsResponse } from "@/lib/types"
+import type { AlertsResponse, AlertGroupsResponse } from "@/lib/types"
 import { useAuth } from "@/hooks/useAuth"
 import { Card, CardContent } from "@/components/ui/card"
 import { SeverityBadge } from "@/components/SeverityBadge"
@@ -26,8 +26,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  LayoutGrid,
+  List,
   Loader2,
 } from "lucide-react"
+import { RiskBadge } from "@/components/RiskBadge"
+import { AlertGroupRow } from "@/components/AlertGroup"
 
 const PAGE_SIZE = 20
 const ALL_VALUE = "__all__"
@@ -105,6 +109,7 @@ export default function AlertsPage() {
   const [page, setPage] = useState(0)
   const [severityFilter, setSeverityFilter] = useState(ALL_VALUE)
   const [statusFilter, setStatusFilter] = useState(ALL_VALUE)
+  const [viewMode, setViewMode] = useState<"flat" | "grouped">("flat")
 
   const desde = page * PAGE_SIZE
   const filterSeverity =
@@ -127,6 +132,13 @@ export default function AlertsPage() {
   const alertas = data?.alertas ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // ── Fetch groups ──────────────────────────────────────────────────
+  const { data: groupsData, isLoading: groupsLoading, isError: groupsError } = useQuery({
+    queryKey: ["alert-groups"],
+    queryFn: () => apiFetch<AlertGroupsResponse>("/alerts/groups"),
+    enabled: viewMode === "grouped",
+  })
 
   // ── PATCH status mutation with optimistic update ──────────────────
   const patchMutation = useMutation({
@@ -251,6 +263,23 @@ export default function AlertsPage() {
             </SelectContent>
           </Select>
 
+          <div className="flex rounded-md border">
+            <Button
+              variant={viewMode === "flat" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("flat")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "grouped" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("grouped")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
+
           <Button variant="outline" size="sm" asChild>
             <a href="/api/alerts/exportar" download>
               <Download className="mr-1 h-4 w-4" />
@@ -260,113 +289,149 @@ export default function AlertsPage() {
         </div>
       </div>
 
-      {/* ── Table ─────────────────────────────────────────────────── */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
-          ) : isError ? (
-            <div className="flex h-64 items-center justify-center">
-              <p className="text-sm text-destructive">
-                Error al cargar alertas
-              </p>
-            </div>
-          ) : alertas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <p className="text-sm text-muted-foreground">
-                No se encontraron alertas
-              </p>
-              {hasFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearFilters}
-                >
-                  Limpiar filtros
-                </Button>
-              )}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Regla</TableHead>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Severidad</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {alertas.map((alert) => {
-                  const isPending =
-                    patchMutation.isPending &&
-                    patchMutation.variables?.alertaId === alert.id
-                  const transitions =
-                    STATUS_TRANSITIONS[alert.status] ?? []
+      {/* ── Grouped View ──────────────────────────────────────────── */}
+      {viewMode === "grouped" ? (
+        <Card>
+          <CardContent className="p-0">
+            {groupsLoading ? (
+              <div className="flex h-64 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : groupsError ? (
+              <div className="flex h-64 items-center justify-center">
+                <p className="text-sm text-destructive">Error al cargar grupos</p>
+              </div>
+            ) : (groupsData?.groups ?? []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-16">
+                <p className="text-sm text-muted-foreground">No hay grupos de alertas</p>
+              </div>
+            ) : (
+              <div>
+                {groupsData!.groups.map((group) => (
+                  <AlertGroupRow key={group.group_key} group={group} />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        /* ── Flat table ──────────────────────────────────────────────── */
+        <Card>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="flex h-64 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : isError ? (
+              <div className="flex h-64 items-center justify-center">
+                <p className="text-sm text-destructive">
+                  Error al cargar alertas
+                </p>
+              </div>
+            ) : alertas.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-16">
+                <p className="text-sm text-muted-foreground">
+                  No se encontraron alertas
+                </p>
+                {hasFilters && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearFilters}
+                  >
+                    Limpiar filtros
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Regla</TableHead>
+                    <TableHead>Evento</TableHead>
+                    <TableHead>Severidad</TableHead>
+                    <TableHead>Riesgo</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {alertas.map((alert) => {
+                    const isPending =
+                      patchMutation.isPending &&
+                      patchMutation.variables?.alertaId === alert.id
+                    const transitions =
+                      STATUS_TRANSITIONS[alert.status] ?? []
 
-                  return (
-                    <TableRow key={alert.id}>
-                      <TableCell className="font-mono text-xs whitespace-nowrap">
-                        {formatTime(alert.created_at)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {shortId(alert.rule_id)}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {alert.title}
-                      </TableCell>
-                      <TableCell>
-                        <SeverityBadge severity={alert.severity} />
-                      </TableCell>
-                      <TableCell>{statusBadge(alert.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {isPending && (
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                          )}
-                          {isAdmin && transitions.length > 0 ? (
-                            <Select
-                              value={alert.status}
-                              onValueChange={(val) =>
-                                handleStatusTransition(alert.id, val)
-                              }
-                            >
-                              <SelectTrigger className="h-7 w-auto px-2 text-xs" size="sm">
-                                <SelectValue placeholder="Cambiar" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {transitions.map((st) => {
-                                  const cfg = STATUS_CONFIG[st] ?? {
-                                    label: st,
-                                    variant: "default" as const,
-                                  }
-                                  return (
-                                    <SelectItem key={st} value={st}>
-                                      {cfg.label}
-                                    </SelectItem>
-                                  )
-                                })}
-                              </SelectContent>
-                            </Select>
-                          ) : isAdmin ? (
-                            <span className="text-xs text-muted-foreground">
-                              Terminal
+                    return (
+                      <TableRow key={alert.id}>
+                        <TableCell className="font-mono text-xs whitespace-nowrap">
+                          {formatTime(alert.created_at)}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {shortId(alert.rule_id)}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {alert.title}
+                          {alert.group_name && (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({alert.group_name})
                             </span>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <SeverityBadge severity={alert.severity} />
+                        </TableCell>
+                        <TableCell>
+                          <RiskBadge score={alert.risk_score} />
+                        </TableCell>
+                        <TableCell>{statusBadge(alert.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {isPending && (
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            )}
+                            {isAdmin && transitions.length > 0 ? (
+                              <Select
+                                value={alert.status}
+                                onValueChange={(val) =>
+                                  handleStatusTransition(alert.id, val)
+                                }
+                              >
+                                <SelectTrigger className="h-7 w-auto px-2 text-xs" size="sm">
+                                  <SelectValue placeholder="Cambiar" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {transitions.map((st) => {
+                                    const cfg = STATUS_CONFIG[st] ?? {
+                                      label: st,
+                                      variant: "default" as const,
+                                    }
+                                    return (
+                                      <SelectItem key={st} value={st}>
+                                        {cfg.label}
+                                      </SelectItem>
+                                    )
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            ) : isAdmin ? (
+                              <span className="text-xs text-muted-foreground">
+                                Terminal
+                              </span>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Pagination ────────────────────────────────────────────── */}
       {total > PAGE_SIZE && (

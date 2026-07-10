@@ -7,7 +7,7 @@ Las alertas tienen un ciclo de vida: open → acknowledged → investigating →
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -78,4 +78,22 @@ class Alert(Base, TimestampMixin, UUIDMixin):
     resolution_notes: Mapped[str | None] = mapped_column(
         Text,
         comment="Notas del analista sobre la resolución",
+    )
+
+    # ── Agrupación ─────────────────────────────────────────────────────
+    group_key: Mapped[str | None] = mapped_column(
+        String(255),
+        index=True,
+        nullable=True,
+        comment="Clave de agrupación (rule_id:source_ip)",
+    )
+    group_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Nombre legible del grupo de alertas",
+    )
+    risk_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Score de riesgo de la entidad (0.0-1.0) copiado del EntityRiskStore",
     )

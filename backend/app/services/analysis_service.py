@@ -8,6 +8,7 @@ Implementa:
 Todas las operaciones de análisis son no-bloqueantes (fire-and-forget).
 """
 
+import asyncio
 import logging
 import math
 import statistics
@@ -319,6 +320,9 @@ class AnalysisService:
 
         # Seed baselines
         await self.seed_baselines()
+
+        # Iniciar background grouping task
+        await self._start_grouping_task()
 
         logger.info("AnalysisService inicializado")
 
@@ -632,6 +636,39 @@ class AnalysisService:
         total = len(all_risks)
         paginated = all_risks[offset : offset + limit]
         return paginated, total
+
+    # ── Background grouping task ─────────────────────────────────────────
+
+    async def _start_grouping_task(self):
+        """Start background alert grouping loop."""
+        self._grouping_task = asyncio.create_task(self._grouping_loop())
+
+    async def _grouping_loop(self):
+        """Background loop that groups open alerts every 60 seconds."""
+        while True:
+            try:
+                await asyncio.sleep(60)
+                async with self._session_factory() as session:
+                    from app.services.alert_service import AlertService
+
+                    alert_service = AlertService(session)
+                    updated = await alert_service.agrupar_alertas_abiertas()
+                    if updated > 0:
+                        logger.info("Grouping task: %d alerts updated", updated)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("Error in grouping task: %s", e, exc_info=True)
+                await asyncio.sleep(60)
+
+    async def shutdown(self):
+        """Cancel background tasks gracefully."""
+        if hasattr(self, "_grouping_task") and self._grouping_task:
+            self._grouping_task.cancel()
+            try:
+                await self._grouping_task
+            except asyncio.CancelledError:
+                pass
 
 
 
