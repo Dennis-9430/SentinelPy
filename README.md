@@ -31,23 +31,29 @@ SentinelPy es un Security Information and Event Management diseñado para entorn
 | **Notificaciones** | Email (SMTP) y webhook (Slack/Discord) para alertas de alta severidad |
 | **Exportación CSV** | Descarga de alertas filtradas en formato CSV |
 | **Modo producción** | Docker multi-stage con usuario no-root y SPA compilada |
+| **Remote Agent** | Cliente Python asyncio que monitorea logs y los envía al servidor vía API segura |
+| **Statistical Analysis** | Z-score baselines, entity risk scoring con decaimiento exponencial |
+| **Alert Grouping** | Agrupación automática de alertas por regla + IP fuente |
+| **ML Anomaly Detection** | IsolationForest para detección de anomalías (optional, graceful fallback) |
 
 ---
 
 ## Stack
 
-| Capa | Tecnología |
-|------|-----------|
-| Backend | Python 3.13+, FastAPI, Uvicorn |
-| Base de datos | PostgreSQL 16 + SQLAlchemy 2.0 (async) + asyncpg |
-| Migraciones | Alembic |
-| Frontend | React 19 + TypeScript + Vite 8 |
-| UI | shadcn/ui + Tailwind CSS v4 |
-| Estado/Server | TanStack Query + React Router v7 |
-| Charts | Recharts |
-| Testing | pytest + pytest-asyncio + testcontainers (backend) |
-| | Vitest + Testing Library (frontend) |
-| Contenedores | Docker + Docker Compose |
+| Capa | Tecnología | Detalle |
+|------|-----------|---------|
+| Backend | Python 3.13+, FastAPI, Uvicorn | |
+| Base de datos | PostgreSQL 16 + SQLAlchemy 2.0 (async) + asyncpg | |
+| Migraciones | Alembic | |
+| Frontend | React 19 + TypeScript + Vite 8 | |
+| UI | shadcn/ui + Tailwind CSS v4 | |
+| Estado/Server | TanStack Query + React Router v7 | |
+| Charts | Recharts | |
+| Testing | pytest + pytest-asyncio + testcontainers (backend) | |
+| | Vitest + Testing Library (frontend) | |
+| Contenedores | Docker + Docker Compose | |
+| ML | numpy + scikit-learn | IsolationForest (optional, graceful fallback) |
+| Agent | httpx + asyncio | Remote log ingestion client |
 
 ---
 
@@ -132,22 +138,29 @@ Esto genera:
                     ┌──────────────▼───────────────────┐
                     │       FastAPI (Uvicorn)          │
                     │  API REST · Auth JWT · Static    │
-                    └──────┬───────────────────┬───────┘
-                           │                   │
-              ┌────────────▼──────┐    ┌───────▼──────────┐
-              │  Correlation     │    │    PostgreSQL     │
-              │  Engine (reglas) │    │  (SQLAlchemy)     │
-              └────────▲─────────┘    └───────────────────┘
-                       │
-              ┌────────┴─────────┐
-              │   Pipeline       │
-              │  Parse → Engine  │
-              └────────▲─────────┘
-                       │
-              ┌────────┴─────────┐
-              │  SyslogCollector │
-              │  (puerto 5140)   │
-              └──────────────────┘
+                    └──────┬───────────┬───────────────┘
+                           │           │
+              ┌────────────▼──┐  ┌─────▼──────────────┐
+              │  Correlation  │  │  Analysis Service   │
+              │  Engine       │  │  · z-score baselines│
+              │  (reglas)     │  │  · entity risk      │
+              └───────▲──────┘  │  · alert grouping   │
+                      │         │  · ML (IsolationForest)│
+              ┌───────┴──────┐  └─────────────────────┘
+              │   Pipeline   │           │
+              │ Parse→Engine│           │
+              └───────▲──────┘           │
+                      │                  │
+              ┌───────┴──────┐  ┌────────▼────────────┐
+              │SyslogCollector│  │  PostgreSQL         │
+              │(puerto 5140) │  │  (SQLAlchemy async)  │
+              └──────────────┘  └─────────────────────┘
+                      ▲
+              ┌───────┴──────┐
+              │ Remote Agent │
+              │ (Python)     │
+              │ async + httpx│
+              └──────────────┘
 ```
 
 ### Flujo de datos
@@ -185,6 +198,14 @@ Esto genera:
 | `GET` | `/api/users` | Listar usuarios | admin |
 | `POST` | `/api/users` | Crear usuario | admin |
 | `PATCH` | `/api/users/{id}/deactivate` | Desactivar usuario | admin |
+| `GET` | `/api/analysis/anomalies` | Eventos con anomalías detectadas (z-scores) | ✅ |
+| `GET` | `/api/analysis/risks` | Scores de riesgo por entidad | ✅ |
+| `GET` | `/api/alerts/groups` | Alertas agrupadas por group_key | ✅ |
+| `POST` | `/api/v2/events` | Ingesta batch de eventos (agentes remotos) | API Key |
+| `POST` | `/api/v2/agent/heartbeat` | Heartbeat del agente remoto | API Key |
+| `GET` | `/api/agents` | Listar agentes remotos | admin |
+| `POST` | `/api/agents` | Crear agente remoto | admin |
+| `PATCH` | `/api/agents/{id}/deactivate` | Desactivar agente | admin |
 
 ---
 
@@ -246,12 +267,12 @@ pnpm dev
 ```bash
 # Backend (desde backend/)
 cd backend
-pytest -v              # 167+ tests
+pytest -v              # 121+ tests
 pytest -v -k toggle    # Solo tests de toggle
 
 # Frontend (desde frontend/)
 cd frontend
-pnpm test              # 4 tests (vitest)
+pnpm test              # 20 tests (vitest)
 pnpm test:watch        # Watch mode
 pnpm lint              # Oxlint
 ```
@@ -353,8 +374,8 @@ En `docs/` hay guías detalladas de cada fase del proyecto:
 | 06 | Autenticación y control de acceso (JWT + RBAC) | ✅ Completado |
 | 07 | Notificaciones (email + webhook) | ✅ Completado |
 | 08 | Configuración productiva (Docker multi-stage) | ✅ Completado |
-| 09 | **Agente remoto** — Colector liviano para endpoints | 📅 Planificado |
-| 10 | **IA y análisis** — Detección de anomalías con ML | 📅 Planificado |
+| 09 | **Agente remoto** — Colector liviano para endpoints | ✅ Completado |
+| 10 | **IA y análisis** — Detección de anomalías con ML | ✅ Completado |
 
 ### ✅ Lo que ya tiene el sistema
 
@@ -367,14 +388,26 @@ En `docs/` hay guías detalladas de cada fase del proyecto:
 - CRUD de reglas y usuarios desde la UI
 - Exportación de alertas a CSV
 - Notificaciones por email (SMTP) y webhook (Slack/Discord)
+- Remote Agent: cliente Python asyncio con watchdog, SQLite queue, httpx sender
+- Agentes autenticados via Bearer API key (bcrypt)
+- Ingesta batch v2 con rate limiting
+- Statistical analysis: z-score baselines, entity risk scoring con decaimiento
+- Alert grouping automático por regla + IP fuente
+- ML anomaly detection: IsolationForest con graceful fallback
+- Dashboard con cards de anomalías y top riesgos
 - Seed de datos de demostración
 - Docker multi-stage (frontend compilado, usuario no-root)
-- 167+ tests de backend + 4 tests de frontend
+- 121+ tests de backend + 20 tests de frontend
 
-### 📅 Próximos pasos
+### 🎯 Proyecto completado
 
-1. **Agente remoto** — Cliente liviano en Python que monitorea logs locales y los envía al servidor central vía API segura. Ideal para desplegar en servidores, firewalls, y endpoints Windows/Linux.
-2. **IA y análisis** — Detección de anomalías basada en comportamiento histórico (ML), generación automática de informes de seguridad, y recomendaciones de reglas.
+Las 10 fases del proyecto están completadas. El sistema incluye:
+- Ingesta de logs (syslog + agentes remotos)
+- Correlación en tiempo real con reglas configurables
+- Detección de anomalías con ML (IsolationForest)
+- Alertas con agrupación automática y scoring de riesgo
+- Dashboard React con charts, métricas, y gestión de alertas
+- Autenticación, RBAC, notificaciones, y exportación CSV
 
 ---
 
