@@ -1,0 +1,21 @@
+# state.yaml — DAG state for fase-10-ia-analisis
+# Managed by orchestrator. Do not edit manually.
+
+artifact_store:
+  mode: hybrid
+  backends: [engram, openspec]
+
+dag:
+  explore: completed
+  propose: completed
+  spec: completed
+  design: completed
+  tasks: completed
+  apply: completed
+  verify: completed
+  archive: completed
+
+change_name: fase-10-ia-analisis
+delivery_strategy: auto-chain
+chain_strategy: stacked-to-main
+mode: interactive
