@@ -1,0 +1,10 @@
+{"timestamp":"2026-07-10T10:00:00Z","level":"INFO","service":"auth","message":"User admin logged in successfully","source_ip":"192.168.1.100","user_name":"admin","event_type":"authentication"}
+{"timestamp":"2026-07-10T10:01:00Z","level":"WARNING","service":"auth","message":"Failed login attempt for user root","source_ip":"10.0.0.99","user_name":"root","event_type":"authentication"}
+{"timestamp":"2026-07-10T10:02:00Z","level":"WARNING","service":"auth","message":"Failed login attempt for user root","source_ip":"10.0.0.99","user_name":"root","event_type":"authentication"}
+{"timestamp":"2026-07-10T10:03:00Z","level":"WARNING","service":"auth","message":"Failed login attempt for user root","source_ip":"10.0.0.99","user_name":"root","event_type":"authentication"}
+{"timestamp":"2026-07-10T10:05:00Z","level":"INFO","service":"firewall","message":"Connection allowed from 192.168.1.50 to port 443","source_ip":"192.168.1.50","destination_port":443,"event_type":"firewall","protocol":"TCP"}
+{"timestamp":"2026-07-10T10:06:00Z","level":"ERROR","service":"app","message":"Database connection timeout","source_ip":"192.168.1.10","event_type":"system","duration":30.5,"bytes_sent":0,"bytes_received":0}
+{"timestamp":"2026-07-10T10:07:00Z","level":"INFO","service":"dns","message":"Resolved example.com to 93.184.216.34","source_ip":"192.168.1.20","event_type":"network","destination_ip":"93.184.216.34","source_port":53210,"destination_port":53}
+{"timestamp":"2026-07-10T10:08:00Z","level":"WARNING","service":"firewall","message":"Blocked connection from external IP","source_ip":"203.0.113.42","destination_port":22,"event_type":"firewall","protocol":"TCP"}
+{"timestamp":"2026-07-10T10:10:00Z","level":"INFO","service":"process","message":"nginx worker started","source_ip":"192.168.1.10","event_type":"process","process_name":"nginx","pid":1234}
+{"timestamp":"2026-07-10T10:12:00Z","level":"ERROR","service":"auth","message":"Brute force detected from external IP","source_ip":"198.51.100.23","user_name":"admin","event_type":"authentication","source_port":45123,"destination_port":22}
