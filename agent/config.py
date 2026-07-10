@@ -53,7 +53,17 @@ class AgentConfig(BaseModel):
 
         config = cls(**data)
 
-        # Env var override
+        # Env var overrides (SENTINEL_ prefix)
+        env_map = {
+            "SENTINEL_SERVER_URL": "server_url",
+            "SENTINEL_API_KEY": "api_key",
+            "SENTINEL_HOSTNAME": "hostname",
+        }
+        for env_key, field in env_map.items():
+            val = os.environ.get(env_key)
+            if val:
+                setattr(config, field, val)
+
         verify_ssl_env = os.environ.get("SENTINEL_VERIFY_SSL")
         if verify_ssl_env is not None:
             config.verify_ssl = verify_ssl_env.lower() in ("1", "true", "yes")

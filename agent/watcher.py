@@ -166,10 +166,11 @@ if watchdog_available:
 
         def poll(self) -> dict[str, list[str]]:
             result: dict[str, list[str]] = {}
-            # Process files flagged by watchdog events
-            modified = self._handler.modified.copy()
+            # Merge watchdog-flagged files with all watched files
+            # so we always read all files (not just modified ones)
+            paths_to_check = set(self._watched.keys()) | self._handler.modified.copy()
             self._handler.modified.clear()
-            for path in modified:
+            for path in paths_to_check:
                 if path in self._watched:
                     new_lines, new_offset = _read_new_lines(path, self._watched[path])
                     self._watched[path] = new_offset

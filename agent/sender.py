@@ -87,6 +87,32 @@ class EventSender:
 
     # ── HTTP operations ──────────────────────────────────────────────────────
 
+    # Field aliases: map common log field names to the API schema
+    _FIELD_ALIASES = {
+        "level": "severity",
+        "host": "source",
+        "hostname": "source",
+        "src_ip": "source_ip",
+        "dst_ip": "destination_ip",
+        "src_port": "source_port",
+        "dst_port": "destination_port",
+        "proc": "process_name",
+    }
+
+    def _normalize_event(self, event: dict) -> dict:
+        """Normalize field names using known aliases.
+
+        The server expects specific field names (severity, source_ip, etc).
+        Many log formats use different names (level, host, src_ip, etc).
+        This maps aliases to the canonical names without overwriting
+        fields that are already present.
+        """
+        normalized = dict(event)
+        for alias, canonical in self._FIELD_ALIASES.items():
+            if alias in normalized and canonical not in normalized:
+                normalized[canonical] = normalized.pop(alias)
+        return normalized
+
     async def send_batch(self, events: list[dict]) -> bool:
         """Send a batch of events to the server with retry logic.
 
@@ -98,17 +124,28 @@ class EventSender:
         """
         client = self._get_client()
 
+        # Normalize field names before sending
+        normalized = [self._normalize_event(e) for e in events]
+
         for attempt in range(self._max_retries + 1):
             try:
                 response = await client.post(
                     f"{self._server_url}/api/v2/events",
-                    json={"events": events, "hostname": self._hostname},
+                    json={"events": normalized, "hostname": self._hostname},
                     headers={"Authorization": f"Bearer {self._api_key}"},
                     timeout=30,
                 )
 
                 if response.status_code == 200:
                     return True
+
+                # 400 Bad Request — log and don't retry (bad data)
+                if response.status_code == 400:
+                    logger.warning(
+                        "Batch rejected (400): %s",
+                        response.text[:200],
+                    )
+                    return False
 
                 # 401/403 means the API key is invalid — don't retry
                 if response.status_code in (401, 403):

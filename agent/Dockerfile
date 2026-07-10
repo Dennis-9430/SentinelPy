@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ── Código del agente ────────────────────────────────────────────────────
-COPY . .
+COPY . agent/
 
 # ── Configuración por defecto ────────────────────────────────────────────
 # Montá tu config.toml en /etc/sentinelpy/config.toml o setea env vars
