@@ -28,3 +28,7 @@ PyJWT>=2.8.0
 
 # Notificaciones
 aiosmtplib>=3.0.0
+
+# ML (optional — graceful fallback if not installed)
+numpy>=1.26.0
+scikit-learn>=1.5.0

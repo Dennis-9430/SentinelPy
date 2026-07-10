@@ -19,19 +19,20 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
+from app.services.ml_engine import MLEngine
 
 logger = logging.getLogger(__name__)
 
 # ── Constantes de análisis ──────────────────────────────────────────────────
 
-CAMPOS_NUMERICOS = {
+CAMPOS_NUMERICOS = [
     "source_port",
     "destination_port",
     "event_count",
     "duration",
     "bytes_sent",
     "bytes_received",
-}
+]
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Funciones puras (testeables sin DB ni mocks)
@@ -305,6 +306,8 @@ class AnalysisService:
         self._baselines: dict[str, dict] = {}
         # entity_risk_store se inicializa en init_async
         self._risk_store: EntityRiskStore | None = None
+        # ML engine (optional — graceful fallback if deps missing)
+        self._ml_engine: Any | None = None
 
     async def init_async(self):
         """Inicializa el servicio: crea entity_risks table, carga riesgos y baselines.
@@ -320,6 +323,14 @@ class AnalysisService:
 
         # Seed baselines
         await self.seed_baselines()
+
+        # Initialize ML engine (optional — graceful fallback if deps missing)
+        try:
+            self._ml_engine = MLEngine(self._session_factory)
+            await self._ml_engine.init_async()
+        except Exception as e:
+            logger.warning("ML engine init failed: %s", e)
+            self._ml_engine = None
 
         # Iniciar background grouping task
         await self._start_grouping_task()
@@ -434,9 +445,22 @@ class AnalysisService:
             # 1. Calcular anomalías (z-scores)
             zscores = self._compute_event_zscores(evento_dict)
 
-            # 2. Persistir analysis_data en el evento
+            # 1.5 ML scoring (optional)
+            ml_score = None
+            if self._ml_engine and self._ml_engine.available:
+                ml_score = await self._ml_engine.score(evento_dict)
+
+            # 2. Build and persist analysis_data en el evento
+            analysis_data = {}
             if zscores:
-                await self._persist_analysis_data(evento_id, zscores)
+                analysis_data["zscores"] = zscores
+            if ml_score is not None:
+                analysis_data["ml_score"] = ml_score
+
+            if analysis_data:
+                await self._persist_analysis_data(
+                    evento_id, analysis_data
+                )
 
             # 3. Actualizar riesgo de entidad
             await self._update_entity_risk(evento_dict)
@@ -476,13 +500,13 @@ class AnalysisService:
         return zscores
 
     async def _persist_analysis_data(
-        self, evento_id: str, zscores: dict[str, float]
+        self, evento_id: str, analysis_data: dict[str, object]
     ):
-        """Persiste los z-scores en event.analysis_data (JSONB).
+        """Persiste analysis_data en event.analysis_data (JSONB).
 
         Argumentos:
             evento_id: UUID del evento.
-            zscores: Dict con {campo: zscore}.
+            analysis_data: Dict con datos de análisis (zscores, ml_score, etc.).
         """
         try:
             async with self._session_factory() as session:
@@ -495,13 +519,13 @@ class AnalysisService:
                 )
                 evento = result.scalar_one_or_none()
                 if evento:
-                    evento.analysis_data = {"zscores": zscores}
+                    evento.analysis_data = analysis_data
                     session.add(evento)
                     await session.commit()
                     logger.debug(
                         "Analysis data persistido para evento %s: %s",
                         evento_id,
-                        zscores,
+                        analysis_data,
                     )
         except Exception as e:
             logger.error(
@@ -669,6 +693,8 @@ class AnalysisService:
                 await self._grouping_task
             except asyncio.CancelledError:
                 pass
+        if self._ml_engine:
+            await self._ml_engine.shutdown()
 
 
 
