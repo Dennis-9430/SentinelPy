@@ -431,8 +431,12 @@ async def exportar_alertas_csv(
 # SPA Catch-All — Sirve el frontend para cualquier ruta no-API
 # ═════════════════════════════════════════════════════════════════════════
 # IMPORTANTE: Esta sección debe estar al FINAL del archivo, después de
-# TODAS las rutas de API. Usa un middleware 404 fallback + StaticFiles
-# para assets de Vite.
+# TODAS las rutas de API.
+#
+# Approach: Route-based catch-all. FastAPI registra rutas en orden, así
+# que los endpoints de API (`/api/*`, `/health`, etc.) matchean primero.
+# El `/{full_path:path}` al final solo captura lo que ningún endpoint
+# previo matcheó — archivos estáticos de Vite o rutas SPA.
 import os as _os
 
 from fastapi.responses import FileResponse
@@ -447,28 +451,45 @@ _spa_candidates = [
 _spa_dir = next((d for d in _spa_candidates if _os.path.isdir(d)), None)
 
 if _spa_dir:
-    # Montar los assets compilados por Vite (JS, CSS, imágenes, etc.)
-    # Se sirven primero para que archivos reales tengan prioridad.
-    app.mount(
-        "/",
-        StaticFiles(directory=_spa_dir, html=False),
-        name="spa_assets",
-    )
+    _spa_index = _os.path.join(_spa_dir, "index.html")
 
-    # Middleware fallback: si StaticFiles devuelve 404 y no es ruta API,
-    # servir index.html para que React Router maneje la ruta.
-    @app.middleware("http")
-    async def _spa_fallback(request: Request, call_next):
-        response = await call_next(request)
-        if (
-            response.status_code == 404
-            and not request.url.path.startswith("/api/")
-            and not request.url.path.startswith("/static/")
-        ):
-            index_path = _os.path.join(_spa_dir, "index.html")
-            if _os.path.isfile(index_path):
-                return FileResponse(index_path, media_type="text/html")
-        return response
+    # MIME types para assets de Vite
+    _MIME_TYPES: dict[str, str] = {
+        ".js": "application/javascript",
+        ".mjs": "application/javascript",
+        ".css": "text/css",
+        ".json": "application/json",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".svg": "image/svg+xml",
+        ".ico": "image/x-icon",
+        ".woff": "font/woff",
+        ".woff2": "font/woff2",
+        ".ttf": "font/ttf",
+        ".eot": "application/vnd.ms-fontobject",
+        ".webp": "image/webp",
+        ".map": "application/json",
+    }
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Sirve archivos estáticos de dist/ o fallback a index.html.
+
+        Las rutas de API (`/api/*`) y endpoints explícitos (`/health`,
+        etc.) ya están registrados ANTES de este catch-all, así que
+        FastAPI los matchea primero y nunca llegan acá.
+        """
+        # Servir archivo real desde dist/ si existe
+        candidate = _os.path.normpath(_os.path.join(_spa_dir, full_path))
+        if _os.path.isfile(candidate):
+            ext = _os.path.splitext(candidate)[1].lower()
+            mime = _MIME_TYPES.get(ext, "application/octet-stream")
+            return FileResponse(candidate, media_type=mime)
+
+        # Fallback: index.html para que React Router maneje la ruta
+        return FileResponse(_spa_index, media_type="text/html")
 
     logger.info("SPA catch-all activo desde: %s", _spa_dir)
 else:
