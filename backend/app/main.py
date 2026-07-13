@@ -160,22 +160,34 @@ async def lifespan(app: FastAPI):
                     existing = await agent_svc.obtener_por_api_key(
                         "spy_demo-key-change-me"
                     )
-                    if not existing:
+                    if existing:
+                        logger.info("Agente demo ya existe con key correcta")
+                    else:
+                        # Buscar por nombre — puede tener key vieja
                         from app.models.agent import Agent
                         from app.services.auth_service import AuthService as AS
+                        from sqlalchemy import select as _sel
 
-                        demo_hash = AS.hash_password("spy_demo-key-change-me")
-                        demo_agent = Agent(
-                            name="demo-agent",
-                            hostname="demo-agent",
-                            api_key_hash=demo_hash,
-                            active=True,
+                        result = await seed_session.execute(
+                            _sel(Agent).where(Agent.name == "demo-agent")
                         )
-                        seed_session.add(demo_agent)
-                        await seed_session.commit()
-                        logger.info("Agente demo creado con key: spy_demo-key-change-me")
-                    else:
-                        logger.info("Agente demo ya existe")
+                        found = result.scalar_one_or_none()
+                        demo_hash = AS.hash_password("spy_demo-key-change-me")
+                        if found:
+                            found.api_key_hash = demo_hash
+                            found.active = True
+                            await seed_session.commit()
+                            logger.info("Agente demo: key actualizada")
+                        else:
+                            demo_agent = Agent(
+                                name="demo-agent",
+                                hostname="demo-agent",
+                                api_key_hash=demo_hash,
+                                active=True,
+                            )
+                            seed_session.add(demo_agent)
+                            await seed_session.commit()
+                            logger.info("Agente demo creado con key: spy_demo-key-change-me")
                 except Exception as e:
                     logger.warning("No se pudo seedear agente demo: %s", e)
         except Exception as e:
