@@ -31,9 +31,7 @@ async def listar_anomalias(
         return {"anomalies": [], "total": 0}
 
     try:
-        anomalias, total = await service.get_anomalies(
-            limit=limite, offset=desde
-        )
+        anomalias, total = await service.get_anomalies(limit=limite, offset=desde)
         return {"anomalies": anomalias, "total": total}
     except Exception as e:
         logger.error("Error obteniendo anomalías: %s", e, exc_info=True)

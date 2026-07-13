@@ -87,10 +87,12 @@ async def listar_grupos_alertas(
 
     # Query open alerts with group_key set
     result = await session.execute(
-        select(Alert).where(
+        select(Alert)
+        .where(
             Alert.status.in_(["open", "acknowledged", "investigating"]),
             Alert.group_key.isnot(None),
-        ).order_by(Alert.created_at.desc())
+        )
+        .order_by(Alert.created_at.desc())
     )
     open_alerts = list(result.scalars().all())
 
@@ -113,29 +115,31 @@ async def listar_grupos_alertas(
         )
         risk = next((a.risk_score for a in alerts if a.risk_score is not None), None)
 
-        groups.append({
-            "group_key": gk,
-            "group_name": alerts[0].group_name or "",
-            "alert_count": len(alerts),
-            "max_severity": max_sev,
-            "risk_score": risk,
-            "alerts": [
-                {
-                    "id": str(a.id),
-                    "rule_id": str(a.rule_id),
-                    "title": a.title,
-                    "severity": a.severity,
-                    "description": (a.description[:200] if a.description else ""),
-                    "status": a.status,
-                    "group_key": a.group_key,
-                    "group_name": a.group_name,
-                    "risk_score": a.risk_score,
-                    "event_count": a.event_count,
-                    "created_at": a.created_at.isoformat(),
-                }
-                for a in alerts
-            ],
-        })
+        groups.append(
+            {
+                "group_key": gk,
+                "group_name": alerts[0].group_name or "",
+                "alert_count": len(alerts),
+                "max_severity": max_sev,
+                "risk_score": risk,
+                "alerts": [
+                    {
+                        "id": str(a.id),
+                        "rule_id": str(a.rule_id),
+                        "title": a.title,
+                        "severity": a.severity,
+                        "description": (a.description[:200] if a.description else ""),
+                        "status": a.status,
+                        "group_key": a.group_key,
+                        "group_name": a.group_name,
+                        "risk_score": a.risk_score,
+                        "event_count": a.event_count,
+                        "created_at": a.created_at.isoformat(),
+                    }
+                    for a in alerts
+                ],
+            }
+        )
 
     return {"groups": groups, "total": len(groups)}
 

@@ -110,9 +110,7 @@ def _compute_zscore(value: float, mean: float, std: float) -> float | None:
     return (value - mean) / std
 
 
-def _increment_risk(
-    current: float, increment: float, max_risk: float
-) -> float:
+def _increment_risk(current: float, increment: float, max_risk: float) -> float:
     """Incrementa un score de riesgo con cap en max_risk.
 
     Argumentos:
@@ -127,9 +125,7 @@ def _increment_risk(
     return min(nuevo, max_risk)
 
 
-def _decay_risk(
-    score: float, decay_rate: float, elapsed_seconds: float
-) -> float:
+def _decay_risk(score: float, decay_rate: float, elapsed_seconds: float) -> float:
     """Aplica decaimiento exponencial a un score de riesgo.
 
     Fórmula: score * exp(-decay_rate * elapsed_hours)
@@ -181,9 +177,7 @@ class EntityRiskStore:
                     self._risks[row[0]] = float(row[1])
                     self._timestamps[row[0]] = row[2]
                 if rows:
-                    logger.info(
-                        "Riesgos cargados desde DB: %d entidades", len(rows)
-                    )
+                    logger.info("Riesgos cargados desde DB: %d entidades", len(rows))
         except Exception as e:
             logger.warning("No se pudieron cargar riesgos desde DB: %s", e)
 
@@ -204,9 +198,7 @@ class EntityRiskStore:
             await self._persist(entity_key, 0.0)
         return self._risks[entity_key]
 
-    async def update_risk(
-        self, entity_key: str, increment: float
-    ) -> float:
+    async def update_risk(self, entity_key: str, increment: float) -> float:
         """Incrementa el riesgo de una entidad con write-through.
 
         Aplica decaimiento primero si pasó tiempo desde último update,
@@ -226,13 +218,9 @@ class EntityRiskStore:
         if entity_key in self._timestamps:
             elapsed = (ahora - self._timestamps[entity_key]).total_seconds()
             if elapsed > 0:
-                current = _decay_risk(
-                    current, settings.analysis_decay_rate, elapsed
-                )
+                current = _decay_risk(current, settings.analysis_decay_rate, elapsed)
 
-        nuevo = _increment_risk(
-            current, increment, settings.analysis_max_risk
-        )
+        nuevo = _increment_risk(current, increment, settings.analysis_max_risk)
 
         self._risks[entity_key] = nuevo
         self._timestamps[entity_key] = ahora
@@ -263,9 +251,7 @@ class EntityRiskStore:
                 )
                 await session.commit()
         except Exception as e:
-            logger.error(
-                "Error persistiendo riesgo para %s: %s", entity_key, e
-            )
+            logger.error("Error persistiendo riesgo para %s: %s", entity_key, e)
 
     def get_all_risks(self) -> list[dict]:
         """Retorna todos los riesgos en memoria para consulta.
@@ -395,9 +381,7 @@ class AnalysisService:
                     for campo in CAMPOS_NUMERICOS:
                         valor = getattr(ev, campo, None)
                         if _is_numeric(valor):
-                            valores_por_campo.setdefault(campo, []).append(
-                                float(valor)
-                            )
+                            valores_por_campo.setdefault(campo, []).append(float(valor))
 
                 # Calcular estadísticas por campo
                 for campo, valores in valores_por_campo.items():
@@ -459,9 +443,7 @@ class AnalysisService:
                 analysis_data["ml_score"] = ml_score
 
             if analysis_data:
-                await self._persist_analysis_data(
-                    evento_id, analysis_data
-                )
+                await self._persist_analysis_data(evento_id, analysis_data)
 
             # 3. Actualizar riesgo de entidad
             await self._update_entity_risk(evento_dict)
@@ -514,9 +496,7 @@ class AnalysisService:
                 from app.models.event import NormalizedEvent
 
                 result = await session.execute(
-                    select(NormalizedEvent).where(
-                        NormalizedEvent.id == evento_id
-                    )
+                    select(NormalizedEvent).where(NormalizedEvent.id == evento_id)
                 )
                 evento = result.scalar_one_or_none()
                 if evento:
@@ -602,15 +582,11 @@ class AnalysisService:
                        LIMIT :lim OFFSET :off"""
                 )
 
-                result = await session.execute(
-                    query, {"lim": limit, "off": offset}
-                )
+                result = await session.execute(query, {"lim": limit, "off": offset})
                 rows = result.fetchall()
 
                 count_result = await session.execute(
-                    text(
-                        "SELECT COUNT(*) FROM events WHERE analysis_data IS NOT NULL"
-                    )
+                    text("SELECT COUNT(*) FROM events WHERE analysis_data IS NOT NULL")
                 )
                 total = count_result.scalar() or 0
 
@@ -629,9 +605,7 @@ class AnalysisService:
                             "source_port": row[8],
                             "destination_port": row[9],
                             "user_name": row[10],
-                            "event_timestamp": row[11].isoformat()
-                            if row[11]
-                            else None,
+                            "event_timestamp": row[11].isoformat() if row[11] else None,
                             "analysis_data": row[12],
                         }
                     )
@@ -694,6 +668,3 @@ class AnalysisService:
                 await self._grouping_task
         if self._ml_engine:
             await self._ml_engine.shutdown()
-
-
-

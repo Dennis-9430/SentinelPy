@@ -88,9 +88,7 @@ class Pipeline:
             if self.analysis_service:
                 evento_dict = self._evento_to_dict(evento)
                 asyncio.create_task(
-                    self.analysis_service.analyze(
-                        str(evento.id), evento_dict
-                    )
+                    self.analysis_service.analyze(str(evento.id), evento_dict)
                 )
 
             # ── Evaluar contra el motor de correlación ──────────────────
@@ -163,9 +161,7 @@ class Pipeline:
         if evento and self.analysis_service:
             evento_dict_analysis = self._evento_to_dict(evento)
             asyncio.create_task(
-                self.analysis_service.analyze(
-                    str(evento.id), evento_dict_analysis
-                )
+                self.analysis_service.analyze(str(evento.id), evento_dict_analysis)
             )
 
         if evento and self.engine:

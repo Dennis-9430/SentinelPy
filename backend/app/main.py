@@ -52,9 +52,7 @@ async def crear_alerta_desde_engine(datos_alerta: dict) -> dict | None:
 
             # Derive group_key from alert data
             source_ip = (
-                datos_alerta.get("source_ip")
-                or datos_alerta.get("source")
-                or "unknown"
+                datos_alerta.get("source_ip") or datos_alerta.get("source") or "unknown"
             )
             rule_id = str(alerta.rule_id)
             alerta.group_key = f"{rule_id}:{source_ip}"
@@ -178,7 +176,9 @@ async def lifespan(app: FastAPI):
                             found.api_key_hash = demo_hash
                             found.active = True
                             await seed_session.commit()
-                            logger.info("Agente demo: key actualizada desde AGENT_API_KEY env")
+                            logger.info(
+                                "Agente demo: key actualizada desde AGENT_API_KEY env"
+                            )
                         else:
                             demo_agent = Agent(
                                 name="demo-agent",

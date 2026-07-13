@@ -168,9 +168,7 @@ class TestBaselineStats:
         valores = [10.0, 20.0, 30.0, 40.0, 50.0]
         mean, std = _compute_baseline_stats(valores)
         assert mean == pytest.approx(30.0)
-        assert std == pytest.approx(
-            15.811388, rel=1e-4
-        )  # population std with ddof=1
+        assert std == pytest.approx(15.811388, rel=1e-4)  # population std with ddof=1
 
     def test_valor_unico(self):
         """Un solo valor → mean es el valor, std es 0."""

@@ -264,18 +264,14 @@ class AlertService:
             risk_score = None
             try:
                 risk_result = await self.session.execute(
-                    text(
-                        "SELECT risk_score FROM entity_risks WHERE entity_key = :key"
-                    ),
+                    text("SELECT risk_score FROM entity_risks WHERE entity_key = :key"),
                     {"key": source_ip},
                 )
                 risk_row = risk_result.first()
                 if risk_row:
                     risk_score = float(risk_row[0])
             except Exception as e:
-                logger.debug(
-                    "No se pudo obtener risk_score para %s: %s", source_ip, e
-                )
+                logger.debug("No se pudo obtener risk_score para %s: %s", source_ip, e)
                 await self.session.rollback()
 
             # Update all alerts in this group

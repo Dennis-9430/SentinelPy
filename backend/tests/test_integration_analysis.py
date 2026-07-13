@@ -38,9 +38,7 @@ async def test_analysis_integration(session, async_engine):
     svc = AnalysisService(factory)
     await svc.init_async()
 
-    pipeline = Pipeline(
-        engine=None, session_factory=factory, analysis_service=svc
-    )
+    pipeline = Pipeline(engine=None, session_factory=factory, analysis_service=svc)
 
     # ═════════════════════════════════════════════════════════════════════
     # Test 1: Pipeline hook dispara analysis_data
@@ -98,9 +96,7 @@ async def test_analysis_integration(session, async_engine):
 
     async with factory() as s:
         result = await s.execute(
-            text(
-                "SELECT risk_score FROM entity_risks WHERE entity_key = '10.0.0.5'"
-            )
+            text("SELECT risk_score FROM entity_risks WHERE entity_key = '10.0.0.5'")
         )
         row = result.fetchone()
         assert row is not None, "Entity risk no fue persistido"
