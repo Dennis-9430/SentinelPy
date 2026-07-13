@@ -120,6 +120,20 @@ async def lifespan(app: FastAPI):
 
         async with db_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+            # ── Migraciones manuales (columnas faltantes) ──────────────
+            from sqlalchemy import text as sql_text
+
+            try:
+                await conn.execute(
+                    sql_text(
+                        "ALTER TABLE events ADD COLUMN IF NOT EXISTS "
+                        "analysis_data JSONB"
+                    )
+                )
+            except Exception:
+                pass  # Tabla no existe aún o DB diferente
+
         logger.info("Tablas de base de datos verificadas/creadas")
 
         # ── Seed usuario admin ──────────────────────────────────────────
@@ -137,6 +151,33 @@ async def lifespan(app: FastAPI):
                     logger.info("Admin creado: %s", admin_user.username)
                 except ValueError:
                     logger.info("Admin ya existe, omitiendo seed")
+
+                # ── Seed agente demo (para docker-compose) ────────────
+                try:
+                    from app.services.agent_service import AgentService
+
+                    agent_svc = AgentService(seed_session)
+                    existing = await agent_svc.obtener_por_api_key(
+                        "spy_demo-key-change-me"
+                    )
+                    if not existing:
+                        from app.models.agent import Agent
+                        from app.services.auth_service import AuthService as AS
+
+                        demo_hash = AS.hash_password("spy_demo-key-change-me")
+                        demo_agent = Agent(
+                            name="demo-agent",
+                            hostname="demo-agent",
+                            api_key_hash=demo_hash,
+                            active=True,
+                        )
+                        seed_session.add(demo_agent)
+                        await seed_session.commit()
+                        logger.info("Agente demo creado con key: spy_demo-key-change-me")
+                    else:
+                        logger.info("Agente demo ya existe")
+                except Exception as e:
+                    logger.warning("No se pudo seedear agente demo: %s", e)
         except Exception as e:
             logger.warning("No se pudo seedear admin: %s", e)
     except Exception as e:
