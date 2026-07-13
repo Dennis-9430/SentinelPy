@@ -12,7 +12,7 @@ from app.logging_config import setup_logging
 
 setup_logging()
 
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
@@ -118,17 +118,6 @@ async def lifespan(app: FastAPI):
 
         async with db_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-
-            # ── Migraciones manuales (columnas faltantes) ──────────────
-            from sqlalchemy import text as sql_text
-
-            with suppress(Exception):
-                await conn.execute(
-                    sql_text(
-                        "ALTER TABLE events ADD COLUMN IF NOT EXISTS "
-                        "analysis_data JSONB"
-                    )
-                )
 
         logger.info("Tablas de base de datos verificadas/creadas")
 

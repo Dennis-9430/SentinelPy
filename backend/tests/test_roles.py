@@ -151,7 +151,7 @@ class TestVerificarAdmin:
 
 
 @pytest.mark.asyncio
-async def test_api_rules_listar_sin_auth():
+async def test_api_rules_listar_sin_auth(run_migrations):
     """GET /api/rules sin auth — verifica que no requiera admin.
 
     NOTA: Este test necesita una base de datos PostgreSQL real para

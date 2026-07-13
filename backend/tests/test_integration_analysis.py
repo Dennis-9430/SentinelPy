@@ -16,15 +16,10 @@ from app.services.pipeline import Pipeline
 
 
 async def _prepare(async_engine):
-    """Agrega columnas faltantes y retorna una session factory."""
+    """Retorna una session factory para tests de integración."""
     factory = async_sessionmaker(
         async_engine, class_=AsyncSession, expire_on_commit=False
     )
-    async with factory() as s:
-        await s.execute(
-            text("ALTER TABLE events ADD COLUMN IF NOT EXISTS analysis_data JSONB")
-        )
-        await s.commit()
     return factory
 
 
