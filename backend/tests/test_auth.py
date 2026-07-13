@@ -215,10 +215,16 @@ async def test_health_check():
 
 @pytest.mark.asyncio
 async def test_spa_serves_index_html():
-    """Verifica que las rutas SPA devuelven index.html (modo SPA)."""
+    """Verifica que las rutas SPA devuelven index.html (modo SPA).
+
+    Se salta si frontend/dist no existe (CI backend-only runs).
+    """
     from httpx import ASGITransport, AsyncClient
 
-    from app.main import app
+    from app.main import _spa_dir, app
+
+    if _spa_dir is None:
+        pytest.skip("frontend/dist no disponible (build separado)")
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
