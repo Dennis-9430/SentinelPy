@@ -38,6 +38,66 @@ SentinelPy es un Security Information and Event Management diseñado para entorn
 
 ---
 
+## Caso de uso real
+
+### PyME de servicios IT (50 empleados)
+
+Una empresa gestiona servidores para clientes: 3 servidores Linux, 2 firewalls pfSense, 20 PCs Windows. No tiene visibilidad de seguridad — descubre brechas semanas después cuando un cliente se queja.
+
+### Solución con SentinelPy
+
+**Infraestructura** — un mini-server o VPS con Docker:
+```bash
+docker compose up -d
+# → API + DB + Frontend corriendo en un solo host
+```
+
+**Ingesta desde los equipos:**
+```bash
+# Servidores Linux: syslog apunta a SentinelPy
+echo "*.* @@192.168.1.100:5140" >> /etc/rsyslog.conf
+systemctl restart rsyslog
+
+# Firewalls pfSense: configurar remote syslog al mismo puerto
+
+# PCs Windows: agent Python como servicio
+# (monitorea Security Event Log + logs de aplicaciones)
+```
+
+**Reglas de correlación:**
+
+| Regla | Condición | Severidad |
+|-------|-----------|-----------|
+| Brute force SSH | ≥10 intentos fallidos en 5 min desde una IP | HIGH |
+| Login fuera de horario | Autenticaciones entre 22:00-06:00 | MEDIUM |
+| Firewall scan detectado | >100 bloqueos/min desde una IP | CRITICAL |
+| USB desconocido | Dispositivo nuevo en PCs críticas | HIGH |
+| Servidor caído | Heartbeat del agent no responde | CRITICAL |
+
+**Flujo diario del equipo de TI:**
+1. Abren el dashboard (`http://192.168.1.100:8000`)
+2. Ven cards: "3 eventos anómalos detectados", "IP 192.168.1.50 con risk score alto"
+3. El motor ML detecta que un servidor generó 3x más conexiones de lo normal → alerta agrupada
+4. Reciben notificación en Slack: `HIGH: Brute force desde 203.45.67.89 — 47 intentos`
+5. Exportan CSV de alertas para el reporte mensual al cliente
+
+**Roles:**
+- **Admin** (CTO): crea reglas, gestiona usuarios, configura notificaciones
+- **Analyst** (técnico de soporte): revisa dashboard, cambia estado de alertas, exporta CSV
+
+### ¿Por qué encaja SentinelPy?
+
+| Necesidad | SentinelPy |
+|-----------|-----------|
+| No puede pagar Splunk ($$$) | Open source, corre en un mini-server |
+| Ver todo en un panel | Dashboard React con métricas en vivo |
+| Logs de Linux + Windows + Firewall | Syslog collector + agent Python multiplataforma |
+| Alertas automáticas | Motor de correlación + notificaciones Slack/email |
+| Detección temprana | ML anomaly detection + risk scoring |
+| Cumplir auditorías | CSV export + RBAC con trazabilidad |
+
+---
+
 ## Stack
 
 | Capa | Tecnología | Detalle |
