@@ -4,8 +4,9 @@ Prueba el comportamiento del MLEngine tanto con ML disponible
 como sin dependencias (graceful fallback).
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestMLEngineAvailability:
@@ -110,8 +111,8 @@ class TestFeatureExtraction:
 
     def test_feature_vector_length(self):
         """Feature vector length matches CAMPOS_NUMERICOS."""
-        from app.services.ml_engine import MLEngine
         from app.services.analysis_service import CAMPOS_NUMERICOS
+        from app.services.ml_engine import MLEngine
 
         engine = MLEngine(session_factory=MagicMock())
 

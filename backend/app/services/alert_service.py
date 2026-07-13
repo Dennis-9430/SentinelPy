@@ -93,7 +93,6 @@ class AlertService:
         Retorna:
             Alert o None si no existe.
         """
-        from uuid import UUID
 
         try:
             result = await self.session.execute(
@@ -154,7 +153,6 @@ class AlertService:
         Retorna:
             La alerta actualizada, o None si no encontró ninguna abierta.
         """
-        from uuid import UUID
 
         try:
             result = await self.session.execute(

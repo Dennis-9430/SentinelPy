@@ -7,11 +7,9 @@ Verifica la estructura de respuesta y agrupación de alertas por group_key.
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
 
 from app.services.alert_service import AlertService
 from app.services.rule_service import RuleService
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -130,7 +128,7 @@ class TestAlertGroupsEndpoint:
         """Agrupa correctamente alertas con el mismo group_key."""
         service = AlertService(session)
 
-        for i in range(3):
+        for _i in range(3):
             datos = _alerta_base(rule_id)
             datos["group_key"] = f"{rule_id}:10.0.0.1"
             datos["group_name"] = "Port Scan Detection from 10.0.0.1"

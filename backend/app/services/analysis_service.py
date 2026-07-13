@@ -9,6 +9,7 @@ Todas las operaciones de análisis son no-bloqueantes (fire-and-forget).
 """
 
 import asyncio
+import contextlib
 import logging
 import math
 import statistics
@@ -689,10 +690,8 @@ class AnalysisService:
         """Cancel background tasks gracefully."""
         if hasattr(self, "_grouping_task") and self._grouping_task:
             self._grouping_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._grouping_task
-            except asyncio.CancelledError:
-                pass
         if self._ml_engine:
             await self._ml_engine.shutdown()
 

@@ -7,7 +7,7 @@ AnalysisService en el pipeline de procesamiento.
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 
 logger = logging.getLogger(__name__)
 

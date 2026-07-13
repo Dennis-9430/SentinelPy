@@ -4,8 +4,9 @@ Verifica que el MLEngine se integra correctamente con AnalysisService
 y que los scores fluyen a analysis_data.
 """
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestMLIntegration:

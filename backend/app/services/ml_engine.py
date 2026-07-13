@@ -132,10 +132,10 @@ class MLEngine:
         """Synchronous prediction (runs in thread pool)."""
         if not ML_AVAILABLE or self._model is None:
             return 0.0
-        X = np.array([features])
-        X_scaled = self._scaler.transform(X)
+        x = np.array([features])
+        x_scaled = self._scaler.transform(x)
         # decision_function returns anomaly score (lower = more anomalous)
-        score = self._model.decision_function(X_scaled)[0]
+        score = self._model.decision_function(x_scaled)[0]
         return float(score)
 
     async def _train_model(self):
@@ -145,9 +145,11 @@ class MLEngine:
 
         try:
             async with self._session_factory() as session:
-                from app.models.event import NormalizedEvent
-                from sqlalchemy import select
                 from datetime import UTC, datetime, timedelta
+
+                from sqlalchemy import select
+
+                from app.models.event import NormalizedEvent
 
                 # Get last 1000 events for training
                 desde = datetime.now(UTC) - timedelta(hours=24)
@@ -167,10 +169,11 @@ class MLEngine:
                     return
 
                 # Build feature matrix
-                from app.services.analysis_service import CAMPOS_NUMERICOS
                 import numpy as local_np
 
-                X = []
+                from app.services.analysis_service import CAMPOS_NUMERICOS
+
+                x = []
                 for ev in eventos:
                     row = []
                     for campo in CAMPOS_NUMERICOS:
@@ -179,26 +182,26 @@ class MLEngine:
                             row.append(float(val) if val is not None else 0.0)
                         except (ValueError, TypeError):
                             row.append(0.0)
-                    X.append(row)
+                    x.append(row)
 
-                X_array = local_np.array(X)
+                x_array = local_np.array(x)
 
                 # Train
                 self._scaler = StandardScaler()
-                X_scaled = self._scaler.fit_transform(X_array)
+                x_scaled = self._scaler.fit_transform(x_array)
 
                 self._model = IsolationForest(
                     contamination=0.1,
                     random_state=42,
                     n_estimators=100,
                 )
-                self._model.fit(X_scaled)
+                self._model.fit(x_scaled)
                 self._trained = True
 
                 logger.info(
                     "ML model trained: %d events, %d features",
-                    len(X),
-                    X_array.shape[1],
+                    len(x),
+                    x_array.shape[1],
                 )
 
         except Exception as e:

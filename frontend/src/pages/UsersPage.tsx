@@ -313,16 +313,14 @@ export default function UsersPage() {
     message: string
   } | null>(null)
 
-  // ── Non-admin redirect ─────────────────────────────────────────────
-  if (currentUser && currentUser.role !== "admin") {
-    return <Navigate to="/" replace />
-  }
+  // ── Hooks (must be unconditional) ───────────────────────────────────
+  const isAdmin = currentUser?.role === "admin"
 
   // ── Fetch users ────────────────────────────────────────────────────
   const { data, isLoading, isError } = useQuery({
     queryKey: ["users"],
     queryFn: () => apiFetch<UsersResponse>("/users"),
-    enabled: currentUser?.role === "admin",
+    enabled: isAdmin,
   })
 
   const usuarios = data?.usuarios ?? []
@@ -382,7 +380,10 @@ export default function UsersPage() {
     return () => clearTimeout(id)
   }, [feedback])
 
-  const isAdmin = currentUser?.role === "admin"
+  // ── Non-admin redirect ─────────────────────────────────────────────
+  if (currentUser && currentUser.role !== "admin") {
+    return <Navigate to="/" replace />
+  }
 
   return (
     <div className="space-y-6">

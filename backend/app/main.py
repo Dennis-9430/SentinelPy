@@ -12,10 +12,10 @@ from app.logging_config import setup_logging
 
 setup_logging()
 
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime, timedelta
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
@@ -27,10 +27,10 @@ from app.api import auth as auth_router
 from app.api import users as users_router
 from app.config import settings
 from app.models.user import User  # noqa: F401 — usado por seed en lifespan
+from app.services.analysis_service import AnalysisService
 from app.services.auth_service import AuthService
 from app.services.engine import CorrelationEngine
 from app.services.notifier import ConsoleNotifier, MultiNotifier
-from app.services.analysis_service import AnalysisService
 from app.services.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
@@ -124,15 +124,13 @@ async def lifespan(app: FastAPI):
             # ── Migraciones manuales (columnas faltantes) ──────────────
             from sqlalchemy import text as sql_text
 
-            try:
+            with suppress(Exception):
                 await conn.execute(
                     sql_text(
                         "ALTER TABLE events ADD COLUMN IF NOT EXISTS "
                         "analysis_data JSONB"
                     )
                 )
-            except Exception:
-                pass  # Tabla no existe aún o DB diferente
 
         logger.info("Tablas de base de datos verificadas/creadas")
 
@@ -155,6 +153,7 @@ async def lifespan(app: FastAPI):
                 # ── Seed agente demo (para docker-compose) ────────────
                 try:
                     import os as _os
+
                     from app.services.agent_service import AgentService
 
                     demo_key = _os.environ.get(
@@ -166,15 +165,15 @@ async def lifespan(app: FastAPI):
                         logger.info("Agente demo ya existe con key correcta")
                     else:
                         # Buscar por nombre — puede tener key vieja
-                        from app.models.agent import Agent
-                        from app.services.auth_service import AuthService as AS
                         from sqlalchemy import select as _sel
+
+                        from app.models.agent import Agent
 
                         result = await seed_session.execute(
                             _sel(Agent).where(Agent.name == "demo-agent")
                         )
                         found = result.scalar_one_or_none()
-                        demo_hash = AS.hash_password(demo_key)
+                        demo_hash = AuthService.hash_password(demo_key)
                         if found:
                             found.api_key_hash = demo_hash
                             found.active = True

@@ -5,7 +5,6 @@ NO requiere base de datos — solo Python stdlib.
 """
 
 import math
-from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -15,7 +14,6 @@ from app.services.analysis_service import (
     _increment_risk,
     _is_numeric,
 )
-
 
 # ══════════════════════════════════════════════════════════════════════════
 # Tests: _is_numeric

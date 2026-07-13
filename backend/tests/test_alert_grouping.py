@@ -14,7 +14,6 @@ from sqlalchemy import text
 from app.services.alert_service import AlertService
 from app.services.rule_service import RuleService
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 
@@ -118,7 +117,7 @@ class TestAgruparAlertasAbiertas:
         service = AlertService(session)
 
         # Crear 3 alertas con el mismo group_key
-        for i in range(3):
+        for _i in range(3):
             datos = _alerta_base(rule_id)
             datos["group_key"] = f"{rule_id}:192.168.1.1"
             await service.crear_alerta(datos)

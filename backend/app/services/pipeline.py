@@ -160,15 +160,13 @@ class Pipeline:
         # Guardar en base de datos
         evento = await self._guardar_evento(datos)
 
-        if evento:
-            # ── Análisis estadístico (fire-and-forget) ──────────────────
-            if self.analysis_service:
-                evento_dict_analysis = self._evento_to_dict(evento)
-                asyncio.create_task(
-                    self.analysis_service.analyze(
-                        str(evento.id), evento_dict_analysis
-                    )
+        if evento and self.analysis_service:
+            evento_dict_analysis = self._evento_to_dict(evento)
+            asyncio.create_task(
+                self.analysis_service.analyze(
+                    str(evento.id), evento_dict_analysis
                 )
+            )
 
         if evento and self.engine:
             evento_dict = self._evento_to_dict(evento)
