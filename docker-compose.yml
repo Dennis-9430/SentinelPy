@@ -48,6 +48,8 @@ services:
       # Webhook
       WEBHOOK_URL: ${WEBHOOK_URL:-}
       NOTIFY_MIN_SEVERITY: ${NOTIFY_MIN_SEVERITY:-high}
+      # Agent seed key (must match agent's SENTINEL_API_KEY)
+      AGENT_API_KEY: ${AGENT_API_KEY:-spy_demo-key-change-me}
       # Admin
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}

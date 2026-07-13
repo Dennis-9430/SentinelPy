@@ -154,12 +154,14 @@ async def lifespan(app: FastAPI):
 
                 # ── Seed agente demo (para docker-compose) ────────────
                 try:
+                    import os as _os
                     from app.services.agent_service import AgentService
 
-                    agent_svc = AgentService(seed_session)
-                    existing = await agent_svc.obtener_por_api_key(
-                        "spy_demo-key-change-me"
+                    demo_key = _os.environ.get(
+                        "AGENT_API_KEY", "spy_demo-key-change-me"
                     )
+                    agent_svc = AgentService(seed_session)
+                    existing = await agent_svc.obtener_por_api_key(demo_key)
                     if existing:
                         logger.info("Agente demo ya existe con key correcta")
                     else:
@@ -172,12 +174,12 @@ async def lifespan(app: FastAPI):
                             _sel(Agent).where(Agent.name == "demo-agent")
                         )
                         found = result.scalar_one_or_none()
-                        demo_hash = AS.hash_password("spy_demo-key-change-me")
+                        demo_hash = AS.hash_password(demo_key)
                         if found:
                             found.api_key_hash = demo_hash
                             found.active = True
                             await seed_session.commit()
-                            logger.info("Agente demo: key actualizada")
+                            logger.info("Agente demo: key actualizada desde AGENT_API_KEY env")
                         else:
                             demo_agent = Agent(
                                 name="demo-agent",
@@ -187,7 +189,9 @@ async def lifespan(app: FastAPI):
                             )
                             seed_session.add(demo_agent)
                             await seed_session.commit()
-                            logger.info("Agente demo creado con key: spy_demo-key-change-me")
+                            logger.info(
+                                "Agente demo creado (key from AGENT_API_KEY env)"
+                            )
                 except Exception as e:
                     logger.warning("No se pudo seedear agente demo: %s", e)
         except Exception as e:
