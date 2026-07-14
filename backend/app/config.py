@@ -15,10 +15,10 @@ from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
 
-# Valores que NUNCA deben usarse en producción
+# Valores que NUNCA deben usarse en producción (used for rejection comparison only)
 _INSECURE_DEFAULTS = {
-    "secret_key": "05a0fb8849c109e045ed487f1e1975c056f6cf09368e90f35812ed986d671876",
-    "admin_password": "admin123",
+    "secret_key": "05a0fb8849c109e045ed487f1e1975c056f6cf09368e90f35812ed986d671876",  # nosec B105
+    "admin_password": "admin123",  # nosec B105
 }
 
 
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # ── Colector syslog ──────────────────────────────────────────────────
-    syslog_host: str = "0.0.0.0"  # Escucha en todas las interfaces
+    syslog_host: str = "0.0.0.0"  # nosec B104 — dev only; production overrides via env
     syslog_port: int = 5140  # Puerto no privilegiado (el 514 requiere sudo)
 
     # ── Notificaciones Email ────────────────────────────────────────────
