@@ -4,8 +4,6 @@ Configura la aplicación, registra rutas, middlewares,
 y maneja el ciclo de vida (inicio/cierre).
 """
 
-import csv
-import io
 import logging
 
 from app.logging_config import setup_logging
@@ -13,20 +11,18 @@ from app.logging_config import setup_logging
 setup_logging()
 
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, select
 
 from app.api import admin as admin_router
 from app.api import agents as agents_router
-from app.api import alerts, analysis, events, rules
+from app.api import alerts, analysis, events, rules, stats
 from app.api import auth as auth_router
 from app.api import users as users_router
 from app.config import settings
-from app.models.user import User  # noqa: F401 — usado por seed en lifespan
+from app.middleware import register_error_handlers
+from app.schemas.common import HealthResponse
 from app.services.analysis_service import AnalysisService
 from app.services.auth_service import AuthService
 from app.services.engine import CorrelationEngine
@@ -292,184 +288,58 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# ── Rutas de la API REST ────────────────────────────────────────────────
-app.include_router(events.router)
-app.include_router(rules.router)
-app.include_router(alerts.router)
-app.include_router(auth_router.router)
-app.include_router(users_router.router)
-app.include_router(admin_router.router)
+# ── Error handlers globales ─────────────────────────────────────────────
+register_error_handlers(app)
+
+# ── API v1: todos los endpoints REST bajo /api/v1 ──────────────────────
+from fastapi import APIRouter
+
+v1_router = APIRouter(prefix="/api/v1")
+v1_router.include_router(events.router)
+v1_router.include_router(rules.router)
+v1_router.include_router(alerts.router)
+v1_router.include_router(auth_router.router)
+v1_router.include_router(users_router.router)
+v1_router.include_router(admin_router.router)
+v1_router.include_router(analysis.router)
+v1_router.include_router(stats.router)
+app.include_router(v1_router)
+
+# ── Backward compat: /api/ sin versionado (deprecated, para tests) ─────
+compat_router = APIRouter(prefix="/api")
+compat_router.include_router(events.router)
+compat_router.include_router(rules.router)
+compat_router.include_router(alerts.router)
+compat_router.include_router(auth_router.router)
+compat_router.include_router(users_router.router)
+compat_router.include_router(admin_router.router)
+compat_router.include_router(analysis.router)
+compat_router.include_router(stats.router)
+app.include_router(compat_router)
+
+# ── Agent endpoints (v2 — ya versionados independientemente) ────────────
 app.include_router(agents_router.router)
-app.include_router(analysis.router)
+
+
+# ── Health check (sin auth, sin versionado — para orquestadores) ────────
+@app.get("/health", response_model=HealthResponse)
+async def health():
+    """Endpoint de health check para Docker y orquestadores."""
+    return HealthResponse(
+        status="healthy",
+        app=settings.app_name,
+        version=settings.app_version,
+        reglas_activas=engine.reglas_activas,
+        ventanas_activas=engine.ventanas_activas,
+    )
+
 
 # ═════════════════════════════════════════════════════════════════════════
 # PÁGINAS DEL DASHBOARD WEB (Server-Side Rendering)
 # ═════════════════════════════════════════════════════════════════════════
-# NOTA: Las rutas de templates fueron reemplazadas por el SPA.
+# NOTA: Las rutas de templates fueron reemplazadas por la SPA.
 # El catch-all al final del archivo sirve frontend/dist/index.html
 # para todas las rutas que no coincidan con la API.
-
-
-@app.get("/health")
-async def health():
-    """Endpoint de health check para Docker y orquestadores."""
-    return {
-        "status": "healthy",
-        "app": settings.app_name,
-        "version": settings.app_version,
-        "reglas_activas": engine.reglas_activas,
-        "ventanas_activas": engine.ventanas_activas,
-    }
-
-
-# ═════════════════════════════════════════════════════════════════════════
-# GRÁFICAS (Chart.js) — Datos para el dashboard
-# ═════════════════════════════════════════════════════════════════════════
-
-
-@app.get("/api/events/stats")
-async def stats_eventos(horas: int = 24):
-    """Estadísticas de eventos para gráficas del dashboard.
-
-    Retorna:
-        timeline: Eventos por hora en las últimas N horas.
-        por_severidad: Conteo de eventos agrupado por severidad.
-    """
-    from app.database import async_session as _db_session
-
-    async with _db_session() as session:
-        from app.models.event import NormalizedEvent
-
-        ahora = datetime.now(UTC)
-        desde = ahora - timedelta(hours=horas)
-
-        # ── Timeline: eventos por hora ──────────────────────────────────
-        timeline_raw = await session.execute(
-            select(
-                func.date_trunc("hour", NormalizedEvent.event_timestamp).label("hora"),
-                func.count(NormalizedEvent.id).label("total"),
-            )
-            .where(NormalizedEvent.event_timestamp >= desde)
-            .group_by("hora")
-            .order_by("hora")
-        )
-        timeline = [
-            {"hora": row.hora.isoformat(), "total": row.total} for row in timeline_raw
-        ]
-
-        # ── Por severidad ────────────────────────────────────────────────
-        sev_raw = await session.execute(
-            select(
-                NormalizedEvent.severity,
-                func.count(NormalizedEvent.id).label("total"),
-            ).group_by(NormalizedEvent.severity)
-        )
-        por_severidad = {row.severity or "unknown": row.total for row in sev_raw}
-
-        return {"timeline": timeline, "por_severidad": por_severidad}
-
-
-@app.get("/api/alerts/stats")
-async def stats_alertas():
-    """Estadísticas de alertas para gráficas del dashboard.
-
-    Retorna:
-        por_severidad: Conteo de alertas agrupado por severidad.
-        por_estado: Conteo de alertas agrupado por estado.
-    """
-    from app.database import async_session as _db_session
-
-    async with _db_session() as session:
-        from app.models.alert import Alert
-
-        # ── Por severidad ────────────────────────────────────────────────
-        sev_raw = await session.execute(
-            select(
-                Alert.severity,
-                func.count(Alert.id).label("total"),
-            ).group_by(Alert.severity)
-        )
-        por_severidad = {row.severity or "unknown": row.total for row in sev_raw}
-
-        # ── Por estado ───────────────────────────────────────────────────
-        est_raw = await session.execute(
-            select(
-                Alert.status,
-                func.count(Alert.id).label("total"),
-            ).group_by(Alert.status)
-        )
-        por_estado = {row.status or "unknown": row.total for row in est_raw}
-
-        return {"por_severidad": por_severidad, "por_estado": por_estado}
-
-
-# ═════════════════════════════════════════════════════════════════════════
-# EXPORTACIÓN CSV
-# ═════════════════════════════════════════════════════════════════════════
-
-
-@app.get("/api/alerts/exportar")
-async def exportar_alertas_csv(
-    estado: str | None = None,
-    severidad: str | None = None,
-):
-    """Exporta alertas a CSV con los filtros actuales.
-
-    Descarga un archivo CSV con columnas: id, título, severidad,
-    estado, event_count, created_at, resolved_at, descripción.
-
-    Los filtros (estado, severidad) se aplican igual que en la
-    interfaz web para exportar exactamente lo que se está viendo.
-    """
-    from app.database import async_session as _db_session
-
-    async with _db_session() as session:
-        from app.services.alert_service import AlertService
-
-        service = AlertService(session)
-        alertas, _ = await service.listar_alertas(
-            limite=10000, estado=estado, severidad=severidad
-        )
-
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(
-            [
-                "id",
-                "titulo",
-                "severidad",
-                "estado",
-                "eventos",
-                "creada",
-                "resuelta",
-                "descripcion",
-            ]
-        )
-
-        for a in alertas:
-            writer.writerow(
-                [
-                    str(a.id),
-                    a.title,
-                    a.severity,
-                    a.status,
-                    a.event_count,
-                    a.created_at.strftime("%Y-%m-%d %H:%M:%S") if a.created_at else "",
-                    a.resolved_at.strftime("%Y-%m-%d %H:%M:%S")
-                    if a.resolved_at
-                    else "",
-                    a.description or "",
-                ]
-            )
-
-        output.seek(0)
-        return StreamingResponse(
-            iter([output.getvalue()]),
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": "attachment; filename=alertas.csv",
-            },
-        )
 
 
 # ═════════════════════════════════════════════════════════════════════════

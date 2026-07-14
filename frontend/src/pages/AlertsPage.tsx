@@ -281,7 +281,7 @@ export default function AlertsPage() {
           </div>
 
           <Button variant="outline" size="sm" asChild>
-            <a href="/api/alerts/exportar" download>
+            <a href="/api/v1/stats/alerts/exportar" download>
               <Download className="mr-1 h-4 w-4" />
               Exportar CSV
             </a>

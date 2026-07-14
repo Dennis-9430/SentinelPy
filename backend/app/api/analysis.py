@@ -12,7 +12,7 @@ from fastapi import APIRouter, Query, Request
 logger = logging.getLogger(__name__)
 
 # Router con prefijo /api/analysis
-router = APIRouter(prefix="/api/analysis", tags=["analysis"])
+router = APIRouter(prefix="/analysis", tags=["analysis"])
 
 
 @router.get("/anomalies", response_model=dict)

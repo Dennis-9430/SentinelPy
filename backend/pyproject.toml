@@ -55,3 +55,14 @@ omit = ["*/alembic/*", "*/tests/*"]
 show_missing = true
 skip_covered = true
 fail_under = 0  # empezar sin mínimo — subir gradualmente
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # gradual adoption — don't break on day 1
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "alembic"]
+skips = ["B101"]  # assert is OK in tests

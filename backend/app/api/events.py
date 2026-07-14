@@ -17,7 +17,7 @@ from app.services.pipeline import Pipeline
 logger = logging.getLogger(__name__)
 
 # Router con prefijo /api/events — todas las rutas de eventos cuelgan de acá
-router = APIRouter(prefix="/api/events", tags=["events"])
+router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.get("", response_model=dict)

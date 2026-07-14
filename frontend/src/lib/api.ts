@@ -1,4 +1,4 @@
-const API_BASE = "/api"
+const API_BASE = "/api/v1"
 
 export class ApiError extends Error {
   constructor(

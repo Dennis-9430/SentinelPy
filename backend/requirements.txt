@@ -18,6 +18,12 @@ testcontainers[postgres]>=4.9.0
 # Linting / Formato
 ruff>=0.9.0
 
+# Type checking
+mypy>=1.13.0
+
+# Security scanning
+bandit>=1.8.0
+
 # Logging estructurado JSON
 python-json-logger>=2.0.0
 

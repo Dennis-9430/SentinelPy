@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     setError(null)
-    const res = await fetch("/api/auth/login", {
+    const res = await fetch("/api/v1/auth/login", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", {
+      await fetch("/api/v1/auth/logout", {
         method: "POST",
         credentials: "include",
       })

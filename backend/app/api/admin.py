@@ -23,7 +23,7 @@ from app.services.agent_service import AgentService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/agents", response_model=AgentList)

@@ -10,13 +10,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import require_admin
 from app.database import get_session
 from app.models.user import User
+from app.schemas.alert import (
+    AlertGroupListResponse,
+    AlertListItem,
+    AlertListResponse,
+    AlertRead,
+    AlertUpdateResponse,
+    AlertUpdateStatus,
+)
 from app.services.alert_service import AlertService
 
-# Router con prefijo /api/alerts
-router = APIRouter(prefix="/api/alerts", tags=["alerts"])
+# Router con prefijo /alerts (bajo /api/v1 o /api)
+router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
-@router.get("", response_model=dict)
+@router.get("", response_model=AlertListResponse)
 async def listar_alertas(
     limite: int = Query(50, ge=1, le=500, description="Cantidad máxima de alertas"),
     desde: int = Query(0, ge=0, description="Offset para paginación"),
@@ -33,59 +41,39 @@ async def listar_alertas(
         limite=limite, desde=desde, estado=estado, severidad=severidad
     )
 
-    return {
-        "alertas": [
-            {
-                "id": str(a.id),
-                "rule_id": str(a.rule_id),
-                "title": a.title,
-                "severity": a.severity,
-                "description": a.description[:200] if a.description else "",
-                "status": a.status,
-                "event_count": a.event_count,
-                "first_event_at": a.first_event_at.isoformat()
-                if a.first_event_at
-                else None,
-                "last_event_at": a.last_event_at.isoformat()
-                if a.last_event_at
-                else None,
-                "created_at": a.created_at.isoformat(),
-                "resolved_at": a.resolved_at.isoformat() if a.resolved_at else None,
-            }
+    return AlertListResponse(
+        alertas=[
+            AlertListItem(
+                id=str(a.id),
+                rule_id=str(a.rule_id),
+                title=a.title,
+                severity=a.severity,
+                description=a.description[:200] if a.description else "",
+                status=a.status,
+                event_count=a.event_count,
+                first_event_at=a.first_event_at,
+                last_event_at=a.last_event_at,
+                created_at=a.created_at,
+                resolved_at=a.resolved_at,
+            )
             for a in alertas
         ],
-        "total": total,
-    }
+        total=total,
+    )
 
 
-@router.get("/groups", response_model=dict)
+@router.get("/groups", response_model=AlertGroupListResponse)
 async def listar_grupos_alertas(
     session: AsyncSession = Depends(get_session),
 ):
-    """Lista alertas agrupadas por group_key.
-
-    Returns:
-    {
-        "groups": [
-            {
-                "group_key": "uuid:192.168.1.1",
-                "group_name": "Brute Force from 192.168.1.1",
-                "alert_count": 5,
-                "max_severity": "high",
-                "risk_score": 0.75,
-                "alerts": [... alert objects ...]
-            }
-        ],
-        "total": number_of_groups
-    }
-    """
+    """Lista alertas agrupadas por group_key."""
     from collections import defaultdict
 
     from sqlalchemy import select
 
     from app.models.alert import Alert
+    from app.schemas.alert import AlertGroup, AlertGroupAlert
 
-    # Query open alerts with group_key set
     result = await session.execute(
         select(Alert)
         .where(
@@ -97,14 +85,12 @@ async def listar_grupos_alertas(
     open_alerts = list(result.scalars().all())
 
     if not open_alerts:
-        return {"groups": [], "total": 0}
+        return AlertGroupListResponse(groups=[], total=0)
 
-    # Group by group_key
     groups_map: dict[str, list[Alert]] = defaultdict(list)
     for a in open_alerts:
         groups_map[a.group_key].append(a)
 
-    # Severity ranking for max_severity
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
     groups = []
@@ -116,35 +102,35 @@ async def listar_grupos_alertas(
         risk = next((a.risk_score for a in alerts if a.risk_score is not None), None)
 
         groups.append(
-            {
-                "group_key": gk,
-                "group_name": alerts[0].group_name or "",
-                "alert_count": len(alerts),
-                "max_severity": max_sev,
-                "risk_score": risk,
-                "alerts": [
-                    {
-                        "id": str(a.id),
-                        "rule_id": str(a.rule_id),
-                        "title": a.title,
-                        "severity": a.severity,
-                        "description": (a.description[:200] if a.description else ""),
-                        "status": a.status,
-                        "group_key": a.group_key,
-                        "group_name": a.group_name,
-                        "risk_score": a.risk_score,
-                        "event_count": a.event_count,
-                        "created_at": a.created_at.isoformat(),
-                    }
+            AlertGroup(
+                group_key=gk,
+                group_name=alerts[0].group_name or "",
+                alert_count=len(alerts),
+                max_severity=max_sev,
+                risk_score=risk,
+                alerts=[
+                    AlertGroupAlert(
+                        id=str(a.id),
+                        rule_id=str(a.rule_id),
+                        title=a.title,
+                        severity=a.severity,
+                        description=(a.description[:200] if a.description else ""),
+                        status=a.status,
+                        group_key=a.group_key,
+                        group_name=a.group_name,
+                        risk_score=a.risk_score,
+                        event_count=a.event_count,
+                        created_at=a.created_at,
+                    )
                     for a in alerts
                 ],
-            }
+            )
         )
 
-    return {"groups": groups, "total": len(groups)}
+    return AlertGroupListResponse(groups=groups, total=len(groups))
 
 
-@router.get("/{alerta_id}", response_model=dict)
+@router.get("/{alerta_id}", response_model=AlertRead)
 async def obtener_alerta(
     alerta_id: str,
     session: AsyncSession = Depends(get_session),
@@ -156,31 +142,13 @@ async def obtener_alerta(
     if not alerta:
         raise HTTPException(status_code=404, detail="Alerta no encontrada")
 
-    return {
-        "id": str(alerta.id),
-        "rule_id": str(alerta.rule_id),
-        "title": alerta.title,
-        "severity": alerta.severity,
-        "description": alerta.description,
-        "status": alerta.status,
-        "event_count": alerta.event_count,
-        "first_event_at": alerta.first_event_at.isoformat()
-        if alerta.first_event_at
-        else None,
-        "last_event_at": alerta.last_event_at.isoformat()
-        if alerta.last_event_at
-        else None,
-        "created_at": alerta.created_at.isoformat(),
-        "updated_at": alerta.updated_at.isoformat(),
-        "resolved_at": alerta.resolved_at.isoformat() if alerta.resolved_at else None,
-        "resolution_notes": alerta.resolution_notes,
-    }
+    return AlertRead.model_validate(alerta)
 
 
-@router.patch("/{alerta_id}/estado", response_model=dict)
+@router.patch("/{alerta_id}/estado", response_model=AlertUpdateResponse)
 async def actualizar_estado_alerta(
     alerta_id: str,
-    datos: dict,  # {"status": "investigating", "resolution_notes": "..."}
+    datos: AlertUpdateStatus,
     request: Request,
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
@@ -189,12 +157,6 @@ async def actualizar_estado_alerta(
 
     Estados posibles: open → acknowledged → investigating → resolved | false_positive
     """
-    nuevo_estado = datos.get("status")
-    notas = datos.get("resolution_notes")
-
-    if not nuevo_estado:
-        raise HTTPException(status_code=400, detail="El campo 'status' es requerido")
-
     estados_validos = {
         "open",
         "acknowledged",
@@ -202,27 +164,29 @@ async def actualizar_estado_alerta(
         "resolved",
         "false_positive",
     }
-    if nuevo_estado not in estados_validos:
+    if datos.status not in estados_validos:
         raise HTTPException(
             status_code=400,
             detail=f"Estado inválido. Válidos: {', '.join(sorted(estados_validos))}",
         )
 
     service = AlertService(session)
-    alerta = await service.actualizar_estado(alerta_id, nuevo_estado, notas)
+    alerta = await service.actualizar_estado(
+        alerta_id, datos.status, datos.resolution_notes
+    )
 
     if not alerta:
         raise HTTPException(status_code=404, detail="Alerta no encontrada")
 
-    return {
-        "id": str(alerta.id),
-        "status": alerta.status,
-        "resolved_at": alerta.resolved_at.isoformat() if alerta.resolved_at else None,
-        "updated_at": alerta.updated_at.isoformat(),
-    }
+    return AlertUpdateResponse(
+        id=str(alerta.id),
+        status=alerta.status,
+        resolved_at=alerta.resolved_at,
+        updated_at=alerta.updated_at,
+    )
 
 
-@router.get("/estadisticas", response_model=dict)
+@router.get("/estadisticas")
 async def obtener_estadisticas_alertas(
     session: AsyncSession = Depends(get_session),
 ):

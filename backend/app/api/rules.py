@@ -14,7 +14,7 @@ from app.schemas.rule import RuleCreate
 from app.services.rule_service import RuleService
 
 # Router con prefijo /api/rules
-router = APIRouter(prefix="/api/rules", tags=["rules"])
+router = APIRouter(prefix="/rules", tags=["rules"])
 
 
 @router.get("", response_model=dict)

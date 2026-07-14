@@ -1,9 +1,25 @@
 """Configuración de la aplicación usando pydantic-settings.
 
 Las variables se cargan desde .env automáticamente.
+
+Modos:
+  - debug=True (default): desarrollo local, permite defaults
+  - debug=False + DATABASE_URL con 'test': CI, permite defaults
+  - debug=False + sin 'test': producción, SECRET_KEY y ADMIN_PASSWORD obligatorios
 """
 
+import logging
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
+
+# Valores que NUNCA deben usarse en producción
+_INSECURE_DEFAULTS = {
+    "secret_key": "05a0fb8849c109e045ed487f1e1975c056f6cf09368e90f35812ed986d671876",
+    "admin_password": "admin123",
+}
 
 
 class Settings(BaseSettings):
@@ -26,6 +42,7 @@ class Settings(BaseSettings):
 
     # ── Seguridad ────────────────────────────────────────────────────────
     # En producción cambiar con: openssl rand -hex 32
+    # Producción: obligatorio; desarrollo/CI: permite defaults
     secret_key: str = "05a0fb8849c109e045ed487f1e1975c056f6cf09368e90f35812ed986d671876"
     access_token_expire_minutes: int = 480  # 8 horas
     jwt_algorithm: str = "HS256"
@@ -53,11 +70,48 @@ class Settings(BaseSettings):
     webhook_url: str = ""
     notify_min_severity: str = "high"  # critical | high | medium | low
 
-    # ── Análisis estadístico (Slice 1) ────────────────────────────────────
+    # ── Análisis estadístico ────────────────────────────────────────────
     analysis_enabled: bool = True
     analysis_baseline_window_minutes: int = 60
     analysis_decay_rate: float = 0.5
     analysis_max_risk: float = 1.0
+
+    @model_validator(mode="after")
+    def _validate_production_secrets(self) -> "Settings":
+        """En producción (debug=False, no test), verifica secrets seguros."""
+        is_test = "test" in self.database_url.lower()
+        is_production = not self.debug and not is_test
+
+        if is_production:
+            if not self.secret_key:
+                raise ValueError(
+                    "SECRET_KEY es obligatorio en producción. "
+                    "Generá uno con: openssl rand -hex 32"
+                )
+            if self.secret_key == _INSECURE_DEFAULTS["secret_key"]:
+                raise ValueError(
+                    "SECRET_KEY es el valor por defecto — "
+                    "generá uno nuevo con: openssl rand -hex 32"
+                )
+            if not self.admin_password:
+                raise ValueError("ADMIN_PASSWORD es obligatorio en producción.")
+            if self.admin_password == _INSECURE_DEFAULTS["admin_password"]:
+                raise ValueError(
+                    "ADMIN_PASSWORD es 'admin123' — "
+                    "usá una contraseña segura en producción."
+                )
+        elif self.debug:
+            # Desarrollo: advertir si se usan defaults inseguros
+            if self.secret_key == _INSECURE_DEFAULTS["secret_key"]:
+                logger.warning(
+                    "⚠️  SECRET_KEY es el valor por defecto — "
+                    "solo aceptable en desarrollo"
+                )
+            if self.admin_password == _INSECURE_DEFAULTS["admin_password"]:
+                logger.warning(
+                    "⚠️  ADMIN_PASSWORD es 'admin123' — solo aceptable en desarrollo"
+                )
+        return self
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
