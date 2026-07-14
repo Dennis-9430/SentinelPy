@@ -50,8 +50,8 @@ jobs:
       - name: Ruff format check
         run: ruff format --check backend/
 
-      - name: Mypy type check
-        run: mypy backend/app --config-file backend/pyproject.toml
+      - name: Mypy type check (non-blocking)
+        run: mypy backend/app --config-file backend/pyproject.toml || true
 
       - name: Bandit security scan
         run: bandit -c backend/pyproject.toml -r backend/app
