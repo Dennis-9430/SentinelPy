@@ -3,8 +3,6 @@
 Covers: _validate_production_secrets paths (production, debug, test mode).
 """
 
-import logging
-
 import pytest
 
 
