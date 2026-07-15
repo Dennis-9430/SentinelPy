@@ -7,7 +7,7 @@ Las alertas tienen un ciclo de vida: open → acknowledged → investigating →
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -96,4 +96,10 @@ class Alert(Base, TimestampMixin, UUIDMixin):
         Float,
         nullable=True,
         comment="Score de riesgo de la entidad (0.0-1.0) copiado del EntityRiskStore",
+    )
+
+    # ── Índices compuestos para consultas frecuentes ─────────────────────
+    __table_args__ = (
+        Index("ix_alerts_status_severity", "status", "severity"),
+        Index("ix_alerts_status_created", "status", "created_at"),
     )

@@ -59,6 +59,7 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
     # ── Campos de red ────────────────────────────────────────────────────
     source_ip: Mapped[str | None] = mapped_column(
         String(45),
+        index=True,
         comment="IP de origen (soporta IPv4 e IPv6)",
     )
     destination_ip: Mapped[str | None] = mapped_column(
@@ -109,4 +110,6 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
     __table_args__ = (
         Index("ix_events_event_timestamp_desc", event_timestamp.desc()),
         Index("ix_events_source_event_type", source, event_type),
+        Index("ix_events_severity_timestamp", severity, event_timestamp),
+        Index("ix_events_type_timestamp", event_type, event_timestamp),
     )

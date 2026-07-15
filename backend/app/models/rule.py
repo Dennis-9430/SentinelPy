@@ -4,7 +4,7 @@ Las reglas definen condiciones que, al cumplirse, generan alertas.
 Siguen una estructura inspirada en Sigma, el estándar abierto para reglas SIEM.
 """
 
-from sqlalchemy import JSON, String, Text
+from sqlalchemy import JSON, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -42,6 +42,7 @@ class DetectionRule(Base, TimestampMixin, UUIDMixin):
     status: Mapped[str] = mapped_column(
         String(20),
         default="active",
+        index=True,
         comment="Estado: active (activa), disabled (desactivada), test (solo logging)",
     )
 
@@ -87,3 +88,6 @@ class DetectionRule(Base, TimestampMixin, UUIDMixin):
         Text,
         comment="Casos conocidos de falsos positivos",
     )
+
+    # ── Índices compuestos para consultas frecuentes ─────────────────────
+    __table_args__ = (Index("ix_rules_status_severity", "status", "severity"),)
