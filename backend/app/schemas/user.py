@@ -1,6 +1,14 @@
 """Esquemas Pydantic para el modelo de usuario."""
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+from uuid import UUID
+
+from pydantic import BaseModel, BeforeValidator, Field
+
+
+def _coerce_uuid(v):
+    """Convert UUID objects to strings before str validation."""
+    return str(v) if isinstance(v, UUID) else v
 
 
 class UserCreate(BaseModel):
@@ -21,7 +29,7 @@ class UserLogin(BaseModel):
 class UserRead(BaseModel):
     """Esquema de lectura de usuario (nunca expone el password)."""
 
-    id: str
+    id: Annotated[str, BeforeValidator(_coerce_uuid)]
     username: str
     role: str
     active: bool

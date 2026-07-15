@@ -1,8 +1,15 @@
 """Esquemas Pydantic para el modelo Alert."""
 
 from datetime import datetime
+from typing import Annotated
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator
+
+
+def _coerce_uuid(v):
+    """Convert UUID objects to strings before str validation."""
+    return str(v) if isinstance(v, UUID) else v
 
 
 class AlertRead(BaseModel):
@@ -12,8 +19,8 @@ class AlertRead(BaseModel):
     no por la API directamente.
     """
 
-    id: str
-    rule_id: str
+    id: Annotated[str, BeforeValidator(_coerce_uuid)]
+    rule_id: Annotated[str, BeforeValidator(_coerce_uuid)]
     title: str
     severity: str
     description: str
@@ -32,8 +39,8 @@ class AlertRead(BaseModel):
 class AlertListItem(BaseModel):
     """Esquema ligero para listado de alertas (sin description completa)."""
 
-    id: str
-    rule_id: str
+    id: Annotated[str, BeforeValidator(_coerce_uuid)]
+    rule_id: Annotated[str, BeforeValidator(_coerce_uuid)]
     title: str
     severity: str
     description: str = ""
@@ -62,7 +69,7 @@ class AlertUpdateStatus(BaseModel):
 class AlertUpdateResponse(BaseModel):
     """Respuesta al actualizar estado de alerta."""
 
-    id: str
+    id: Annotated[str, BeforeValidator(_coerce_uuid)]
     status: str
     resolved_at: datetime | None = None
     updated_at: datetime
@@ -71,8 +78,8 @@ class AlertUpdateResponse(BaseModel):
 class AlertGroupAlert(BaseModel):
     """Alerta dentro de un grupo."""
 
-    id: str
-    rule_id: str
+    id: Annotated[str, BeforeValidator(_coerce_uuid)]
+    rule_id: Annotated[str, BeforeValidator(_coerce_uuid)]
     title: str
     severity: str
     description: str = ""

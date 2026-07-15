@@ -1,8 +1,15 @@
 """Esquemas Pydantic para el modelo DetectionRule."""
 
 from datetime import datetime
+from typing import Annotated
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator
+
+
+def _coerce_uuid(v):
+    """Convert UUID objects to strings before str validation."""
+    return str(v) if isinstance(v, UUID) else v
 
 
 class RuleCreate(BaseModel):
@@ -29,7 +36,7 @@ class RuleCreate(BaseModel):
 class RuleRead(RuleCreate):
     """Esquema de salida con campos de base de datos."""
 
-    id: str
+    id: Annotated[str, BeforeValidator(_coerce_uuid)]
     created_at: datetime
     updated_at: datetime
 

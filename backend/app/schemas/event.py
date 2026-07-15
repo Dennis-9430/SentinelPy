@@ -5,8 +5,15 @@ la estructura de salida (response) de la API.
 """
 
 from datetime import datetime
+from typing import Annotated
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator
+
+
+def _coerce_uuid(v):
+    """Convert UUID objects to strings before str validation."""
+    return str(v) if isinstance(v, UUID) else v
 
 
 class EventCreate(BaseModel):
@@ -39,7 +46,7 @@ class EventRead(EventCreate):
     from_attributes permite crear instancias desde objetos SQLAlchemy.
     """
 
-    id: str
+    id: Annotated[str, BeforeValidator(_coerce_uuid)]
     created_at: datetime
     updated_at: datetime
 
