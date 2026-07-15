@@ -130,6 +130,15 @@ async def listar_grupos_alertas(
     return AlertGroupListResponse(groups=groups, total=len(groups))
 
 
+@router.get("/estadisticas")
+async def obtener_estadisticas_alertas(
+    session: AsyncSession = Depends(get_session),
+):
+    """Obtiene estadísticas de alertas (totales, abiertas, resueltas)."""
+    service = AlertService(session)
+    return await service.obtener_estadisticas()
+
+
 @router.get("/{alerta_id}", response_model=AlertRead)
 async def obtener_alerta(
     alerta_id: str,
@@ -184,12 +193,3 @@ async def actualizar_estado_alerta(
         resolved_at=alerta.resolved_at,
         updated_at=alerta.updated_at,
     )
-
-
-@router.get("/estadisticas")
-async def obtener_estadisticas_alertas(
-    session: AsyncSession = Depends(get_session),
-):
-    """Obtiene estadísticas de alertas (totales, abiertas, resueltas)."""
-    service = AlertService(session)
-    return await service.obtener_estadisticas()

@@ -81,43 +81,47 @@ class TestProductionValidation:
 
 
 class TestDebugWarnings:
-    def test_debug_default_secret_warns(self, caplog):
+    def test_debug_default_secret_warns(self):
         """Debug mode with default secret_key logs a warning."""
+        from unittest.mock import patch
+
         from app.config import Settings
 
-        with caplog.at_level(logging.WARNING):
+        with patch("app.config.logger") as mock_logger:
             Settings(
                 debug=True,
                 secret_key="05a0fb8849c109e045ed487f1e1975c056f6cf09368e90f35812ed986d671876",
             )
-        assert any(
-            "SECRET_KEY es el valor por defecto" in r.message for r in caplog.records
+        mock_logger.warning.assert_any_call(
+            "⚠️  SECRET_KEY es el valor por defecto — "
+            "solo aceptable en desarrollo"
         )
 
-    def test_debug_default_admin_password_warns(self, caplog):
+    def test_debug_default_admin_password_warns(self):
         """Debug mode with default admin_password logs a warning."""
+        from unittest.mock import patch
+
         from app.config import Settings
 
-        with caplog.at_level(logging.WARNING):
+        with patch("app.config.logger") as mock_logger:
             Settings(
                 debug=True,
                 admin_password="admin123",
             )
-        assert any("ADMIN_PASSWORD es 'admin123'" in r.message for r in caplog.records)
+        mock_logger.warning.assert_any_call(
+            "⚠️  ADMIN_PASSWORD es 'admin123' — solo aceptable en desarrollo"
+        )
 
-    def test_debug_secure_secrets_no_warning(self, caplog):
+    def test_debug_secure_secrets_no_warning(self):
         """Debug mode with secure secrets does NOT warn."""
+        from unittest.mock import patch
+
         from app.config import Settings
 
-        with caplog.at_level(logging.WARNING):
+        with patch("app.config.logger") as mock_logger:
             Settings(
                 debug=True,
                 secret_key="a_secure_secret_key_12345678901234567890",
                 admin_password="a_strong_pass_123",
             )
-        secret_warnings = [
-            r
-            for r in caplog.records
-            if "SECRET_KEY es el valor por defecto" in r.message
-        ]
-        assert len(secret_warnings) == 0
+        mock_logger.warning.assert_not_called()

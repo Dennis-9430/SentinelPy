@@ -90,7 +90,11 @@ class TestRequireAdminDependency:
         """Token with no 'sub' claim → 401."""
         import jwt
 
-        token = jwt.encode({"no_sub": True}, "secret", algorithm="HS256")
+        from app.config import settings
+
+        token = jwt.encode(
+            {"no_sub": True}, settings.secret_key, algorithm=settings.jwt_algorithm
+        )
         client.cookies.set("access_token", token)
         resp = await client.post(
             "/api/rules",
