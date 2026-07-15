@@ -129,9 +129,7 @@ async def exportar_alertas_csv(
                 a.status,
                 a.event_count,
                 a.created_at.strftime("%Y-%m-%d %H:%M:%S") if a.created_at else "",
-                a.resolved_at.strftime("%Y-%m-%d %H:%M:%S")
-                if a.resolved_at
-                else "",
+                a.resolved_at.strftime("%Y-%m-%d %H:%M:%S") if a.resolved_at else "",
                 a.description or "",
             ]
         )

@@ -91,8 +91,7 @@ class TestDebugWarnings:
                 secret_key="05a0fb8849c109e045ed487f1e1975c056f6cf09368e90f35812ed986d671876",
             )
         mock_logger.warning.assert_any_call(
-            "⚠️  SECRET_KEY es el valor por defecto — "
-            "solo aceptable en desarrollo"
+            "⚠️  SECRET_KEY es el valor por defecto — solo aceptable en desarrollo"
         )
 
     def test_debug_default_admin_password_warns(self):
