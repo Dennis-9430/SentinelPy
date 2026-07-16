@@ -244,6 +244,35 @@ async def lifespan(app: FastAPI):
         logger.warning("No se pudo inicializar análisis: %s", e)
         app.state.analysis_service = None
 
+    # ── Inicializar Threat Intelligence ──────────────────────────────────
+    try:
+        from app.services.threat_intel_service import ThreatIntelService
+        from app.services.ti_providers.abuseipdb import AbuseIPDBProvider
+
+        ti_service = ThreatIntelService()
+        if settings.abuseipdb_api_key:
+            ti_service.register_provider(AbuseIPDBProvider(settings.abuseipdb_api_key))
+            logger.info("Provider AbuseIPDB registrado")
+        if settings.otx_api_key:
+            from app.services.ti_providers.otx import OTXProvider
+            ti_service.register_provider(OTXProvider(settings.otx_api_key))
+            logger.info("Provider OTX registrado")
+        elif not settings.abuseipdb_api_key:
+            # OTX works without API key for basic lookups
+            from app.services.ti_providers.otx import OTXProvider
+            ti_service.register_provider(OTXProvider())
+            logger.info("Provider OTX registrado (sin API key)")
+        if settings.virustotal_api_key:
+            from app.services.ti_providers.virustotal import VirusTotalProvider
+            ti_service.register_provider(VirusTotalProvider(settings.virustotal_api_key))
+            logger.info("Provider VirusTotal registrado")
+        app.state.ti_service = ti_service
+        pipeline.ti_service = ti_service
+        logger.info("Servicio de Threat Intelligence inicializado")
+    except Exception as e:
+        logger.warning("No se pudo inicializar Threat Intelligence: %s", e)
+        app.state.ti_service = None
+
     # ── Iniciar colector syslog ──────────────────────────────────────────
     try:
         from app.services.collector import SyslogCollector

@@ -8,6 +8,7 @@ También los envía al motor de correlación y al servicio de análisis.
 import asyncio
 import logging
 
+from app.config import settings
 from app.database import async_session as _default_session
 from app.services.parser import JSONParser, SyslogParser
 
@@ -24,7 +25,7 @@ class Pipeline:
     Detecta automáticamente si el log es JSON o syslog según el primer carácter.
     """
 
-    def __init__(self, engine=None, session_factory=None, analysis_service=None):
+    def __init__(self, engine=None, session_factory=None, analysis_service=None, ti_service=None):
         """Inicializa los parsers disponibles.
 
         Argumentos:
@@ -32,11 +33,13 @@ class Pipeline:
             session_factory: async_sessionmaker para persistencia.
                 Por defecto usa app.database.async_session.
             analysis_service: Instancia opcional de AnalysisService para análisis.
+            ti_service: Instancia opcional de ThreatIntelService para enriquecimiento.
         """
         self.syslog_parser = SyslogParser()
         self.json_parser = JSONParser()
         self.engine = engine
         self.analysis_service = analysis_service
+        self.ti_service = ti_service
         self._session_factory = session_factory or _default_session
 
     async def process(self, raw: str, origen: tuple | None = None) -> dict | None:
@@ -90,6 +93,11 @@ class Pipeline:
                 asyncio.create_task(
                     self.analysis_service.analyze(str(evento.id), evento_dict)
                 )
+
+            # ── Threat Intelligence enrichment (fire-and-forget) ────────
+            if self.ti_service and settings.ti_enrichment_enabled:
+                evento_dict = self._evento_to_dict(evento)
+                asyncio.create_task(self._enrich_ti(evento_dict))
 
             # ── Evaluar contra el motor de correlación ──────────────────
             if self.engine:
@@ -238,3 +246,29 @@ class Pipeline:
         except Exception as e:
             logger.error("Error guardando evento en DB: %s", e, exc_info=True)
             return None
+
+    async def _enrich_ti(self, evento_dict: dict) -> None:
+        """Enriquece un evento con datos de Threat Intelligence (fire-and-forget).
+
+        Consulta los providers de TI registrados y almacena los resultados
+        en analysis_data["ti"] del evento.
+
+        Argumentos:
+            evento_dict: Dict con datos del evento normalizado.
+        """
+        try:
+            ti_data = await self.ti_service.enrich(evento_dict)
+            if ti_data:
+                event_id = evento_dict.get("id")
+                if event_id:
+                    from app.models.event import NormalizedEvent
+
+                    async with self._session_factory() as session:
+                        event = await session.get(NormalizedEvent, event_id)
+                        if event:
+                            analysis = event.analysis_data or {}
+                            analysis["ti"] = ti_data
+                            event.analysis_data = analysis
+                            await session.commit()
+        except Exception:
+            pass  # Never propagate TI errors
