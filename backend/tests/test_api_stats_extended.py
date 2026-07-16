@@ -237,6 +237,15 @@ class TestExportarCsvExtended:
         resp = await client.get("/api/stats/alerts/exportar")
         assert resp.status_code == 200
         header = resp.text.strip().split("\n")[0]
-        expected_cols = ["id", "titulo", "severidad", "estado", "eventos", "creada", "resuelta", "descripcion"]
+        expected_cols = [
+            "id",
+            "titulo",
+            "severidad",
+            "estado",
+            "eventos",
+            "creada",
+            "resuelta",
+            "descripcion",
+        ]
         for col in expected_cols:
             assert col in header

@@ -44,7 +44,9 @@ async def admin_user(session):
 @pytest_asyncio.fixture
 async def analyst_user(session):
     service = AuthService(session)
-    return await service.crear_usuario("alert_update_analyst", "test123", role="analyst")
+    return await service.crear_usuario(
+        "alert_update_analyst", "test123", role="analyst"
+    )
 
 
 @pytest_asyncio.fixture

@@ -34,9 +34,7 @@ class TestEvaluarReglaListConditions:
                 {"field": "event_type", "operator": "eq", "value": "auth"},
             ]
         }
-        assert engine._evaluar_regla(
-            regla, {"severity": "high", "event_type": "auth"}
-        )
+        assert engine._evaluar_regla(regla, {"severity": "high", "event_type": "auth"})
 
     def test_list_conditions_one_fails(self, engine):
         """A list of conditions — one fails → whole list fails."""
@@ -52,9 +50,7 @@ class TestEvaluarReglaListConditions:
 
     def test_dict_condition_simple(self, engine):
         """A dict condition (not group) — evaluates directly."""
-        regla = {
-            "conditions": {"field": "severity", "operator": "eq", "value": "high"}
-        }
+        regla = {"conditions": {"field": "severity", "operator": "eq", "value": "high"}}
         assert engine._evaluar_regla(regla, {"severity": "high"})
         assert not engine._evaluar_regla(regla, {"severity": "low"})
 
@@ -71,7 +67,9 @@ class TestEvaluarGrupoNot:
         """NOT operator negates a single condition."""
         grupo = {
             "operator": "NOT",
-            "conditions": [{"field": "severity", "operator": "eq", "value": "critical"}],
+            "conditions": [
+                {"field": "severity", "operator": "eq", "value": "critical"}
+            ],
         }
         # severity is NOT critical → True
         assert engine._evaluar_grupo(grupo, {"severity": "high"})
@@ -85,7 +83,10 @@ class TestEvaluarGrupoNot:
 
     def test_unknown_operator_returns_false(self, engine):
         """Unknown operator in group returns False."""
-        grupo = {"operator": "XOR", "conditions": [{"field": "a", "operator": "eq", "value": "b"}]}
+        grupo = {
+            "operator": "XOR",
+            "conditions": [{"field": "a", "operator": "eq", "value": "b"}],
+        }
         assert not engine._evaluar_grupo(grupo, {"a": "b"})
 
 

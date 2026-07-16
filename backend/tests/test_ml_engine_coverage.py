@@ -8,12 +8,9 @@ _train_model full path (172-208), shutdown (212).
 All tests use mocks for DB — no Docker required.
 """
 
-import asyncio
-from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ── Mock helpers ─────────────────────────────────────────────────────────
 
@@ -162,13 +159,13 @@ class TestScoreExceptions:
         engine._model = MagicMock()
         engine._trained = True
 
-        with patch("app.services.ml_engine.ML_AVAILABLE", True):
-            with patch.object(engine, "_extract_features", return_value=[1.0, 2.0]):
-                with patch.object(
-                    engine, "_predict", side_effect=RuntimeError("predict fail")
-                ):
-                    result = await engine.score({"source_port": 443})
-                    assert result is None
+        with (
+            patch("app.services.ml_engine.ML_AVAILABLE", True),
+            patch.object(engine, "_extract_features", return_value=[1.0, 2.0]),
+            patch.object(engine, "_predict", side_effect=RuntimeError("predict fail")),
+        ):
+            result = await engine.score({"source_port": 443})
+            assert result is None
 
     @pytest.mark.asyncio
     async def test_score_retrain_trigger(self):
@@ -181,15 +178,15 @@ class TestScoreExceptions:
         engine._model = MagicMock()
         engine._trained = True
 
-        with patch("app.services.ml_engine.ML_AVAILABLE", True):
-            with patch.object(engine, "_extract_features", return_value=[1.0, 2.0]):
-                with patch.object(engine, "_predict", return_value=0.5):
-                    with patch.object(
-                        engine, "_train_model", new_callable=AsyncMock
-                    ) as mock_train:
-                        for _ in range(3):
-                            await engine.score({"source_port": 443})
-                        mock_train.assert_called()
+        with (
+            patch("app.services.ml_engine.ML_AVAILABLE", True),
+            patch.object(engine, "_extract_features", return_value=[1.0, 2.0]),
+            patch.object(engine, "_predict", return_value=0.5),
+            patch.object(engine, "_train_model", new_callable=AsyncMock) as mock_train,
+        ):
+            for _ in range(3):
+                await engine.score({"source_port": 443})
+            mock_train.assert_called()
 
     @pytest.mark.asyncio
     async def test_score_no_retrain_below_interval(self):
@@ -202,14 +199,14 @@ class TestScoreExceptions:
         engine._model = MagicMock()
         engine._trained = True
 
-        with patch("app.services.ml_engine.ML_AVAILABLE", True):
-            with patch.object(engine, "_extract_features", return_value=[1.0, 2.0]):
-                with patch.object(engine, "_predict", return_value=0.5):
-                    with patch.object(
-                        engine, "_train_model", new_callable=AsyncMock
-                    ) as mock_train:
-                        await engine.score({"source_port": 443})
-                        mock_train.assert_not_called()
+        with (
+            patch("app.services.ml_engine.ML_AVAILABLE", True),
+            patch.object(engine, "_extract_features", return_value=[1.0, 2.0]),
+            patch.object(engine, "_predict", return_value=0.5),
+            patch.object(engine, "_train_model", new_callable=AsyncMock) as mock_train,
+        ):
+            await engine.score({"source_port": 443})
+            mock_train.assert_not_called()
 
 
 # ══════════════════════════════════════════════════════════════════════════

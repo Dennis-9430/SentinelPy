@@ -21,7 +21,6 @@ from app.services.analysis_service import (
     EntityRiskStore,
 )
 
-
 # ── Mock helpers ─────────────────────────────────────────────────────────
 
 
@@ -54,9 +53,19 @@ def _make_mock_event_row(
     """Create a mock DB row for events table queries (index-based access)."""
     ts = event_timestamp or datetime.now(UTC)
     data = [
-        ev_id, source, collector_type, event_type, severity,
-        description, source_ip, destination_ip, source_port,
-        destination_port, user_name, ts, analysis_data,
+        ev_id,
+        source,
+        collector_type,
+        event_type,
+        severity,
+        description,
+        source_ip,
+        destination_ip,
+        source_port,
+        destination_port,
+        user_name,
+        ts,
+        analysis_data,
     ]
 
     class _Row:
@@ -282,12 +291,14 @@ class TestAnalysisServiceInit:
         factory = _make_session_factory(mock_session)
 
         svc = AnalysisService(factory)
-        with patch.object(svc, "seed_baselines", new_callable=AsyncMock):
-            with patch("app.services.analysis_service.MLEngine") as MockML:
-                mock_ml = MagicMock()
-                mock_ml.init_async = AsyncMock()
-                MockML.return_value = mock_ml
-                await svc.init_async()
+        with (
+            patch.object(svc, "seed_baselines", new_callable=AsyncMock),
+            patch("app.services.analysis_service.MLEngine") as MockML,
+        ):
+            mock_ml = MagicMock()
+            mock_ml.init_async = AsyncMock()
+            MockML.return_value = mock_ml
+            await svc.init_async()
 
         assert svc._risk_store is not None
 
@@ -298,12 +309,14 @@ class TestAnalysisServiceInit:
         factory = _make_session_factory(mock_session)
 
         svc = AnalysisService(factory)
-        with patch.object(svc, "seed_baselines", new_callable=AsyncMock):
-            with patch(
+        with (
+            patch.object(svc, "seed_baselines", new_callable=AsyncMock),
+            patch(
                 "app.services.analysis_service.MLEngine",
                 side_effect=RuntimeError("ml deps missing"),
-            ):
-                await svc.init_async()
+            ),
+        ):
+            await svc.init_async()
 
         assert svc._ml_engine is None
 
@@ -314,14 +327,16 @@ class TestAnalysisServiceInit:
         factory = _make_session_factory(mock_session)
 
         svc = AnalysisService(factory)
-        with patch.object(svc, "seed_baselines", new_callable=AsyncMock):
-            with patch("app.services.analysis_service.MLEngine") as MockML:
-                mock_ml = MagicMock()
-                mock_ml.init_async = AsyncMock(side_effect=RuntimeError("ml fail"))
-                MockML.return_value = mock_ml
-                with patch("app.services.analysis_service.logger") as mock_logger:
-                    await svc.init_async()
-                    mock_logger.warning.assert_called()
+        with (
+            patch.object(svc, "seed_baselines", new_callable=AsyncMock),
+            patch("app.services.analysis_service.MLEngine") as MockML,
+            patch("app.services.analysis_service.logger") as mock_logger,
+        ):
+            mock_ml = MagicMock()
+            mock_ml.init_async = AsyncMock(side_effect=RuntimeError("ml fail"))
+            MockML.return_value = mock_ml
+            await svc.init_async()
+            mock_logger.warning.assert_called()
 
         assert svc._ml_engine is None
 
@@ -377,7 +392,7 @@ class TestAnalysisServiceInit:
     async def test_seed_baselines_not_enough_values_per_field(self):
         """seed_baselines skips fields with < 10 values."""
         mock_events = []
-        for i in range(5):
+        for _ in range(5):
             ev = MagicMock()
             ev.source_port = 8080
             ev.destination_port = None
@@ -430,13 +445,17 @@ class TestAnalysisServiceAnalyze:
         svc = AnalysisService(MagicMock())
         svc._risk_store = MagicMock()
 
-        with patch.object(settings, "analysis_enabled", True):
-            with patch.object(
-                svc, "_compute_event_zscores", side_effect=RuntimeError("boom"),
-            ):
-                with patch("app.services.analysis_service.logger") as mock_logger:
-                    await svc.analyze("fake-id", {"severity": "high"})
-                    mock_logger.error.assert_called_once()
+        with (
+            patch.object(settings, "analysis_enabled", True),
+            patch.object(
+                svc,
+                "_compute_event_zscores",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch("app.services.analysis_service.logger") as mock_logger,
+        ):
+            await svc.analyze("fake-id", {"severity": "high"})
+            mock_logger.error.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_analyze_with_zscores(self):
@@ -460,7 +479,9 @@ class TestAnalysisServiceAnalyze:
         svc._risk_store.update_risk = AsyncMock(return_value=0.5)
 
         with patch.object(settings, "analysis_enabled", True):
-            await svc.analyze("test-event-id", {"source_port": 8100, "severity": "high"})
+            await svc.analyze(
+                "test-event-id", {"source_port": 8100, "severity": "high"}
+            )
 
         # Verify persist was called
         assert mock_event.analysis_data is not None
@@ -824,8 +845,7 @@ class TestGetRisks:
         svc = AnalysisService(MagicMock())
         mock_store = MagicMock()
         mock_store.get_all_risks.return_value = [
-            {"entity_key": f"ent-{i}", "risk_score": 0.1 * (i + 1)}
-            for i in range(5)
+            {"entity_key": f"ent-{i}", "risk_score": 0.1 * (i + 1)} for i in range(5)
         ]
         svc._risk_store = mock_store
 
@@ -903,9 +923,11 @@ class TestGroupingLoop:
         async def _cancel_sleep(_):
             raise asyncio.CancelledError()
 
-        with patch("app.services.analysis_service.asyncio.sleep", _cancel_sleep):
-            with patch("app.services.analysis_service.logger"):
-                await svc._grouping_loop()
+        with (
+            patch("app.services.analysis_service.asyncio.sleep", _cancel_sleep),
+            patch("app.services.analysis_service.logger"),
+        ):
+            await svc._grouping_loop()
 
     @pytest.mark.asyncio
     async def test_grouping_loop_logs_error_on_exception(self):
@@ -927,15 +949,15 @@ class TestGroupingLoop:
                 return  # First sleep succeeds → enters loop body
             raise asyncio.CancelledError()  # Second sleep (in except block) cancels
 
-        with patch(
-            "app.services.analysis_service.asyncio.sleep", _sleep_then_cancel
+        with (
+            patch("app.services.analysis_service.asyncio.sleep", _sleep_then_cancel),
+            patch("app.services.analysis_service.logger") as mock_logger,
         ):
-            with patch("app.services.analysis_service.logger") as mock_logger:
-                with pytest.raises(asyncio.CancelledError):
-                    await svc._grouping_loop()
-                error_calls = [
-                    c
-                    for c in mock_logger.error.call_args_list
-                    if "Error in grouping task" in str(c)
-                ]
-                assert len(error_calls) >= 1
+            with pytest.raises(asyncio.CancelledError):
+                await svc._grouping_loop()
+            error_calls = [
+                c
+                for c in mock_logger.error.call_args_list
+                if "Error in grouping task" in str(c)
+            ]
+            assert len(error_calls) >= 1

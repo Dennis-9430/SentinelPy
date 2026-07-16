@@ -94,7 +94,11 @@ class TestCrearUsuarioExtended:
     async def test_crear_y_verificar_en_listado(self, admin_client):
         resp = await admin_client.post(
             "/api/users",
-            json={"username": "verify_in_list", "password": "pass123456", "role": "analyst"},
+            json={
+                "username": "verify_in_list",
+                "password": "pass123456",
+                "role": "analyst",
+            },
         )
         assert resp.status_code == 201
         new_id = resp.json()["id"]
@@ -124,7 +128,9 @@ class TestDesactivarUsuarioExtended:
 
         list_resp = await admin_client.get("/api/users")
         user_data = next(
-            u for u in list_resp.json()["usuarios"] if u["username"] == "deactivate_check"
+            u
+            for u in list_resp.json()["usuarios"]
+            if u["username"] == "deactivate_check"
         )
         assert user_data["active"] is False
 
