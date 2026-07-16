@@ -19,6 +19,7 @@ from app.api import admin as admin_router
 from app.api import agents as agents_router
 from app.api import alerts, analysis, events, rules, stats
 from app.api import auth as auth_router
+from app.api import threat_intel as ti_router
 from app.api import users as users_router
 from app.config import settings
 from app.middleware import register_error_handlers
@@ -332,6 +333,7 @@ v1_router.include_router(users_router.router)
 v1_router.include_router(admin_router.router)
 v1_router.include_router(analysis.router)
 v1_router.include_router(stats.router)
+v1_router.include_router(ti_router.router)
 app.include_router(v1_router)
 
 # ── Backward compat: /api/ sin versionado (deprecated, para tests) ─────
@@ -344,6 +346,7 @@ compat_router.include_router(users_router.router)
 compat_router.include_router(admin_router.router)
 compat_router.include_router(analysis.router)
 compat_router.include_router(stats.router)
+compat_router.include_router(ti_router.router)
 app.include_router(compat_router)
 
 # ── Agent endpoints (v2 — ya versionados independientemente) ────────────

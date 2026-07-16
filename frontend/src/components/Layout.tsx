@@ -8,6 +8,7 @@ const navItems = [
   { to: "/alerts", label: "Alerts", icon: "🔔" },
   { to: "/rules", label: "Rules", icon: "⚙️" },
   { to: "/agents", label: "Agents", icon: "🤖" },
+  { to: "/threat-intel", label: "Threat Intel", icon: "🛡️" },
   { to: "/users", label: "Users", icon: "👥" },
 ]
 

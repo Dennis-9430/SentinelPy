@@ -10,6 +10,7 @@ const AlertsPage = lazy(() => import("./pages/AlertsPage"))
 const RulesPage = lazy(() => import("./pages/RulesPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const AgentsPage = lazy(() => import("./pages/AgentsPage"))
+const ThreatIntelPage = lazy(() => import("./pages/ThreatIntelPage"))
 
 function LazyFallback() {
   return (
@@ -83,6 +84,14 @@ export const router = createBrowserRouter([
             <ProtectedRoute requiredRole="admin">
               <AgentsPage />
             </ProtectedRoute>
+          </Suspense>
+        ),
+      },
+      {
+        path: "threat-intel",
+        element: (
+          <Suspense fallback={<LazyFallback />}>
+            <ThreatIntelPage />
           </Suspense>
         ),
       },
