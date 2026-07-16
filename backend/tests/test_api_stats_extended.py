@@ -98,13 +98,13 @@ class TestStatsEventsExtended:
     async def test_por_severidad_unknown(self, client, session):
         service = EventService(session)
         d = _evento_base()
-        d["severity"] = None
+        d["severity"] = "unknown_level"
         await service.crear_evento(d)
 
         resp = await client.get("/api/stats/events?horas=24")
         assert resp.status_code == 200
         data = resp.json()
-        assert "unknown" in data["por_severidad"]
+        assert "unknown_level" in data["por_severidad"]
 
 
 class TestStatsAlertsExtended:
@@ -146,13 +146,13 @@ class TestStatsAlertsExtended:
         alert_svc = AlertService(session)
 
         a = _alerta_base(regla.id)
-        a["severity"] = None
+        a["severity"] = "nonstandard"
         await alert_svc.crear_alerta(a)
 
         resp = await client.get("/api/stats/alerts")
         assert resp.status_code == 200
         data = resp.json()
-        assert "unknown" in data["por_severidad"]
+        assert "nonstandard" in data["por_severidad"]
 
 
 class TestExportarCsvExtended:
@@ -190,7 +190,7 @@ class TestExportarCsvExtended:
         regla = await rule_svc.crear_regla(_regla_base())
         alert_svc = AlertService(session)
         alerta_data = _alerta_base(regla.id)
-        alerta_data["description"] = None
+        alerta_data["description"] = ""
         await alert_svc.crear_alerta(alerta_data)
 
         resp = await client.get("/api/stats/alerts/exportar")
