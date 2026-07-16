@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     webhook_url: str = ""
     notify_min_severity: str = "high"  # critical | high | medium | low
 
+    # ── Threat Intelligence ──────────────────────────────────────────────
+    abuseipdb_api_key: str = ""
+    virustotal_api_key: str = ""
+    otx_api_key: str = ""
+    ti_enrichment_enabled: bool = True
+    ti_cache_ttl_minutes: int = 60
+
     # ── Análisis estadístico ────────────────────────────────────────────
     analysis_enabled: bool = True
     analysis_baseline_window_minutes: int = 60
@@ -114,6 +121,22 @@ class Settings(BaseSettings):
         return self
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    # ── API key masking ──────────────────────────────────────────────────
+    _API_KEY_FIELDS = ("abuseipdb_api_key", "virustotal_api_key", "otx_api_key")
+
+    def __repr__(self) -> str:
+        """Máscara de API keys en el repr para evitar logging de secretos."""
+        parts = []
+        for field in type(self).model_fields:
+            value = getattr(self, field)
+            if field in self._API_KEY_FIELDS:
+                if value:
+                    value = f"{value[:4]}***{value[-4:]}" if len(value) > 8 else "***"
+                else:
+                    value = ""
+            parts.append(f"{field}={value!r}")
+        return f"Settings({', '.join(parts)})"
 
 
 # Instancia global de configuración — se importa donde se necesite
