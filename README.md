@@ -35,6 +35,7 @@ SentinelPy es un Security Information and Event Management diseñado para entorn
 | **Statistical Analysis** | Z-score baselines, entity risk scoring con decaimiento exponencial |
 | **Alert Grouping** | Agrupación automática de alertas por regla + IP fuente |
 | **ML Anomaly Detection** | IsolationForest para detección de anomalías (optional, graceful fallback) |
+| **Threat Intelligence** | Enriquecimiento IOC desde AbuseIPDB, AlienVault OTX, VirusTotal |
 
 ---
 
@@ -192,7 +193,7 @@ Esto genera:
                     ┌──────────────────────────────────┐
                     │        React SPA (Vite)          │
                     │  Dashboard · Eventos · Alertas   │
-                    │  Reglas · Usuarios · Login       │
+                    │  Reglas · Usuarios · Threat Intel│
                     └──────────────┬───────────────────┘
                                    │ HTTP (JSON)
                     ┌──────────────▼───────────────────┐
@@ -208,16 +209,16 @@ Esto genera:
                       │         │  · ML (IsolationForest)│
               ┌───────┴──────┐  └─────────────────────┘
               │   Pipeline   │           │
-              │ Parse→Engine│           │
-              └───────▲──────┘           │
-                      │                  │
-              ┌───────┴──────┐  ┌────────▼────────────┐
-              │SyslogCollector│  │  PostgreSQL         │
-              │(puerto 5140) │  │  (SQLAlchemy async)  │
-              └──────────────┘  └─────────────────────┘
-                      ▲
-              ┌───────┴──────┐
-              │ Remote Agent │
+              │ Parse→Engine│   ┌───────▼──────────────┐
+              └───────▲──────┘   │ Threat Intel Service │
+                      │          │ · AbuseIPDB · OTX   │
+              ┌───────┴──────┐   │ · VirusTotal · Cache│
+              │SyslogCollector│  └───────▲──────────────┘
+              │(puerto 5140) │          │
+              └──────────────┘  ┌───────┴──────────────┐
+                      ▲         │  PostgreSQL          │
+              ┌───────┴──────┐  │  (SQLAlchemy async)   │
+              │ Remote Agent │  └─────────────────────┘
               │ (Python)     │
               │ async + httpx│
               └──────────────┘
@@ -264,6 +265,9 @@ Esto genera:
 | `POST` | `/api/v2/events` | Ingesta batch de eventos (agentes remotos) | API Key |
 | `POST` | `/api/v2/agent/heartbeat` | Heartbeat del agente remoto | API Key |
 | `GET` | `/api/agents` | Listar agentes remotos | admin |
+| `GET` | `/api/v1/threat-intel/feeds` | Estado de providers TI | ✅ |
+| `POST` | `/api/v1/threat-intel/lookup` | Lookup manual de IOC | ✅ |
+| `GET` | `/api/v1/threat-intel/iocs` | IOCs cacheados (paginado) | ✅ |
 | `POST` | `/api/agents` | Crear agente remoto | admin |
 | `PATCH` | `/api/agents/{id}/deactivate` | Desactivar agente | admin |
 
@@ -279,6 +283,7 @@ Esto genera:
 | `/alerts` | Alertas | Tabla paginada con filtros, cambio de estado, exportación CSV |
 | `/rules` | Reglas | Listado, crear/eliminar reglas, toggle activar/desactivar (solo admin) |
 | `/users` | Usuarios | CRUD de usuarios (solo admin) |
+| `/threat-intel` | Threat Intel | Providers status, lookup manual, IOCs |
 
 ---
 
@@ -327,7 +332,7 @@ pnpm dev
 ```bash
 # Backend (desde backend/)
 cd backend
-pytest -v              # 121+ tests
+pytest -v              # 600+ tests
 pytest -v -k toggle    # Solo tests de toggle
 
 # Frontend (desde frontend/)
@@ -375,10 +380,10 @@ Diferencias con el modo dev:
 SentinelPy/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # Routers FastAPI (events, rules, alerts, auth, users)
-│   │   ├── models/       # SQLAlchemy models (Event, Rule, Alert, User)
+│   │   ├── api/          # Routers FastAPI (events, rules, alerts, auth, users, threat-intel)
+│   │   ├── models/       # SQLAlchemy models (Event, Rule, Alert, User, ThreatIntel)
 │   │   ├── schemas/      # Pydantic schemas
-│   │   ├── services/     # Lógica de negocio (engine, pipeline, notifiers)
+│   │   ├── services/     # Lógica de negocio (engine, pipeline, notifiers, ti_providers)
 │   │   ├── config.py     # Settings con pydantic-settings
 │   │   ├── database.py   # async engine + session factory
 │   │   ├── main.py       # App FastAPI + lifespan + SPA catch-all
@@ -436,13 +441,14 @@ En `docs/` hay guías detalladas de cada fase del proyecto:
 | 08 | Configuración productiva (Docker multi-stage) | ✅ Completado |
 | 09 | **Agente remoto** — Colector liviano para endpoints | ✅ Completado |
 | 10 | **IA y análisis** — Detección de anomalías con ML | ✅ Completado |
+| 11 | **Threat Intelligence** — IOC enrichment (AbuseIPDB, OTX, VT) | ✅ Completado |
 
 ### ✅ Lo que ya tiene el sistema
 
 - API REST completa con FastAPI + PostgreSQL async
 - Colector syslog UDP + parsers (SSH, firewall, DNS, procesos)
 - Motor de correlación con reglas configurables y ventanas temporales
-- React SPA con 6 páginas (Dashboard, Eventos, Alertas, Reglas, Usuarios, Login)
+- React SPA con 7 páginas (Dashboard, Eventos, Alertas, Reglas, Usuarios, Login, Threat Intel)
 - Autenticación JWT con cookie httpOnly
 - RBAC (admin/analyst) con guards en frontend y backend
 - CRUD de reglas y usuarios desde la UI
@@ -454,19 +460,42 @@ En `docs/` hay guías detalladas de cada fase del proyecto:
 - Statistical analysis: z-score baselines, entity risk scoring con decaimiento
 - Alert grouping automático por regla + IP fuente
 - ML anomaly detection: IsolationForest con graceful fallback
-- Dashboard con cards de anomalías y top riesgos
-- Seed de datos de demostración
+- Threat Intelligence: enrichment IOC desde AbuseIPDB, AlienVault OTX, VirusTotal
+- Cache TTL en memoria para rate limits de providers TI
+- Frontend: página Threat Intel con providers status, lookup manual, tabla de IOCs
+- 600+ tests de backend + tests de frontend
 - Docker multi-stage (frontend compilado, usuario no-root)
-- 121+ tests de backend + 20 tests de frontend
+- Seed de datos de demostración
+
+---
+
+## 🔮 Futuro: SOAR (Security Orchestration, Automation & Response)
+
+SOAR es la siguiente frontera para SentinelPy — automatizar la respuesta a alertas sin intervención humana. Capacidades potenciales:
+
+| Capacidad | Descripción | Ejemplo |
+|-----------|-------------|---------|
+| **Notificación automática** | Enviar alertas a Slack/Discord cuando se detecta una amenaza | Brute force → mensaje a #security |
+| **Bloqueo de IP** | Agregar IPs maliciosas a blocklists de firewalls | IOC confidence > 90 → iptables/pfSense |
+| **Creación de tickets** | Abrir issues en Jira/GitHub automáticamente | Alerta crítica → ticket asignado al SOC |
+| **Aislamiento de host** | Desconectar endpoints comprometidos de la red | Host con risk score alto → aislamiento |
+| **Enriquecimiento forense** | Recopilar datos adicionales de endpoints afectados | Alerta → collect logs, processes, connections |
+
+**Requisitos para implementar:**
+- Integraciones externas (APIs de Slack, Jira, firewalls)
+- Políticas de negocio (¿cuándo actuar automáticamente?)
+- Control de falsos positivos (approval workflow)
+- Audit trail de acciones automáticas
 
 ### 🎯 Proyecto completado
 
-Las 10 fases del proyecto están completadas. El sistema incluye:
+Las 11 fases del proyecto están completadas. El sistema incluye:
 - Ingesta de logs (syslog + agentes remotos)
 - Correlación en tiempo real con reglas configurables
 - Detección de anomalías con ML (IsolationForest)
 - Alertas con agrupación automática y scoring de riesgo
-- Dashboard React con charts, métricas, y gestión de alertas
+- Threat Intelligence: IOC enrichment desde 3 providers externos
+- Dashboard React con charts, métricas, gestión de alertas, y Threat Intel
 - Autenticación, RBAC, notificaciones, y exportación CSV
 
 ---
