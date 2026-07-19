@@ -54,11 +54,13 @@ function sumValues(obj: Record<string, number>): number {
 function StatCard({
   title,
   value,
+  description,
   loading,
   error,
 }: {
   title: string
   value?: string | number
+  description?: string
   loading: boolean
   error: boolean
 }) {
@@ -75,7 +77,12 @@ function StatCard({
         ) : error ? (
           <p className="text-xs text-destructive">Error al cargar</p>
         ) : (
-          <p className="text-3xl font-bold">{value ?? "—"}</p>
+          <>
+            <p className="text-3xl font-bold">{value ?? "—"}</p>
+            {description && (
+              <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -179,36 +186,42 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatCard
           title="Eventos 24h"
+          description="Eventos recibidos en las últimas 24 horas"
           value={totalEvents}
           loading={eventsStats.isLoading}
           error={eventsStats.isError}
         />
         <StatCard
           title="Alertas activas"
+          description="Alertas abiertas que requieren atención"
           value={openAlerts}
           loading={alertsStats.isLoading}
           error={alertsStats.isError}
         />
         <StatCard
           title="Reglas activas"
+          description="Reglas de detección habilitadas"
           value={activeRules}
           loading={rulesData.isLoading}
           error={rulesData.isError}
         />
         <StatCard
           title="Últimos eventos"
+          description="Total de eventos registrados en el sistema"
           value={recentEvents.data?.total ?? 0}
           loading={recentEvents.isLoading}
           error={recentEvents.isError}
         />
         <StatCard
           title="Anomalías"
+          description="Comportamientos anómalos detectados"
           value={anomaliesData.data?.total ?? 0}
           loading={anomaliesData.isLoading}
           error={anomaliesData.isError}
         />
         <StatCard
           title="Entidades en riesgo"
+          description="Hosts o usuarios con mayor riesgo"
           value={topRisks.data?.total ?? 0}
           loading={topRisks.isLoading}
           error={topRisks.isError}
@@ -221,6 +234,9 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Eventos 24h</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Distribución horaria de eventos en las últimas 24 horas
+            </p>
           </CardHeader>
           <CardContent>
             {eventsStats.isLoading ? (
@@ -267,6 +283,9 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Por severidad</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Distribución de eventos por nivel de severidad
+            </p>
           </CardHeader>
           <CardContent>
             {eventsStats.isLoading ? (
@@ -310,6 +329,9 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Top Entidades en Riesgo</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Hosts o usuarios con mayor puntuación de riesgo acumulado
+          </p>
         </CardHeader>
         <CardContent>
           {topRisks.isLoading ? (
@@ -347,6 +369,9 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Últimos eventos</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Los 10 eventos más recientes registrados en el sistema
+          </p>
         </CardHeader>
         <CardContent>
           {recentEvents.isLoading ? (

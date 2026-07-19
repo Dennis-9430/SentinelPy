@@ -15,6 +15,7 @@ from typing import Optional
 from agent.config import AgentConfig
 from agent.parsers import get_parser
 from agent.queue import EventQueue
+from agent.ratelimit import TokenBucketRateLimiter
 from agent.sender import EventSender
 from agent.watcher import get_watcher
 
@@ -46,6 +47,11 @@ class Agent:
             parser = get_parser(watch.parser, **kwargs)
             self._parsers[watch.path] = parser
             self._watcher.watch(watch.path)
+
+        # Rate limiter
+        self._rate_limiter = TokenBucketRateLimiter(
+            rate=config.max_events_per_second,
+        )
 
         # Queue
         self._queue = EventQueue(
@@ -140,10 +146,17 @@ class Agent:
         parser = self._parsers.get(path)
         if not parser:
             return
+        dropped = 0
         for line in lines:
             parsed = parser.parse(line)
-            if parsed is not None:
+            if parsed is None:
+                continue
+            if self._rate_limiter.allow():
                 self._queue.enqueue(parsed)
+            else:
+                dropped += 1
+        if dropped:
+            logger.debug("Rate limited %d event(s) from %s", dropped, path)
 
     # ── Send cycle: dequeue → sender ─────────────────────────────────────────
 

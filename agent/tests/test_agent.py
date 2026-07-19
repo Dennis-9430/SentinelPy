@@ -18,6 +18,7 @@ def mock_config():
     config.poll_interval = 0.05
     config.batch_size = 10
     config.batch_interval = 0.05
+    config.max_events_per_second = 1000.0  # High limit for tests
     config.heartbeat_interval = 0.1
     config.queue_max_size = 100
     config.watches = []

@@ -26,6 +26,7 @@ class AgentConfig(BaseModel):
     poll_interval: float = 1.0
     batch_size: int = 50
     batch_interval: float = 5.0
+    max_events_per_second: float = 2.0
     heartbeat_interval: float = 30.0
     queue_max_size: int = 10000
     watches: list[WatchConfig] = []
