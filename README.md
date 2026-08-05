@@ -142,6 +142,31 @@ En ese puerto tenés:
 - **API** — http://localhost:8000/docs → Swagger UI
 - **Health** — http://localhost:8000/health
 
+### Modo alternativo (puertos diferentes)
+
+Si los puertos por defecto (`8000` API y `5432` PostgreSQL) ya están ocupados por otro servicio local — por ejemplo otro stack Docker — podés correr SentinelPy en puertos alternativos:
+
+1. Creá (o editá) un archivo `.env` en la raíz del proyecto:
+
+```bash
+# .env
+POSTGRES_PORT=5433
+API_PORT=8001
+```
+
+2. Levantá normalmente:
+
+```bash
+docker compose up -d --build
+```
+
+3. La API ahora sirve en **http://localhost:8001** (SPA, Swagger UI y health incluidos). El puerto de PostgreSQL expuesto al host pasa a ser `5433`.
+
+> 💡 Notas:
+> - El `.env` ya está en `.gitignore` — no se sube al repositorio.
+> - Los contenedores se comunican entre sí por la red interna de Docker, así que el cambio de puerto del host no afecta al API ni al agente.
+> - Si más adelante querés volver a los puertos por defecto, borrá esas dos líneas del `.env` (o el archivo completo).
+
 ### Credenciales por defecto
 
 | Usuario | Rol | Contraseña |
