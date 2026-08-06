@@ -1,4 +1,4 @@
-"""Notificador de alertas vía webhook HTTP (Slack, Discord, etc.)."""
+"""Alert notifier via HTTP webhook (Slack, Discord, etc.)."""
 
 import logging
 
@@ -10,11 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class WebhookNotifier:
-    """Envía alertas a uno o más webhooks HTTP.
+    """Sends alerts to one or more HTTP webhooks.
 
-    Soporta formato Slack (attachments) y Discord (embeds).
-    Si la URL contiene 'discord', usa formato embed.
-    Caso contrario, usa formato Slack attachment.
+    Supports Slack format (attachments) and Discord format (embeds).
+    If the URL contains 'discord', uses the embed format.
+    Otherwise, uses the Slack attachment format.
     """
 
     def __init__(self, webhook_url: str | None = None):
@@ -22,13 +22,13 @@ class WebhookNotifier:
         self._client = httpx.AsyncClient(timeout=5.0)
 
     async def send(self, alerta: dict):
-        """Envía la alerta al webhook configurado."""
+        """Send the alert to the configured webhook."""
         if not self.webhook_url:
-            logger.debug("WebhookNotifier: URL no configurada, skip")
+            logger.debug("WebhookNotifier: URL not configured, skip")
             return
 
         severity = alerta.get("severity", "info")
-        title = alerta.get("title", "Alerta sin título")
+        title = alerta.get("title", "Untitled alert")
         description = alerta.get("description", "")[:200]
 
         if "discord" in self.webhook_url.lower():
@@ -39,14 +39,14 @@ class WebhookNotifier:
         try:
             resp = await self._client.post(self.webhook_url, json=payload)
             resp.raise_for_status()
-            logger.info("Webhook enviado: %s → %s", title, self.webhook_url)
+            logger.info("Webhook sent: %s → %s", title, self.webhook_url)
         except Exception as e:
-            logger.error("Error al enviar webhook %s: %s", title, e)
+            logger.error("Error sending webhook %s: %s", title, e)
 
     def _payload_slack(
         self, severity: str, title: str, description: str, alerta: dict
     ) -> dict:
-        """Formato Slack con attachments."""
+        """Slack format with attachments."""
         color_map = {
             "critical": "#dc2626",
             "high": "#ea580c",
@@ -67,7 +67,7 @@ class WebhookNotifier:
                             "short": True,
                         },
                         {
-                            "title": "Eventos",
+                            "title": "Events",
                             "value": str(alerta.get("event_count", 1)),
                             "short": True,
                         },
@@ -80,7 +80,7 @@ class WebhookNotifier:
     def _payload_discord(
         self, severity: str, title: str, description: str, alerta: dict
     ) -> dict:
-        """Formato Discord con embeds."""
+        """Discord format with embeds."""
         color_map = {
             "critical": 0xDC2626,
             "high": 0xEA580C,
@@ -101,7 +101,7 @@ class WebhookNotifier:
                             "inline": True,
                         },
                         {
-                            "name": "Eventos",
+                            "name": "Events",
                             "value": str(alerta.get("event_count", 1)),
                             "inline": True,
                         },

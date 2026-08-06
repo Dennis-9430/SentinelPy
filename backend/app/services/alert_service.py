@@ -1,7 +1,7 @@
-"""Servicio de alertas: consulta y actualización del ciclo de vida.
+"""Alert service: querying and updating the lifecycle.
 
-Las alertas se generan automáticamente por el motor de correlación.
-Este servicio solo permite consultarlas y actualizar su estado.
+Alerts are generated automatically by the correlation engine.
+This service only allows querying them and updating their status.
 """
 
 import logging
@@ -18,30 +18,30 @@ logger = logging.getLogger(__name__)
 
 
 class AlertService:
-    """Servicio para consultar y gestionar alertas."""
+    """Service for querying and managing alerts."""
 
     def __init__(self, session: AsyncSession):
         """
-        Argumentos:
-            session: Sesión asíncrona de SQLAlchemy.
+        Args:
+            session: Async SQLAlchemy session.
         """
         self.session = session
 
     async def crear_alerta(self, datos: dict) -> Alert:
-        """Crea una nueva alerta (llamado por el motor de correlación).
+        """Create a new alert (called by the correlation engine).
 
-        Argumentos:
-            datos: Dict con los campos de la alerta.
+        Args:
+            datos: Dict with the alert fields.
 
-        Retorna:
-            La instancia de Alert creada.
+        Returns:
+            The created Alert instance.
         """
         alerta = Alert(**datos)
         self.session.add(alerta)
         await self.session.commit()
         await self.session.refresh(alerta)
         logger.info(
-            "Alerta creada: %s | %s | %s",
+            "Alert created: %s | %s | %s",
             alerta.id,
             alerta.severity,
             alerta.title,
@@ -55,16 +55,16 @@ class AlertService:
         estado: str | None = None,
         severidad: str | None = None,
     ) -> tuple[list[Alert], int]:
-        """Lista alertas con paginación y filtros.
+        """List alerts with pagination and filters.
 
-        Argumentos:
-            limite: Cantidad máxima de alertas.
-            desde: Offset para paginación.
-            estado: Filtrar por estado (open, acknowledged, investigating, resolved, false_positive).
-            severidad: Filtrar por severidad.
+        Args:
+            limite: Maximum number of alerts.
+            desde: Offset for pagination.
+            estado: Filter by status (open, acknowledged, investigating, resolved, false_positive).
+            severidad: Filter by severity.
 
-        Retorna:
-            Tupla (lista de alertas, total sin paginación).
+        Returns:
+            Tuple (list of alerts, total without pagination).
         """
         query = select(Alert).order_by(Alert.created_at.desc())
         count_query = select(func.count(Alert.id))
@@ -85,13 +85,13 @@ class AlertService:
         return alertas, total
 
     async def obtener_alerta(self, alerta_id: str) -> Alert | None:
-        """Obtiene una alerta por su ID.
+        """Get an alert by its ID.
 
-        Argumentos:
-            alerta_id: UUID de la alerta.
+        Args:
+            alerta_id: UUID of the alert.
 
-        Retorna:
-            Alert o None si no existe.
+        Returns:
+            Alert or None if it does not exist.
         """
 
         try:
@@ -100,23 +100,23 @@ class AlertService:
             )
             return result.scalar_one_or_none()
         except (ValueError, Exception) as e:
-            logger.warning("Error al obtener alerta %s: %s", alerta_id, e)
+            logger.warning("Error getting alert %s: %s", alerta_id, e)
             return None
 
     async def actualizar_estado(
         self, alerta_id: str, nuevo_estado: str, notas: str | None = None
     ) -> Alert | None:
-        """Actualiza el estado de una alerta (ciclo de vida).
+        """Update the status of an alert (lifecycle).
 
-        Estados: open → acknowledged → investigating → resolved | false_positive
+        Statuses: open → acknowledged → investigating → resolved | false_positive
 
-        Argumentos:
-            alerta_id: UUID de la alerta.
-            nuevo_estado: Nuevo estado.
-            notas: Notas de resolución (opcional).
+        Args:
+            alerta_id: UUID of the alert.
+            nuevo_estado: New status.
+            notas: Resolution notes (optional).
 
-        Retorna:
-            Alert actualizada, o None si no existe.
+        Returns:
+            Updated Alert, or None if it does not exist.
         """
         alerta = await self.obtener_alerta(alerta_id)
         if not alerta:
@@ -133,25 +133,25 @@ class AlertService:
 
         await self.session.commit()
         await self.session.refresh(alerta)
-        logger.info("Alerta %s → estado: %s", alerta_id, nuevo_estado)
+        logger.info("Alert %s → status: %s", alerta_id, nuevo_estado)
         return alerta
 
     async def actualizar_contadores(
         self, rule_id: str, event_count: int, last_event_at: datetime
     ) -> Alert | None:
-        """Actualiza los contadores de una alerta abierta en ventana temporal.
+        """Update the counters of an open alert in a time window.
 
-        Busca la alerta más reciente (open) para la regla dada y actualiza
-        su event_count y last_event_at. Esto permite que múltiples eventos
-        dentro de una ventana de correlación actualicen una misma alerta.
+        Looks up the most recent (open) alert for the given rule and updates
+        its event_count and last_event_at. This allows multiple events
+        within a correlation window to update the same alert.
 
-        Argumentos:
-            rule_id: UUID de la regla (como string).
-            event_count: Nuevo contador de eventos.
-            last_event_at: Timestamp del último evento recibido.
+        Args:
+            rule_id: UUID of the rule (as a string).
+            event_count: New event counter.
+            last_event_at: Timestamp of the last received event.
 
-        Retorna:
-            La alerta actualizada, o None si no encontró ninguna abierta.
+        Returns:
+            The updated alert, or None if no open alert was found.
         """
 
         try:
@@ -167,7 +167,7 @@ class AlertService:
             alerta = result.scalar_one_or_none()
             if not alerta:
                 logger.warning(
-                    "No se encontró alerta abierta para regla %s",
+                    "No open alert found for rule %s",
                     rule_id,
                 )
                 return None
@@ -177,26 +177,26 @@ class AlertService:
             await self.session.commit()
             await self.session.refresh(alerta)
             logger.debug(
-                "Alerta %s actualizada: %d eventos",
+                "Alert %s updated: %d events",
                 alerta.id,
                 event_count,
             )
             return alerta
         except (ValueError, Exception) as e:
-            logger.warning("Error actualizando contadores: %s", e)
+            logger.warning("Error updating counters: %s", e)
             return None
 
     async def obtener_estadisticas(self) -> dict:
-        """Obtiene estadísticas de alertas.
+        """Get alert statistics.
 
-        Retorna:
-            Dict con conteo por estado y severidad.
+        Returns:
+            Dict with counts by status and severity.
         """
-        # Total por estado
+        # Total by status
         total_result = await self.session.execute(select(func.count(Alert.id)))
         total = total_result.scalar() or 0
 
-        # Abiertas (open + acknowledged + investigating)
+        # Open (open + acknowledged + investigating)
         abiertas_result = await self.session.execute(
             select(func.count(Alert.id)).where(
                 Alert.status.in_(["open", "acknowledged", "investigating"])
@@ -204,7 +204,7 @@ class AlertService:
         )
         abiertas = abiertas_result.scalar() or 0
 
-        # Resueltas
+        # Resolved
         resueltas_result = await self.session.execute(
             select(func.count(Alert.id)).where(
                 Alert.status.in_(["resolved", "false_positive"])
@@ -271,7 +271,7 @@ class AlertService:
                 if risk_row:
                     risk_score = float(risk_row[0])
             except Exception as e:
-                logger.debug("No se pudo obtener risk_score para %s: %s", source_ip, e)
+                logger.debug("Could not get risk_score for %s: %s", source_ip, e)
                 await self.session.rollback()
 
             # Update all alerts in this group
@@ -283,7 +283,7 @@ class AlertService:
         # 4. Commit all updates
         await self.session.commit()
         logger.info(
-            "Agrupación completada: %d alertas actualizadas en %d grupos",
+            "Grouping completed: %d alerts updated in %d groups",
             updated_count,
             len(groups),
         )

@@ -1,9 +1,9 @@
-"""Rate limiter sliding window in-memory para endpoints de agentes.
+"""In-memory sliding window rate limiter for agent endpoints.
 
-Usa un dict de agent_id -> deque[timestamp] para tracking.
-La limpieza de entradas vencidas ocurre en cada chequeo.
-Para multi-proceso se necesitaría Redis, pero para single-process
-esta implementación es suficiente.
+Uses a dict of agent_id -> deque[timestamp] for tracking.
+Expired entries are cleaned up on every check.
+Multi-process would require Redis, but for single-process
+this implementation is sufficient.
 """
 
 import time
@@ -16,11 +16,11 @@ from app.models.agent import Agent
 
 
 class RateLimiter:
-    """Rate limiter sliding window configurable.
+    """Configurable sliding window rate limiter.
 
     Args:
-        max_requests: Máximo de requests permitidos en la ventana.
-        window_seconds: Duración de la ventana en segundos.
+        max_requests: Maximum requests allowed in the window.
+        window_seconds: Window duration in seconds.
     """
 
     def __init__(self, max_requests: int = 100, window_seconds: int = 60):
@@ -29,16 +29,16 @@ class RateLimiter:
         self._buckets: dict[str, deque[float]] = {}
 
     async def __call__(self, agent: Agent = Depends(require_agent)) -> Agent:
-        """Verifica el rate limit para el agente autenticado.
+        """Check the rate limit for the authenticated agent.
 
         Args:
-            agent: Agente autenticado (via require_agent).
+            agent: Authenticated agent (via require_agent).
 
         Returns:
-            La misma instancia de Agent si no excede el límite.
+            The same Agent instance if it does not exceed the limit.
 
         Raises:
-            HTTPException 429: Si excede el límite.
+            HTTPException 429: If the limit is exceeded.
         """
         agent_id = str(agent.id)
         now = time.time()
@@ -49,11 +49,11 @@ class RateLimiter:
 
         bucket = self._buckets[agent_id]
 
-        # Limpiar entradas vencidas
+        # Remove expired entries
         while bucket and bucket[0] < window_start:
             bucket.popleft()
 
-        # Verificar límite
+        # Check the limit
         if len(bucket) >= self.max_requests:
             oldest = bucket[0]
             retry_after = int(oldest + self.window_seconds - now) + 1
@@ -61,8 +61,8 @@ class RateLimiter:
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail={
                     "detail": (
-                        f"Demasiadas solicitudes. "
-                        f"Intente de nuevo en {retry_after} segundos."
+                        f"Too many requests. "
+                        f"Try again in {retry_after} seconds."
                     ),
                     "retry_after": retry_after,
                 },

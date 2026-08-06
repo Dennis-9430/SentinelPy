@@ -1,7 +1,7 @@
-"""Middleware global de errores para la API.
+"""Global error middleware for the API.
 
-Captura excepciones no manejadas y retorna respuestas JSON
-consistentes en lugar del HTML por defecto de FastAPI.
+Catches unhandled exceptions and returns consistent JSON responses
+instead of FastAPI's default HTML.
 """
 
 import logging
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handler para excepciones no capturadas — retorna JSON 500."""
+    """Handler for uncaught exceptions — returns JSON 500."""
     logger.error(
         "Unhandled exception on %s %s: %s",
         request.method,
@@ -24,14 +24,14 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     return JSONResponse(
         status_code=500,
         content={
-            "detail": "Error interno del servidor",
+            "detail": "Internal server error",
             "code": "INTERNAL_ERROR",
         },
     )
 
 
 async def http_exception_handler(request: Request, exc) -> JSONResponse:
-    """Handler para HTTPException — asegura formato JSON consistente."""
+    """Handler for HTTPException — ensures a consistent JSON format."""
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -42,7 +42,7 @@ async def http_exception_handler(request: Request, exc) -> JSONResponse:
 
 
 def register_error_handlers(app: FastAPI) -> None:
-    """Registra los handlers de error globales en la app."""
+    """Register the global error handlers on the app."""
     from fastapi.exceptions import HTTPException, RequestValidationError
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -69,7 +69,7 @@ def register_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content={
-                "detail": "Error de validación",
+                "detail": "Validation error",
                 "code": "VALIDATION_ERROR",
                 "errors": errors,
             },
@@ -84,7 +84,7 @@ def register_error_handlers(app: FastAPI) -> None:
             exc,
             exc_info=True,
         )
-        # En debug, incluir traceback; en producción, solo mensaje genérico
+        # In debug, include the traceback; in production, only a generic message
         from app.config import settings
 
         detail = str(exc) if settings.debug else "Error interno del servidor"

@@ -1,7 +1,7 @@
-"""Esquemas Pydantic para el modelo Agent.
+"""Pydantic schemas for the Agent model.
 
-Separa los esquemas de creación (incluye api_key_raw una sola vez)
-de los de lectura (nunca expone api_key_hash) y listado.
+Separates the creation schemas (include api_key_raw once)
+from the read (never expose api_key_hash) and listing ones.
 """
 
 from datetime import datetime
@@ -10,26 +10,27 @@ from pydantic import BaseModel, Field
 
 
 class AgentCreate(BaseModel):
-    """Esquema para crear un nuevo agente remoto.
+    """Schema for creating a new remote agent.
 
-    Solo requiere name y hostname. El servidor genera la API key
-    automáticamente con secrets.token_urlsafe(32).
+    Only requires name and hostname. The server generates the API key
+    automatically with secrets.token_urlsafe(32).
     """
 
     name: str = Field(
-        min_length=1, max_length=100, description="Nombre único del agente"
+        min_length=1, max_length=100, description="Unique agent name"
     )
     hostname: str = Field(
-        min_length=1, max_length=255, description="Hostname del equipo"
+        min_length=1, max_length=255, description="Machine hostname"
     )
+
 
 
 class AgentRead(BaseModel):
-    """Esquema de lectura de agente (nunca expone api_key_hash).
+    """Agent read schema (never exposes api_key_hash).
 
-    La API key raw SOLO se retorna en la respuesta de creación
-    (ver AgentCreateResponse). Ningún GET/PATCH/PUT incluye
-    api_key_hash ni api_key_raw.
+    The raw API key is ONLY returned in the creation response
+    (see AgentCreateResponse). No GET/PATCH/PUT includes
+    api_key_hash or api_key_raw.
     """
 
     id: int
@@ -46,38 +47,38 @@ class AgentRead(BaseModel):
 
 
 class AgentUpdate(BaseModel):
-    """Esquema para actualizar campos de un agente.
+    """Schema for updating an agent's fields.
 
-    Todos los campos son opcionales — solo se actualizan
-    los que se envían. Se requiere al menos uno.
+    All fields are optional — only the ones sent are updated.
+    At least one is required.
     """
 
     name: str | None = Field(
         default=None,
         min_length=1,
         max_length=100,
-        description="Nuevo nombre del agente",
+        description="New agent name",
     )
     hostname: str | None = Field(
         default=None,
         min_length=1,
         max_length=255,
-        description="Nuevo hostname del agente",
+        description="New agent hostname",
     )
 
 
 class AgentCreateResponse(AgentRead):
-    """Respuesta de creación — incluye api_key_raw UNA SOLA VEZ.
+    """Creation response — includes api_key_raw ONLY ONCE.
 
-    Este esquema SOLO se usa en la respuesta 201 de POST /api/admin/agents.
-    api_key_raw nunca se almacena ni se puede recuperar después.
+    This schema is ONLY used in the 201 response of POST /api/admin/agents.
+    api_key_raw is never stored and cannot be retrieved afterwards.
     """
 
     api_key_raw: str
 
 
 class AgentList(BaseModel):
-    """Esquema de listado de agentes paginado con total."""
+    """Paginated agent listing schema with total."""
 
     agents: list[AgentRead]
     total: int

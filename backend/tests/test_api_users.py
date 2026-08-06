@@ -140,13 +140,13 @@ class TestDesactivarUsuario:
 
         resp = await admin_client.patch(f"/api/users/{user.id}/desactivar")
         assert resp.status_code == 200
-        assert "desactivado" in resp.json()["mensaje"]
+        assert "deactivated" in resp.json()["mensaje"]
 
     @pytest.mark.asyncio
     async def test_desactivar_no_puede_a_si_mismo(self, admin_client, admin_user):
         resp = await admin_client.patch(f"/api/users/{admin_user.id}/desactivar")
         assert resp.status_code == 400
-        assert "mismo" in resp.json()["detail"]
+        assert "yourself" in resp.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_desactivar_404(self, admin_client):

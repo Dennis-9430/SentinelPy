@@ -1,8 +1,8 @@
-"""Endpoints de la API para análisis de eventos.
+"""API endpoints for event analysis.
 
-Provee acceso a anomalías detectadas (z-scores) y scores de riesgo
-por entidad. Los datos se generan de forma asíncrona por el
-AnalysisService en el pipeline de procesamiento.
+Provides access to detected anomalies (z-scores) and risk scores
+per entity. The data is generated asynchronously by the
+AnalysisService in the processing pipeline.
 """
 
 import logging
@@ -11,20 +11,20 @@ from fastapi import APIRouter, Query, Request
 
 logger = logging.getLogger(__name__)
 
-# Router con prefijo /api/analysis
+# Router with /api/analysis prefix
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
 
 @router.get("/anomalies", response_model=dict)
 async def listar_anomalias(
     request: Request,
-    limite: int = Query(50, ge=1, le=500, description="Cantidad máxima"),
-    desde: int = Query(0, ge=0, description="Offset para paginación"),
+    limite: int = Query(50, ge=1, le=500, description="Maximum count"),
+    desde: int = Query(0, ge=0, description="Offset for pagination"),
 ):
-    """Lista eventos con anomalías detectadas (analysis_data != null).
+    """List events with detected anomalies (analysis_data != null).
 
-    Retorna eventos que tienen z-scores calculados por el
-    AnalysisService. Los resultados se ordenan por timestamp descendente.
+    Returns events that have z-scores computed by the
+    AnalysisService. Results are ordered by descending timestamp.
     """
     service = getattr(request.app.state, "analysis_service", None)
     if service is None:
@@ -34,20 +34,20 @@ async def listar_anomalias(
         anomalias, total = await service.get_anomalies(limit=limite, offset=desde)
         return {"anomalies": anomalias, "total": total}
     except Exception as e:
-        logger.error("Error obteniendo anomalías: %s", e, exc_info=True)
+        logger.error("Error getting anomalies: %s", e, exc_info=True)
         return {"anomalies": [], "total": 0}
 
 
 @router.get("/risks", response_model=dict)
 async def listar_riesgos(
     request: Request,
-    limite: int = Query(50, ge=1, le=500, description="Cantidad máxima"),
-    desde: int = Query(0, ge=0, description="Offset para paginación"),
+    limite: int = Query(50, ge=1, le=500, description="Maximum count"),
+    desde: int = Query(0, ge=0, description="Offset for pagination"),
 ):
-    """Lista scores de riesgo por entidad.
+    """List risk scores per entity.
 
-    Retorna el riesgo actual (con decaimiento aplicado) para cada
-    entidad rastreada (IPs, usuarios, fuentes).
+    Returns the current risk (with decay applied) for each
+    tracked entity (IPs, users, sources).
     """
     service = getattr(request.app.state, "analysis_service", None)
     if service is None:
@@ -57,5 +57,5 @@ async def listar_riesgos(
         risks, total = await service.get_risks(limit=limite, offset=desde)
         return {"risks": risks, "total": total}
     except Exception as e:
-        logger.error("Error obteniendo riesgos: %s", e, exc_info=True)
+        logger.error("Error getting risks: %s", e, exc_info=True)
         return {"risks": [], "total": 0}

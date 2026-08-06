@@ -1,7 +1,7 @@
-"""Modelo de evento de seguridad normalizado.
+"""Normalized security event model.
 
-Representa un log ya procesado y convertido al Modelo de Información Común (CIM).
-Cada fila es un evento individual con campos normalizados para búsqueda y correlación.
+Represents a log already processed and converted to the Common Information Model (CIM).
+Each row is an individual event with normalized fields for search and correlation.
 """
 
 from datetime import datetime
@@ -14,15 +14,15 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
-    """Evento de seguridad normalizado — la unidad básica del SIEM.
+    """Normalized security event — the basic unit of the SIEM.
 
-    Un evento puede venir de un syslog, un archivo de log, o un agente remoto.
-    El parser se encarga de convertir el log crudo a este formato estándar.
+    An event can come from syslog, a log file, or a remote agent.
+    The parser converts the raw log into this standard format.
     """
 
     __tablename__ = "events"
 
-    # ── Metadatos de origen ──────────────────────────────────────────────
+    # ── Source metadata ──────────────────────────────────────────────────
     source: Mapped[str] = mapped_column(
         String(255),
         index=True,
@@ -33,14 +33,14 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
         comment="Tipo de colector que ingirió el evento: syslog, file, agent",
     )
 
-    # ── Timestamp del evento (no confundir con created_at) ───────────────
+    # ── Event timestamp (do not confuse with created_at) ─────────────────
     event_timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         index=True,
         comment="Timestamp del log original (no cuándo lo ingirió SentinelPy)",
     )
 
-    # ── Campos normalizados (Common Information Model) ───────────────────
+    # ── Normalized fields (Common Information Model) ─────────────────────
     event_type: Mapped[str] = mapped_column(
         String(100),
         index=True,
@@ -56,7 +56,7 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
         comment="Descripción legible del evento",
     )
 
-    # ── Campos de red ────────────────────────────────────────────────────
+    # ── Network fields ───────────────────────────────────────────────────
     source_ip: Mapped[str | None] = mapped_column(
         String(45),
         index=True,
@@ -79,7 +79,7 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
         comment="Protocolo de red: TCP, UDP, ICMP, etc.",
     )
 
-    # ── Campos de entidad ────────────────────────────────────────────────
+    # ── Entity fields ────────────────────────────────────────────────────
     user_name: Mapped[str | None] = mapped_column(
         String(255),
         comment="Nombre de usuario involucrado (si aplica)",
@@ -93,20 +93,20 @@ class NormalizedEvent(Base, TimestampMixin, UUIDMixin):
         comment="Ruta de archivo involucrada (si aplica)",
     )
 
-    # ── Log crudo original ───────────────────────────────────────────────
+    # ── Original raw log ─────────────────────────────────────────────────
     raw_log: Mapped[str | None] = mapped_column(
         Text,
         comment="Log original sin procesar, para forensia",
     )
 
-    # ── Datos de análisis ─────────────────────────────────────────────────
+    # ── Analysis data ────────────────────────────────────────────────────
     analysis_data: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Resultados de análisis: z-scores, ML scores, etc.",
     )
 
-    # ── Índices compuestos para consultas frecuentes ─────────────────────
+    # ── Composite indexes for frequent queries ───────────────────────────
     __table_args__ = (
         Index("ix_events_event_timestamp_desc", event_timestamp.desc()),
         Index("ix_events_source_event_type", source, event_type),

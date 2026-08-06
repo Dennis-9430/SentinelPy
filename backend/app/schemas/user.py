@@ -1,4 +1,4 @@
-"""Esquemas Pydantic para el modelo de usuario."""
+"""Pydantic schemas for the user model."""
 
 from typing import Annotated
 from uuid import UUID
@@ -12,7 +12,7 @@ def _coerce_uuid(v):
 
 
 class UserCreate(BaseModel):
-    """Esquema para crear un nuevo usuario."""
+    """Schema for creating a new user."""
 
     username: str = Field(min_length=3, max_length=100)
     password: str = Field(min_length=6, max_length=255)
@@ -20,14 +20,14 @@ class UserCreate(BaseModel):
 
 
 class UserLogin(BaseModel):
-    """Esquema para login (usuario y contraseña)."""
+    """Schema for login (username and password)."""
 
     username: str
     password: str
 
 
 class UserRead(BaseModel):
-    """Esquema de lectura de usuario (nunca expone el password)."""
+    """User read schema (never exposes the password)."""
 
     id: Annotated[str, BeforeValidator(_coerce_uuid)]
     username: str

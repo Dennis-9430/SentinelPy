@@ -1,11 +1,11 @@
-"""Servicio de análisis estadístico y scoring de riesgo.
+"""Statistical analysis and risk scoring service.
 
-Implementa:
-  - Z-score baselines para detección de anomalías
-  - Entity risk scoring con decaimiento exponencial
-  - ML inference (IsolationForest) cuando está disponible (Slice 3)
+Implements:
+  - Z-score baselines for anomaly detection
+  - Entity risk scoring with exponential decay
+  - ML inference (IsolationForest) when available (Slice 3)
 
-Todas las operaciones de análisis son no-bloqueantes (fire-and-forget).
+All analysis operations are non-blocking (fire-and-forget).
 """
 
 import asyncio
@@ -24,7 +24,7 @@ from app.services.ml_engine import MLEngine
 
 logger = logging.getLogger(__name__)
 
-# ── Constantes de análisis ──────────────────────────────────────────────────
+# ── Analysis constants ─────────────────────────────────────────────────────
 
 CAMPOS_NUMERICOS = [
     "source_port",
@@ -36,32 +36,32 @@ CAMPOS_NUMERICOS = [
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Funciones puras (testeables sin DB ni mocks)
+# Pure functions (testable without DB or mocks)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
 def _is_numeric(valor: Any) -> bool:
-    """Verifica si un valor es numérico (int o float, no bool).
+    """Checks whether a value is numeric (int or float, not bool).
 
-    Argumentos:
-        valor: Valor a verificar.
+    Args:
+        valor: Value to check.
 
-    Retorna:
-        True si es int o float (no bool).
+    Returns:
+        True if it is an int or float (not bool).
     """
     return isinstance(valor, (int, float)) and not isinstance(valor, bool)
 
 
 def _compute_baseline_stats(valores: list[float]) -> tuple[float, float]:
-    """Calcula media y desvío estándar poblacional de una lista de valores.
+    """Computes the mean and population standard deviation of a list of values.
 
-    Usa ddof=1 (sample standard deviation) para mejor estimación.
+    Uses ddof=1 (sample standard deviation) for a better estimate.
 
-    Argumentos:
-        valores: Lista de floats.
+    Args:
+        valores: List of floats.
 
-    Retorna:
-        Tupla (mean, std). Si la lista está vacía, retorna (0.0, 0.0).
+    Returns:
+        Tuple (mean, std). If the list is empty, returns (0.0, 0.0).
     """
     if not valores:
         return 0.0, 0.0
@@ -73,16 +73,16 @@ def _compute_baseline_stats(valores: list[float]) -> tuple[float, float]:
 
 
 def _extract_numeric_fields(evento: dict) -> dict[str, float]:
-    """Extrae campos numéricos relevantes de un evento.
+    """Extracts relevant numeric fields from an event.
 
-    Filtra solo los campos definidos en CAMPOS_NUMERICOS que tengan
-    valores numéricos no-None.
+    Only keeps fields defined in CAMPOS_NUMERICOS that have
+    non-None numeric values.
 
-    Argumentos:
-        evento: Dict con datos del evento.
+    Args:
+        evento: Dict with event data.
 
-    Retorna:
-        Dict con {campo: valor_numérico}.
+    Returns:
+        Dict with {field: numeric_value}.
     """
     result = {}
     for campo in CAMPOS_NUMERICOS:
@@ -93,17 +93,17 @@ def _extract_numeric_fields(evento: dict) -> dict[str, float]:
 
 
 def _compute_zscore(value: float, mean: float, std: float) -> float | None:
-    """Computa el z-score de un valor contra una baseline.
+    """Computes the z-score of a value against a baseline.
 
-    Fórmula: z = (value - mean) / std
+    Formula: z = (value - mean) / std
 
-    Argumentos:
-        value: Valor a evaluar.
-        mean: Media de la baseline.
-        std: Desvío estándar de la baseline.
+    Args:
+        value: Value to evaluate.
+        mean: Mean of the baseline.
+        std: Standard deviation of the baseline.
 
-    Retorna:
-        Z-score como float, o None si std <= 0 (no hay variación).
+    Returns:
+        Z-score as a float, or None if std <= 0 (no variation).
     """
     if std <= 0:
         return None
@@ -111,34 +111,34 @@ def _compute_zscore(value: float, mean: float, std: float) -> float | None:
 
 
 def _increment_risk(current: float, increment: float, max_risk: float) -> float:
-    """Incrementa un score de riesgo con cap en max_risk.
+    """Increments a risk score with a cap at max_risk.
 
-    Argumentos:
-        current: Score actual (0.0 a max_risk).
-        increment: Incremento a aplicar.
-        max_risk: Valor máximo permitido.
+    Args:
+        current: Current score (0.0 to max_risk).
+        increment: Increment to apply.
+        max_risk: Maximum allowed value.
 
-    Retorna:
-        Score incrementado, capedo en max_risk.
+    Returns:
+        Incremented score, capped at max_risk.
     """
     nuevo = current + increment
     return min(nuevo, max_risk)
 
 
 def _decay_risk(score: float, decay_rate: float, elapsed_seconds: float) -> float:
-    """Aplica decaimiento exponencial a un score de riesgo.
+    """Applies exponential decay to a risk score.
 
-    Fórmula: score * exp(-decay_rate * elapsed_hours)
+    Formula: score * exp(-decay_rate * elapsed_hours)
 
-    Donde elapsed_hours = elapsed_seconds / 3600.
+    Where elapsed_hours = elapsed_seconds / 3600.
 
-    Argumentos:
-        score: Score actual a decaer.
-        decay_rate: Tasa de decaimiento (ej: 0.5 = reducir a la mitad por hora).
-        elapsed_seconds: Segundos transcurridos desde último update.
+    Args:
+        score: Current score to decay.
+        decay_rate: Decay rate (e.g. 0.5 = halve per hour).
+        elapsed_seconds: Seconds elapsed since the last update.
 
-    Retorna:
-        Score decaído.
+    Returns:
+        Decayed score.
     """
     if score <= 0 or decay_rate <= 0 or elapsed_seconds <= 0:
         return score
@@ -152,12 +152,12 @@ def _decay_risk(score: float, decay_rate: float, elapsed_seconds: float) -> floa
 
 
 class EntityRiskStore:
-    """Almacén de riesgos por entidad con write-through a DB.
+    """Per-entity risk store with write-through to the DB.
 
-    Mantiene un dict en memoria para lecturas rápidas y persiste
-    cada actualización a la tabla entity_risks.
+    Keeps an in-memory dict for fast reads and persists
+    each update to the entity_risks table.
 
-    Los riesgos se identifican por entity_key (ej: IP, username).
+    Risks are identified by entity_key (e.g. IP, username).
     """
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
@@ -166,7 +166,7 @@ class EntityRiskStore:
         self._timestamps: dict[str, datetime] = {}
 
     async def load_from_db(self):
-        """Carga todos los riesgos desde la DB al iniciar."""
+        """Loads all risks from the DB at startup."""
         try:
             async with self._session_factory() as session:
                 result = await session.execute(
@@ -177,20 +177,20 @@ class EntityRiskStore:
                     self._risks[row[0]] = float(row[1])
                     self._timestamps[row[0]] = row[2]
                 if rows:
-                    logger.info("Riesgos cargados desde DB: %d entidades", len(rows))
+                    logger.info("Risks loaded from DB: %d entities", len(rows))
         except Exception as e:
-            logger.warning("No se pudieron cargar riesgos desde DB: %s", e)
+            logger.warning("Could not load risks from DB: %s", e)
 
     async def get_or_create(self, entity_key: str) -> float:
-        """Obtiene el riesgo actual de una entidad.
+        """Gets the current risk of an entity.
 
-        Si no existe, lo crea con score 0.0 y lo persiste.
+        If it does not exist, creates it with score 0.0 and persists it.
 
-        Argumentos:
-            entity_key: Clave única de la entidad.
+        Args:
+            entity_key: Unique key of the entity.
 
-        Retorna:
-            Score de riesgo actual (float).
+        Returns:
+            Current risk score (float).
         """
         if entity_key not in self._risks:
             self._risks[entity_key] = 0.0
@@ -199,22 +199,22 @@ class EntityRiskStore:
         return self._risks[entity_key]
 
     async def update_risk(self, entity_key: str, increment: float) -> float:
-        """Incrementa el riesgo de una entidad con write-through.
+        """Increments an entity's risk with write-through.
 
-        Aplica decaimiento primero si pasó tiempo desde último update,
-        luego aplica el incremento con cap en max_risk.
+        Applies decay first if time has passed since the last update,
+        then applies the increment with a cap at max_risk.
 
-        Argumentos:
-            entity_key: Clave única de la entidad.
-            increment: Cuánto incrementar.
+        Args:
+            entity_key: Unique key of the entity.
+            increment: How much to increment.
 
-        Retorna:
-            Nuevo score después de incremento.
+        Returns:
+            New score after the increment.
         """
         ahora = datetime.now(UTC)
         current = self._risks.get(entity_key, 0.0)
 
-        # Aplicar decaimiento si pasó tiempo
+        # Apply decay if time has passed
         if entity_key in self._timestamps:
             elapsed = (ahora - self._timestamps[entity_key]).total_seconds()
             if elapsed > 0:
@@ -228,9 +228,9 @@ class EntityRiskStore:
         return nuevo
 
     async def _persist(self, entity_key: str, score: float):
-        """Persiste un score de riesgo en la tabla entity_risks.
+        """Persists a risk score in the entity_risks table.
 
-        Usa INSERT ... ON CONFLICT DO UPDATE (upsert).
+        Uses INSERT ... ON CONFLICT DO UPDATE (upsert).
         """
         try:
             async with self._session_factory() as session:
@@ -251,13 +251,13 @@ class EntityRiskStore:
                 )
                 await session.commit()
         except Exception as e:
-            logger.error("Error persistiendo riesgo para %s: %s", entity_key, e)
+            logger.error("Error persisting risk for %s: %s", entity_key, e)
 
     def get_all_risks(self) -> list[dict]:
-        """Retorna todos los riesgos en memoria para consulta.
+        """Returns all in-memory risks for querying.
 
-        Retorna:
-            Lista de dicts con entity_key, risk_score, updated_at.
+        Returns:
+            List of dicts with entity_key, risk_score, updated_at.
         """
         return [
             {
@@ -277,15 +277,15 @@ class EntityRiskStore:
 
 
 class AnalysisService:
-    """Servicio de análisis estadístico de eventos.
+    """Statistical event analysis service.
 
-    Mantiene baselines en memoria (media/std por campo) seedeadas desde DB,
-    calcula z-scores por evento, y actualiza riesgos por entidad.
+    Keeps in-memory baselines (mean/std per field) seeded from the DB,
+    computes z-scores per event, and updates per-entity risks.
 
-    Flujo:
-        1. Al iniciar, seed baselines desde DB (query últimos N eventos)
-        2. Por cada evento que llega, compute z-scores + update risk
-        3. Resultados se persisten en event.analysis_data y entity_risks
+    Flow:
+        1. On startup, seed baselines from the DB (query the last N events)
+        2. For each incoming event, compute z-scores + update risk
+        3. Results are persisted in event.analysis_data and entity_risks
     """
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
@@ -297,14 +297,14 @@ class AnalysisService:
         self._ml_engine: Any | None = None
 
     async def init_async(self):
-        """Inicializa el servicio: crea entity_risks table, carga riesgos y baselines.
+        """Initializes the service: creates the entity_risks table, loads risks and baselines.
 
-        Debe llamarse después de crear la instancia, en el lifespan de la app.
+        Must be called after creating the instance, in the app lifespan.
         """
-        # Asegurar que la tabla entity_risks existe
+        # Make sure the entity_risks table exists
         await self._ensure_entity_risks_table()
 
-        # Inicializar risk store
+        # Initialize risk store
         self._risk_store = EntityRiskStore(self._session_factory)
         await self._risk_store.load_from_db()
 
@@ -319,13 +319,13 @@ class AnalysisService:
             logger.warning("ML engine init failed: %s", e)
             self._ml_engine = None
 
-        # Iniciar background grouping task
+        # Start background grouping task
         await self._start_grouping_task()
 
-        logger.info("AnalysisService inicializado")
+        logger.info("AnalysisService initialized")
 
     async def _ensure_entity_risks_table(self):
-        """Crea la tabla entity_risks si no existe."""
+        """Creates the entity_risks table if it does not exist."""
         try:
             async with self._session_factory() as session:
                 await session.execute(
@@ -339,24 +339,24 @@ class AnalysisService:
                 )
                 await session.commit()
         except Exception as e:
-            logger.warning("Error creando tabla entity_risks: %s", e)
+            logger.warning("Error creating entity_risks table: %s", e)
 
     # ── Baseline management ───────────────────────────────────────────────
 
     async def seed_baselines(self):
-        """Seeder de baselines desde la base de datos.
+        """Seeds baselines from the database.
 
-        Consulta los últimos N eventos (ANALYSIS_BASELINE_WINDOW_MINUTES)
-        y calcula media/std para cada campo numérico.
+        Queries the last N events (ANALYSIS_BASELINE_WINDOW_MINUTES)
+        and computes mean/std for each numeric field.
 
-        Si no hay datos suficientes, los baselines quedan vacíos
-        y se computarán a medida que lleguen eventos.
+        If there is not enough data, baselines stay empty
+        and are computed as events arrive.
         """
         try:
             async with self._session_factory() as session:
                 from app.models.event import NormalizedEvent
 
-                # Calcular timestamp del window
+                # Compute the window timestamp
                 desde = datetime.now(UTC) - (
                     timedelta(minutes=settings.analysis_baseline_window_minutes)
                 )
@@ -370,12 +370,12 @@ class AnalysisService:
 
                 if not eventos:
                     logger.info(
-                        "No hay eventos en la ventana de baseline (%d min)",
+                        "No events in the baseline window (%d min)",
                         settings.analysis_baseline_window_minutes,
                     )
                     return
 
-                # Agrupar valores por campo
+                # Group values by field
                 valores_por_campo: dict[str, list[float]] = {}
                 for ev in eventos:
                     for campo in CAMPOS_NUMERICOS:
@@ -383,9 +383,9 @@ class AnalysisService:
                         if _is_numeric(valor):
                             valores_por_campo.setdefault(campo, []).append(float(valor))
 
-                # Calcular estadísticas por campo
+                # Compute statistics per field
                 for campo, valores in valores_por_campo.items():
-                    if len(valores) >= 10:  # mínimo 10 valores para baseline
+                    if len(valores) >= 10:  # minimum 10 values for a baseline
                         mean, std = _compute_baseline_stats(valores)
                         self._baselines[campo] = {
                             "mean": mean,
@@ -401,33 +401,33 @@ class AnalysisService:
                         )
 
                 logger.info(
-                    "Baselines seedeados: %d campos con datos suficientes",
+                    "Baselines seeded: %d fields with enough data",
                     len(self._baselines),
                 )
 
         except Exception as e:
-            logger.error("Error seedeando baselines: %s", e, exc_info=True)
+            logger.error("Error seeding baselines: %s", e, exc_info=True)
 
-    # ── Análisis de evento ─────────────────────────────────────────────────
+    # ── Event analysis ────────────────────────────────────────────────────
 
     async def analyze(self, evento_id: str, evento_dict: dict):
-        """Analiza un evento de forma asíncrona (fire-and-forget).
+        """Analyzes an event asynchronously (fire-and-forget).
 
-        Este método se llama desde Pipeline.process() via create_task.
-        Calcula z-scores y actualiza riesgos de entidad.
+        This method is called from Pipeline.process() via create_task.
+        Computes z-scores and updates entity risks.
 
-        Todos los errores se capturan internamente para no afectar
-        al pipeline.
+        All errors are caught internally so they do not affect
+        the pipeline.
 
-        Argumentos:
-            evento_id: UUID del evento persistido.
-            evento_dict: Dict con datos del evento para análisis.
+        Args:
+            evento_id: UUID of the persisted event.
+            evento_dict: Dict with event data for analysis.
         """
         if not settings.analysis_enabled:
             return
 
         try:
-            # 1. Calcular anomalías (z-scores)
+            # 1. Compute anomalies (z-scores)
             zscores = self._compute_event_zscores(evento_dict)
 
             # 1.5 ML scoring (optional)
@@ -435,7 +435,7 @@ class AnalysisService:
             if self._ml_engine and self._ml_engine.available:
                 ml_score = await self._ml_engine.score(evento_dict)
 
-            # 2. Build and persist analysis_data en el evento
+            # 2. Build and persist analysis_data on the event
             analysis_data = {}
             if zscores:
                 analysis_data["zscores"] = zscores
@@ -445,29 +445,29 @@ class AnalysisService:
             if analysis_data:
                 await self._persist_analysis_data(evento_id, analysis_data)
 
-            # 3. Actualizar riesgo de entidad
+            # 3. Update entity risk
             await self._update_entity_risk(evento_dict)
 
         except Exception as e:
             logger.error(
-                "Error analizando evento %s: %s",
+                "Error analyzing event %s: %s",
                 evento_id,
                 e,
                 exc_info=True,
             )
 
     def _compute_event_zscores(self, evento_dict: dict) -> dict[str, float]:
-        """Computa z-scores para los campos numéricos del evento.
+        """Computes z-scores for the event's numeric fields.
 
-        Solo computa para campos que tengan baseline disponible
-        y valores numéricos válidos.
+        Only computes for fields that have an available baseline
+        and valid numeric values.
 
-        Argumentos:
-            evento_dict: Dict con datos del evento.
+        Args:
+            evento_dict: Dict with event data.
 
-        Retorna:
-            Dict con {campo: zscore} para campos con anomalías.
-            Vacío si no hay baselines o campos numéricos.
+        Returns:
+            Dict with {field: zscore} for anomalous fields.
+            Empty if there are no baselines or numeric fields.
         """
         if not self._baselines:
             return {}
@@ -477,7 +477,7 @@ class AnalysisService:
             baseline = self._baselines.get(campo)
             if baseline and baseline["std"] > 0:
                 z = _compute_zscore(valor, baseline["mean"], baseline["std"])
-                if z is not None and abs(z) >= 2.0:  # umbral de anomalía
+                if z is not None and abs(z) >= 2.0:  # anomaly threshold
                     zscores[campo] = round(z, 4)
 
         return zscores
@@ -485,11 +485,11 @@ class AnalysisService:
     async def _persist_analysis_data(
         self, evento_id: str, analysis_data: dict[str, object]
     ):
-        """Persiste analysis_data en event.analysis_data (JSONB).
+        """Persists analysis_data into event.analysis_data (JSONB).
 
-        Argumentos:
-            evento_id: UUID del evento.
-            analysis_data: Dict con datos de análisis (zscores, ml_score, etc.).
+        Args:
+            evento_id: UUID of the event.
+            analysis_data: Dict with analysis data (zscores, ml_score, etc.).
         """
         try:
             async with self._session_factory() as session:
@@ -504,25 +504,25 @@ class AnalysisService:
                     session.add(evento)
                     await session.commit()
                     logger.debug(
-                        "Analysis data persistido para evento %s: %s",
+                        "Analysis data persisted for event %s: %s",
                         evento_id,
                         analysis_data,
                     )
         except Exception as e:
             logger.error(
-                "Error persistiendo analysis_data para %s: %s",
+                "Error persisting analysis_data for %s: %s",
                 evento_id,
                 e,
             )
 
     async def _update_entity_risk(self, evento_dict: dict):
-        """Actualiza el riesgo de la entidad basado en el evento.
+        """Updates the entity risk based on the event.
 
-        Determina la entity_key según source_ip, user_name, o source.
-        Aplica un incremento según la severidad del evento.
+        Determines the entity_key from source_ip, user_name, or source.
+        Applies an increment based on the event severity.
 
-        Argumentos:
-            evento_dict: Dict con datos del evento.
+        Args:
+            evento_dict: Dict with event data.
         """
         if not self._risk_store:
             return
@@ -536,7 +536,7 @@ class AnalysisService:
         if not entity_key:
             return
 
-        # Incremento según severidad
+        # Increment based on severity
         severidad = evento_dict.get("severity", "info")
         incrementos = {
             "critical": 0.15,
@@ -549,7 +549,7 @@ class AnalysisService:
 
         await self._risk_store.update_risk(entity_key, incremento)
 
-    # ── Propiedades de consulta ───────────────────────────────────────────
+    # ── Query properties ──────────────────────────────────────────────────
 
     async def get_anomalies(
         self,
@@ -557,20 +557,20 @@ class AnalysisService:
         offset: int = 0,
         min_zscore: float = 2.0,
     ) -> tuple[list[dict], int]:
-        """Consulta eventos con analysis_data (anomalías detectadas).
+        """Queries events with analysis_data (detected anomalies).
 
-        Argumentos:
-            limit: Máximo de resultados.
-            offset: Offset para paginación.
-            min_zscore: Z-score mínimo para filtrar.
+        Args:
+            limit: Maximum number of results.
+            offset: Offset for pagination.
+            min_zscore: Minimum z-score to filter.
 
-        Retorna:
-            Tupla (lista de eventos anómalos, total).
+        Returns:
+            Tuple (list of anomalous events, total).
         """
         try:
             async with self._session_factory() as session:
-                # Usar raw SQL porque JSONB no tiene soporte completo
-                # via SQLAlchemy JSON type en todas las versiones
+                # Use raw SQL because JSONB has no full support
+                # via SQLAlchemy JSON type in all versions
                 query = text(
                     """SELECT id, source, collector_type, event_type, severity,
                               description, source_ip, destination_ip, source_port,
@@ -613,20 +613,20 @@ class AnalysisService:
                 return anomalias, total
 
         except Exception as e:
-            logger.error("Error consultando anomalías: %s", e, exc_info=True)
+            logger.error("Error querying anomalies: %s", e, exc_info=True)
             return [], 0
 
     async def get_risks(
         self, limit: int = 50, offset: int = 0
     ) -> tuple[list[dict], int]:
-        """Consulta scores de riesgo por entidad.
+        """Queries risk scores per entity.
 
-        Argumentos:
-            limit: Máximo de resultados.
-            offset: Offset para paginación.
+        Args:
+            limit: Maximum number of results.
+            offset: Offset for pagination.
 
-        Retorna:
-            Tupla (lista de riesgos, total).
+        Returns:
+            Tuple (list of risks, total).
         """
         if not self._risk_store:
             return [], 0

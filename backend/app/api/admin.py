@@ -1,7 +1,7 @@
-"""Endpoints de administración de agentes remotos (solo admin).
+"""Remote agent administration endpoints (admin only).
 
-Permite listar, crear y desactivar agentes.
-Todos los endpoints requieren rol admin autenticado.
+Allows listing, creating and deactivating agents.
+All endpoints require an authenticated admin role.
 """
 
 import logging
@@ -30,13 +30,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def listar_agentes(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
-    page: int = Query(1, ge=1, description="Número de página"),
-    per_page: int = Query(10, ge=1, le=100, description="Agentes por página"),
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(10, ge=1, le=100, description="Agents per page"),
 ):
-    """Lista todos los agentes registrados con paginación (activos e inactivos).
+    """List all registered agents with pagination (active and inactive).
 
-    Solo accesible para administradores autenticados.
-    Nunca expone api_key_hash ni api_key_raw.
+    Only accessible to authenticated administrators.
+    Never exposes api_key_hash or api_key_raw.
     """
     service = AgentService(session)
     agentes, total = await service.listar_agentes(
@@ -58,11 +58,11 @@ async def crear_agente(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Crea un nuevo agente remoto con API key generada automáticamente.
+    """Create a new remote agent with an automatically generated API key.
 
-    La API key se genera con secrets.token_urlsafe(32) y se hashea
-    con bcrypt antes de persistir. La key plaintext se retorna en
-    api_key_raw UNA SOLA VEZ — no se puede recuperar después.
+    The API key is generated with secrets.token_urlsafe(32) and hashed
+    with bcrypt before persisting. The plaintext key is returned in
+    api_key_raw ONCE — it cannot be retrieved afterwards.
     """
     service = AgentService(session)
     try:
@@ -93,9 +93,9 @@ async def desactivar_agente(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Desactiva un agente por su ID.
+    """Deactivate an agent by its ID.
 
-    Un agente desactivado no puede autenticarse ni enviar eventos.
+    A deactivated agent cannot authenticate or send events.
     """
     service = AgentService(session)
     desactivado = await service.desactivar_agente(agent_id)
@@ -103,10 +103,10 @@ async def desactivar_agente(
     if not desactivado:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agente no encontrado",
+            detail="Agent not found",
         )
 
-    return {"mensaje": f"Agente {agent_id} desactivado"}
+    return {"mensaje": f"Agent {agent_id} deactivated"}
 
 
 @router.get("/agents/{agent_id:int}", response_model=AgentRead)
@@ -115,9 +115,9 @@ async def obtener_agente(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Obtiene un agente por su ID.
+    """Get an agent by its ID.
 
-    Retorna todos los campos del agente sin exponer api_key_hash.
+    Returns all agent fields without exposing api_key_hash.
     """
     service = AgentService(session)
     agente = await service.obtener_por_id(agent_id)
@@ -125,7 +125,7 @@ async def obtener_agente(
     if not agente:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agente no encontrado",
+            detail="Agent not found",
         )
 
     return AgentRead.model_validate(agente)
@@ -138,9 +138,9 @@ async def actualizar_agente(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Actualiza campos de un agente (name, hostname).
+    """Update agent fields (name, hostname).
 
-    Solo actualiza los campos enviados. Al menos uno es requerido.
+    Only updates the fields sent. At least one is required.
     """
     service = AgentService(session)
     try:
@@ -155,7 +155,7 @@ async def actualizar_agente(
     if not agente:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agente no encontrado",
+            detail="Agent not found",
         )
 
     return AgentRead.model_validate(agente)
@@ -167,17 +167,17 @@ async def eliminar_agente(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Elimina un agente por su ID permanentemente."""
+    """Permanently delete an agent by its ID."""
     service = AgentService(session)
     eliminado = await service.eliminar_agente(agent_id)
 
     if not eliminado:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agente no encontrado",
+            detail="Agent not found",
         )
 
-    return {"mensaje": f"Agente {agent_id} eliminado"}
+    return {"mensaje": f"Agent {agent_id} deleted"}
 
 
 @router.post("/agents/desactivar-inactivos", response_model=dict)
@@ -185,10 +185,10 @@ async def desactivar_inactivos_endpoint(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Desactiva agentes cuyo heartbeat ha expirado.
+    """Deactivate agents whose heartbeat has expired.
 
-    Busca agents activos cuyo last_seen sea anterior a
-    (ahora - heartbeat_timeout_minutes) y los marca como inactivos.
+    Looks up active agents whose last_seen is before
+    (now - heartbeat_timeout_minutes) and marks them as inactive.
     """
     service = AgentService(session)
     desactivados = await service.desactivar_inactivos()

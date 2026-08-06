@@ -1,4 +1,4 @@
-"""Notificador de alertas por email vía SMTP asíncrono."""
+"""Email alert notifier via async SMTP."""
 
 import logging
 from email.message import EmailMessage
@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class EmailNotifier:
-    """Envía alertas por email usando SMTP asíncrono.
+    """Sends alerts by email using async SMTP.
 
-    Usa aiosmtplib para no bloquear el event loop mientras envía.
-    Configuración vía settings (smtp_host, smtp_port, etc.).
+    Uses aiosmtplib to avoid blocking the event loop while sending.
+    Configured via settings (smtp_host, smtp_port, etc.).
     """
 
     def __init__(self):
@@ -26,13 +26,13 @@ class EmailNotifier:
         self.to_addrs = settings.notify_to
 
     async def send(self, alerta: dict):
-        """Envía la alerta por email si hay configuración SMTP."""
+        """Send the alert by email if SMTP configuration exists."""
         if not self.user or not self.to_addrs:
-            logger.debug("EmailNotifier: SMTP no configurado, skip")
+            logger.debug("EmailNotifier: SMTP not configured, skip")
             return
 
         severity = alerta.get("severity", "info").upper()
-        title = alerta.get("title", "Alerta sin título")
+        title = alerta.get("title", "Untitled alert")
         alerta.get("description", "")
 
         msg = EmailMessage()
@@ -53,26 +53,26 @@ class EmailNotifier:
                 start_tls=True,
                 timeout=10.0,
             )
-            logger.info("Email enviado: %s → %s", title, self.to_addrs)
+            logger.info("Email sent: %s → %s", title, self.to_addrs)
         except Exception as e:
-            logger.error("Error al enviar email %s: %s", title, e)
+            logger.error("Error sending email %s: %s", title, e)
 
     def _formatear_cuerpo(self, alerta: dict) -> str:
-        """Formatea la alerta como texto plano."""
+        """Format the alert as plain text."""
         severity = alerta.get("severity", "info").upper()
-        title = alerta.get("title", "Sin título")
-        description = alerta.get("description", "Sin descripción")
+        title = alerta.get("title", "Untitled")
+        description = alerta.get("description", "No description")
 
         lines = [
             f"[{severity}] {title}",
             "=" * 60,
             "",
-            f"  Regla:      {alerta.get('rule_id', 'N/A')}",
-            f"  Severidad:  {alerta.get('severity', 'N/A')}",
-            f"  Eventos:    {alerta.get('event_count', 1)}",
-            f"  ID Alerta:  {alerta.get('id', 'N/A')}",
+            f"  Rule:       {alerta.get('rule_id', 'N/A')}",
+            f"  Severity:   {alerta.get('severity', 'N/A')}",
+            f"  Events:     {alerta.get('event_count', 1)}",
+            f"  Alert ID:   {alerta.get('id', 'N/A')}",
             "",
-            "  Descripción:",
+            "  Description:",
             f"    {description}",
             "",
             "  — SentinelPy",

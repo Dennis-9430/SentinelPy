@@ -1,11 +1,11 @@
-"""Motor de correlación: evalúa eventos contra reglas de detección.
+"""Correlation engine: evaluates events against detection rules.
 
-El corazón de SentinelPy. Cada evento que ingresa se evalúa contra
-todas las reglas activas. Si una regla matchea, se genera una alerta.
+The heart of SentinelPy. Every incoming event is evaluated against
+all active rules. If a rule matches, an alert is generated.
 
-Soporta correlación temporal: si una regla tiene correlation_window,
-acumula eventos en una ventana de tiempo y solo genera/actualiza
-la alerta dentro de esa ventana.
+Supports temporal correlation: if a rule has a correlation_window,
+events are accumulated in a time window and the alert is only
+generated/updated within that window.
 """
 
 import logging
@@ -19,65 +19,65 @@ logger = logging.getLogger(__name__)
 
 
 class CorrelationEngine:
-    """Motor de correlación de eventos.
+    """Event correlation engine.
 
-    Mantiene un caché de reglas activas en memoria y evalúa
-    cada evento entrante contra todas ellas.
+    Keeps an in-memory cache of active rules and evaluates
+    every incoming event against all of them.
 
-    Flujo:
-        1. Se cargan las reglas activas desde la BD al iniciar
-        2. Por cada evento que llega, se evalúa contra todas las reglas
-        3. Si una regla matchea:
-           a. Sin correlation_window → alerta inmediata
-           b. Con correlation_window → acumula en ventana temporal
-        4. Las alertas se crean/actualizan vía callbacks
+    Flow:
+        1. Active rules are loaded from the DB at startup
+        2. Each incoming event is evaluated against all rules
+        3. If a rule matches:
+           a. Without correlation_window → immediate alert
+           b. With correlation_window → accumulates in a time window
+        4. Alerts are created/updated via callbacks
     """
 
     def __init__(self):
-        """Inicializa el motor sin reglas. Llamar a cargar_reglas() antes de usar."""
+        """Initializes the engine without rules. Call cargar_reglas() before using."""
         self._reglas: list[DetectionRule] = []
         self._callbacks: list = []
         self._callbacks_actualizar: list = []
-        # Ventanas temporales: rule_id -> {event_count, first_event_at, last_event_at, expires_at}
+        # Time windows: rule_id -> {event_count, first_event_at, last_event_at, expires_at}
         self._ventanas: dict[str, dict] = {}
 
     def registrar_callback(self, callback):
-        """Registra una función que se ejecuta cuando se crea una alerta.
+        """Registers a function that runs when an alert is created.
 
-        Cada callback recibe un dict con los datos de la alerta y debe
-        retornar la alerta creada. Se pueden registrar múltiples callbacks.
+        Each callback receives a dict with the alert data and must
+        return the created alert. Multiple callbacks can be registered.
 
-        Argumentos:
-            callback: Función asíncrona que recibe (datos_alerta) y retorna la alerta.
+        Args:
+            callback: Async function that receives (datos_alerta) and returns the alert.
         """
         self._callbacks.append(callback)
 
     def registrar_callback_actualizar(self, callback):
-        """Registra un callback para actualizar alertas dentro de ventanas.
+        """Registers a callback for updating alerts within windows.
 
-        Se ejecuta cuando un evento matchea una regla con correlation_window
-        y ya existe una ventana activa. Recibe un dict con rule_id,
+        It runs when an event matches a rule with a correlation_window
+        and an active window already exists. It receives a dict with rule_id,
         event_count, last_event_at.
 
-        Argumentos:
-            callback: Función asíncrona que recibe (datos_actualizacion).
+        Args:
+            callback: Async function that receives (datos_actualizacion).
         """
         self._callbacks_actualizar.append(callback)
 
     def cargar_reglas(self, reglas: list[DetectionRule | dict]):
-        """Carga o recarga las reglas activas en memoria.
+        """Loads or reloads the active rules into memory.
 
-        Se llama al iniciar la app y cada vez que se crea/actualiza/elimina
-        una regla para mantener el caché sincronizado.
+        Called at app startup and every time a rule is created/updated/deleted
+        to keep the cache in sync.
 
-        Filtra automáticamente solo las reglas con status='active'.
-        Soporta tanto objetos DetectionRule como dicts.
+        Automatically filters only the rules with status='active'.
+        Supports both DetectionRule objects and dicts.
 
-        Al recargar, las ventanas activas se limpian para evitar
-        inconsistencias con reglas modificadas.
+        On reload, active windows are cleared to avoid
+        inconsistencies with modified rules.
 
-        Argumentos:
-            reglas: Lista de DetectionRule o dict con status='active'.
+        Args:
+            reglas: List of DetectionRule or dict with status='active'.
         """
 
         def _status(regla):
@@ -86,32 +86,32 @@ class CorrelationEngine:
             return getattr(regla, "status", "")
 
         self._reglas = [r for r in reglas if _status(r) == "active"]
-        # Limpiar ventanas al recargar reglas
+        # Clear windows when rules are reloaded
         self._ventanas.clear()
         logger.info(
-            "Motor de correlación: %d reglas activas cargadas (de %d recibidas)",
+            "Correlation engine: %d active rules loaded (of %d received)",
             len(self._reglas),
             len(reglas),
         )
 
     async def evaluate(self, evento: dict) -> list[dict]:
-        """Evalúa un evento contra todas las reglas activas.
+        """Evaluates an event against all active rules.
 
-        Por cada regla que matchea, se crea una alerta o se actualiza
-        una existente si la regla tiene correlación temporal.
+        For each rule that matches, an alert is created or an existing
+        one is updated if the rule has temporal correlation.
 
-        Argumentos:
-            evento: Dict con los datos del evento normalizado (ya guardado en DB).
+        Args:
+            evento: Dict with the normalized event data (already saved in the DB).
 
-        Retorna:
-            Lista de alertas generadas (dicts).
+        Returns:
+            List of generated alerts (dicts).
         """
         alertas_generadas = []
 
         for regla in self._reglas:
             if self._evaluar_regla(regla, evento):
                 logger.info(
-                    "Regla '%s' matcheó evento %s",
+                    "Rule '%s' matched event %s",
                     self._campo_regla(regla, "title"),
                     evento.get("id", "unknown"),
                 )
@@ -125,25 +125,25 @@ class CorrelationEngine:
     async def _manejar_match(
         self, regla: DetectionRule | dict, evento: dict
     ) -> dict | None:
-        """Maneja un match de regla, considerando correlación temporal.
+        """Handles a rule match, considering temporal correlation.
 
-        Si la regla tiene correlation_window:
-          - Si hay ventana activa → actualiza contadores
-          - Si no hay ventana o expiró → crea nueva alerta
-        Si no tiene correlation_window → alerta inmediata.
+        If the rule has a correlation_window:
+          - If there is an active window → updates counters
+          - If there is no window or it expired → creates a new alert
+        If it has no correlation_window → immediate alert.
 
-        Argumentos:
-            regla: Regla que matcheó.
-            evento: Evento que activó la regla.
+        Args:
+            regla: The rule that matched.
+            evento: The event that triggered the rule.
 
-        Retorna:
-            Dict de alerta creada, o None si solo se actualizó.
+        Returns:
+            Dict of the created alert, or None if it was only updated.
         """
         correlation_window = self._campo_regla(regla, "correlation_window")
         rule_id_raw = self._campo_regla(regla, "id")
         rule_id = str(rule_id_raw) if rule_id_raw else None
 
-        # Sin correlación temporal → alerta inmediata (comportamiento actual)
+        # No temporal correlation → immediate alert (current behavior)
         if not correlation_window or not rule_id:
             return await self._crear_alerta(regla, evento)
 
@@ -152,27 +152,27 @@ class CorrelationEngine:
         ts_evento = evento.get("event_timestamp", ahora)
 
         if ventana and ventana["expires_at"] > ahora:
-            # ── Dentro de la ventana → actualizar contadores ──────────
+            # ── Within the window → update counters ────────────────────
             ventana["event_count"] += 1
             ventana["last_event_at"] = ts_evento
             self._ventanas[rule_id] = ventana
 
             logger.info(
-                "Ventana temporal activa para regla %s: %d eventos",
+                "Active time window for rule %s: %d events",
                 rule_id,
                 ventana["event_count"],
             )
 
-            # Ejecutar callbacks de actualización
+            # Run update callbacks
             datos_actualizacion = {
                 "rule_id": rule_id,
                 "event_count": ventana["event_count"],
                 "last_event_at": ventana["last_event_at"],
             }
             await self._ejecutar_callbacks_actualizar(datos_actualizacion)
-            return None  # No se creó nueva alerta
+            return None  # No new alert was created
 
-        # ── Nueva ventana o ventana expirada → crear alerta ──────────
+        # ── New window or expired window → create alert ────────────────
         expiracion = ahora + timedelta(seconds=correlation_window)
         self._ventanas[rule_id] = {
             "event_count": 1,
@@ -185,52 +185,52 @@ class CorrelationEngine:
 
     @staticmethod
     def _campo_regla(regla: Any, campo: str):
-        """Obtiene un campo de una regla, soportando dict y objeto.
+        """Gets a field from a rule, supporting dict and object.
 
-        Permite que el motor reciba tanto objetos DetectionRule
-        (desde la app) como dicts (desde tests o fixtures).
+        Allows the engine to receive both DetectionRule objects
+        (from the app) and dicts (from tests or fixtures).
         """
         return (
             regla.get(campo) if isinstance(regla, dict) else getattr(regla, campo, None)
         )
 
     def _evaluar_regla(self, regla: DetectionRule | dict, evento: dict) -> bool:
-        """Evalúa si un evento cumple las condiciones de una regla.
+        """Evaluates whether an event meets a rule's conditions.
 
-        Argumentos:
-            regla: DetectionRule (o dict) a evaluar.
-            evento: Dict con datos del evento.
+        Args:
+            regla: DetectionRule (or dict) to evaluate.
+            evento: Dict with event data.
 
-        Retorna:
-            True si el evento matchea todas las condiciones.
+        Returns:
+            True if the event matches all conditions.
         """
         condiciones = self._campo_regla(regla, "conditions")
 
-        # Si el operador raíz es and/or, evaluar como grupo
+        # If the root operator is and/or, evaluate as a group
         if isinstance(condiciones, dict) and "operator" in condiciones:
             operador = str(condiciones.get("operator")).lower()
             if operador in ("and", "or"):
                 return self._evaluar_grupo(condiciones, evento)
             else:
-                # Condición simple
+                # Simple condition
                 return self._evaluar_condicion(condiciones, evento)
 
-        # Si es una lista, todas deben cumplirse (AND implícito)
+        # If it is a list, all must be met (implicit AND)
         if isinstance(condiciones, list):
             return all(self._evaluar_condicion(c, evento) for c in condiciones)
 
-        # Condición simple como dict
+        # Simple condition as a dict
         return self._evaluar_condicion(condiciones, evento)
 
     def _evaluar_grupo(self, grupo: dict, evento: dict) -> bool:
-        """Evalúa un grupo de condiciones (AND/OR).
+        """Evaluates a group of conditions (AND/OR).
 
-        Argumentos:
-            grupo: Dict con "operator" y "conditions".
-            evento: Dict con datos del evento.
+        Args:
+            grupo: Dict with "operator" and "conditions".
+            evento: Dict with event data.
 
-        Retorna:
-            Resultado de la evaluación lógica.
+        Returns:
+            Result of the logical evaluation.
         """
         operador = str(grupo.get("operator", "and")).lower()
         condiciones = grupo.get("conditions", [])
@@ -251,35 +251,35 @@ class CorrelationEngine:
         return False
 
     def _evaluar_condicion(self, condicion: dict, evento: dict) -> bool:
-        """Evalúa una condición individual contra un evento.
+        """Evaluates a single condition against an event.
 
-        Argumentos:
-            condicion: Dict con "field", "operator", "value".
-            evento: Dict con datos del evento.
+        Args:
+            condicion: Dict with "field", "operator", "value".
+            evento: Dict with event data.
 
-        Retorna:
-            True si la condición se cumple.
+        Returns:
+            True if the condition is met.
 
-        Operadores soportados:
-            - eq: igualdad (case-insensitive para strings)
-            - neq: no igual
-            - contains: el campo contiene el valor (string)
-            - gt, gte, lt, lte: comparaciones numéricas
-            - in: el valor está en una lista
-            - regex: el campo matchea una expresión regular
-            - exists: el campo existe y no es None
-            - not_exists: el campo es None o no existe
-            - startswith: el campo empieza con el valor
-            - endswith: el campo termina con el valor
+        Supported operators:
+            - eq: equality (case-insensitive for strings)
+            - neq: not equal
+            - contains: the field contains the value (string)
+            - gt, gte, lt, lte: numeric comparisons
+            - in: the value is in a list
+            - regex: the field matches a regular expression
+            - exists: the field exists and is not None
+            - not_exists: the field is None or does not exist
+            - startswith: the field starts with the value
+            - endswith: the field ends with the value
         """
         field = condicion.get("field")
         operator = condicion.get("operator", "eq")
         value = condicion.get("value")
 
-        # Obtener el valor del campo en el evento
+        # Get the field value from the event
         valor_evento = evento.get(field) if field else None
 
-        # Manejar field anidado con notación punto (ej: "source_ip")
+        # Handle nested field with dot notation (e.g. "source_ip")
         if field and "." in field:
             partes = field.split(".")
             valor_evento = evento
@@ -290,7 +290,7 @@ class CorrelationEngine:
                     valor_evento = None
                     break
 
-        # Evaluar según el operador
+        # Evaluate according to the operator
         try:
             if operator == "eq":
                 return self._eq(valor_evento, value)
@@ -319,14 +319,14 @@ class CorrelationEngine:
             elif operator == "endswith":
                 return self._endswith(valor_evento, value)
             else:
-                logger.warning("Operador desconocido: %s", operator)
+                logger.warning("Unknown operator: %s", operator)
                 return False
         except (TypeError, ValueError, re.error) as e:
-            logger.debug("Error evaluando condición %s: %s", condicion, e)
+            logger.debug("Error evaluating condition %s: %s", condicion, e)
             return False
 
     def _eq(self, valor_evento: Any, value: Any) -> bool:
-        """Comparación de igualdad case-insensitive para strings."""
+        """Case-insensitive equality comparison for strings."""
         if valor_evento is None:
             return False
         if isinstance(valor_evento, str) and isinstance(value, str):
@@ -334,21 +334,21 @@ class CorrelationEngine:
         return valor_evento == value
 
     def _contains(self, valor_evento: Any, value: Any) -> bool:
-        """Verifica si el campo contiene el valor (case-insensitive)."""
+        """Checks whether the field contains the value (case-insensitive)."""
         if valor_evento is None or value is None:
             return False
         return str(value).lower() in str(valor_evento).lower()
 
     def _compare(self, valor_evento: Any, value: Any, op) -> bool:
-        """Comparación numérica."""
+        """Numeric comparison."""
         if valor_evento is None or value is None:
             return False
         return op(float(valor_evento), float(value))
 
     def _in_list(self, valor_evento: Any, value: Any) -> bool:
-        """Verifica si el valor del evento está en la lista de valores.
+        """Checks whether the event value is in the list of values.
 
-        Si value es un string, lo trata como lista de un elemento.
+        If value is a string, it is treated as a one-element list.
         """
         if valor_evento is None:
             return False
@@ -358,19 +358,19 @@ class CorrelationEngine:
         return any(str(v).lower() == valor_str for v in value)
 
     def _regex(self, valor_evento: Any, pattern: str) -> bool:
-        """Verifica si el campo matchea una expresión regular."""
+        """Checks whether the field matches a regular expression."""
         if valor_evento is None or pattern is None:
             return False
         return bool(re.search(pattern, str(valor_evento)))
 
     def _startswith(self, valor_evento: Any, value: Any) -> bool:
-        """Verifica si el campo empieza con el valor."""
+        """Checks whether the field starts with the value."""
         if valor_evento is None or value is None:
             return False
         return str(valor_evento).lower().startswith(str(value).lower())
 
     def _endswith(self, valor_evento: Any, value: Any) -> bool:
-        """Verifica si el campo termina con el valor."""
+        """Checks whether the field ends with the value."""
         if valor_evento is None or value is None:
             return False
         return str(valor_evento).lower().endswith(str(value).lower())
@@ -378,23 +378,23 @@ class CorrelationEngine:
     async def _crear_alerta(
         self, regla: DetectionRule | dict, evento: dict
     ) -> dict | None:
-        """Crea una alerta usando los callbacks registrados.
+        """Creates an alert using the registered callbacks.
 
-        Argumentos:
-            regla: La regla que matcheó (objeto o dict).
-            evento: El evento que activó la regla.
+        Args:
+            regla: The rule that matched (object or dict).
+            evento: The event that triggered the rule.
 
-        Retorna:
-            Dict con los datos de la alerta generada.
+        Returns:
+            Dict with the generated alert data.
         """
         datos_alerta = {
             "rule_id": self._campo_regla(regla, "id"),
             "title": self._campo_regla(regla, "alert_title"),
             "severity": self._campo_regla(regla, "alert_severity"),
             "description": (
-                f"Regla '{self._campo_regla(regla, 'title')}' activada por evento "
-                f"{evento.get('event_type', 'unknown')} desde {evento.get('source', 'unknown')}: "
-                f"{evento.get('description', 'sin descripción')[:200]}"
+                f"Rule '{self._campo_regla(regla, 'title')}' triggered by event "
+                f"{evento.get('event_type', 'unknown')} from {evento.get('source', 'unknown')}: "
+                f"{evento.get('description', 'no description')[:200]}"
             ),
             "status": "open",
             "event_count": 1,
@@ -402,38 +402,38 @@ class CorrelationEngine:
             "last_event_at": evento.get("event_timestamp", datetime.now(UTC)),
         }
 
-        # Ejecutar todos los callbacks registrados
+        # Run all registered callbacks
         if not self._callbacks:
-            logger.debug("No hay callbacks registrados — alerta generada en memoria")
+            logger.debug("No callbacks registered — alert generated in memory")
             return datos_alerta
 
         for callback in self._callbacks:
             try:
                 await callback(datos_alerta)
             except Exception as e:
-                logger.error("Error en callback: %s", e, exc_info=True)
+                logger.error("Error in callback: %s", e, exc_info=True)
 
         return datos_alerta
 
     async def _ejecutar_callbacks_actualizar(self, datos: dict):
-        """Ejecuta todos los callbacks de actualización registrados.
+        """Runs all registered update callbacks.
 
-        Argumentos:
-            datos: Dict con rule_id, event_count, last_event_at.
+        Args:
+            datos: Dict with rule_id, event_count, last_event_at.
         """
         for callback in self._callbacks_actualizar:
             try:
                 await callback(datos)
             except Exception as e:
-                logger.error("Error en callback de actualización: %s", e, exc_info=True)
+                logger.error("Error in update callback: %s", e, exc_info=True)
 
     @property
     def reglas_activas(self) -> int:
-        """Cantidad de reglas activas cargadas en memoria."""
+        """Number of active rules loaded in memory."""
         return len(self._reglas)
 
     @property
     def ventanas_activas(self) -> int:
-        """Cantidad de ventanas temporales activas."""
+        """Number of active time windows."""
         ahora = datetime.now(UTC)
         return sum(1 for v in self._ventanas.values() if v["expires_at"] > ahora)

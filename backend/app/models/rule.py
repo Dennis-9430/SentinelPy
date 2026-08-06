@@ -1,7 +1,7 @@
-"""Modelo de regla de detección (compatible con formato Sigma).
+"""Detection rule model (compatible with the Sigma format).
 
-Las reglas definen condiciones que, al cumplirse, generan alertas.
-Siguen una estructura inspirada en Sigma, el estándar abierto para reglas SIEM.
+Rules define conditions that, when met, generate alerts.
+They follow a structure inspired by Sigma, the open standard for SIEM rules.
 """
 
 from sqlalchemy import JSON, Index, String, Text
@@ -11,15 +11,15 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class DetectionRule(Base, TimestampMixin, UUIDMixin):
-    """Regla de detección — define QUÉ buscar y QUÉ alerta generar.
+    """Detection rule — defines WHAT to look for and WHAT alert to generate.
 
-    Cada regla tiene condiciones (expresadas como JSON) que el motor de
-    correlación evalúa contra cada evento entrante.
+    Each rule has conditions (expressed as JSON) that the correlation
+    engine evaluates against every incoming event.
     """
 
     __tablename__ = "rules"
 
-    # ── Identificación ───────────────────────────────────────────────────
+    # ── Identification ───────────────────────────────────────────────────
     title: Mapped[str] = mapped_column(
         String(255),
         comment="Título descriptivo de la regla (ej: 'Detección de fuerza bruta SSH')",
@@ -33,7 +33,7 @@ class DetectionRule(Base, TimestampMixin, UUIDMixin):
         comment="Autor de la regla",
     )
 
-    # ── Clasificación ────────────────────────────────────────────────────
+    # ── Classification ───────────────────────────────────────────────────
     severity: Mapped[str] = mapped_column(
         String(20),
         default="medium",
@@ -46,7 +46,7 @@ class DetectionRule(Base, TimestampMixin, UUIDMixin):
         comment="Estado: active (activa), disabled (desactivada), test (solo logging)",
     )
 
-    # ── Lógica de detección ──────────────────────────────────────────────
+    # ── Detection logic ──────────────────────────────────────────────────
     conditions: Mapped[dict] = mapped_column(
         JSON,
         comment=(
@@ -62,7 +62,7 @@ class DetectionRule(Base, TimestampMixin, UUIDMixin):
         ),
     )
 
-    # ── Alerta a generar ─────────────────────────────────────────────────
+    # ── Alert to generate ────────────────────────────────────────────────
     alert_title: Mapped[str] = mapped_column(
         String(255),
         comment="Título de la alerta que se crea cuando la regla matchea",
@@ -73,7 +73,7 @@ class DetectionRule(Base, TimestampMixin, UUIDMixin):
         comment="Severidad de la alerta generada",
     )
 
-    # ── Metadatos ────────────────────────────────────────────────────────
+    # ── Metadata ─────────────────────────────────────────────────────────
     tags: Mapped[list] = mapped_column(
         JSON,
         default=list,
@@ -89,5 +89,5 @@ class DetectionRule(Base, TimestampMixin, UUIDMixin):
         comment="Casos conocidos de falsos positivos",
     )
 
-    # ── Índices compuestos para consultas frecuentes ─────────────────────
+    # ── Composite indexes for frequent queries ───────────────────────────
     __table_args__ = (Index("ix_rules_status_severity", "status", "severity"),)

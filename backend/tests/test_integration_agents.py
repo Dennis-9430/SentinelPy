@@ -129,7 +129,7 @@ class TestCrearAgente:
         service = AgentService(session)
         await service.crear_agente(name="duplicado", hostname="host1")
 
-        with pytest.raises(ValueError, match="ya existe"):
+        with pytest.raises(ValueError, match="already exists"):
             await service.crear_agente(name="duplicado", hostname="host2")
 
     @pytest.mark.asyncio
@@ -543,7 +543,7 @@ class TestAdminAgentsAPI:
             cookies={"access_token": token},
         )
         assert response.status_code == 200
-        assert "desactivado" in response.json()["mensaje"].lower()
+        assert "deactivated" in response.json()["mensaje"].lower()
 
         # Verificar que aparece como inactivo en el listado
         list_resp = await client.get(
@@ -792,7 +792,7 @@ class TestEliminarAgente:
             cookies={"access_token": token},
         )
         assert response.status_code == 200
-        assert "eliminado" in response.json()["mensaje"].lower()
+        assert "deleted" in response.json()["mensaje"].lower()
 
         # Verificar que ya no existe vía GET
         get_resp = await client.get(

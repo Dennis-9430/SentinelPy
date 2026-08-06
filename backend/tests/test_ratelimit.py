@@ -63,7 +63,7 @@ async def test_exceeding_limit_returns_429():
 
     assert exc_info.value.status_code == 429
     detail = exc_info.value.detail
-    assert "Demasiadas solicitudes" in detail["detail"]
+    assert "Too many requests" in detail["detail"]
     assert "retry_after" in detail
     assert isinstance(detail["retry_after"], int)
 

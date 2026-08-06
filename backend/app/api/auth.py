@@ -1,4 +1,4 @@
-"""Endpoints de autenticación: login, logout, perfil."""
+"""Authentication endpoints: login, logout, profile."""
 
 import logging
 
@@ -22,20 +22,20 @@ async def login(
     response: Response,
     session: AsyncSession = Depends(get_session),
 ):
-    """Autentica un usuario y setea cookie JWT.
+    """Authenticate a user and set the JWT cookie.
 
-    Endpoint JSON para clientes de la API. Si las credenciales
-    son válidas, crea un JWT y lo guarda en una cookie httpOnly.
+    JSON endpoint for API clients. If the credentials
+    are valid, creates a JWT and stores it in an httpOnly cookie.
 
-    Argumentos:
-        datos: Credenciales (username, password).
-        response: Response de FastAPI para setear la cookie.
+    Args:
+        datos: Credentials (username, password).
+        response: FastAPI response used to set the cookie.
 
-    Retorna:
-        Dict con mensaje, username y role.
+    Returns:
+        Dict with message, username and role.
 
     Raises:
-        HTTPException 401: Si las credenciales son incorrectas.
+        HTTPException 401: If the credentials are incorrect.
     """
     service = AuthService(session)
     user = await service.autenticar(datos.username, datos.password)
@@ -43,12 +43,12 @@ async def login(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario o contraseña incorrectos",
+            detail="Incorrect username or password",
         )
 
     token = service.crear_token(user)
 
-    # Cookie httpOnly — segura contra XSS, viaja automáticamente en cada request
+    # httpOnly cookie — XSS-safe, travels automatically on every request
     response.set_cookie(
         key="access_token",
         value=token,
@@ -58,7 +58,7 @@ async def login(
     )
 
     return {
-        "mensaje": "Login exitoso",
+        "mensaje": "Login successful",
         "username": user.username,
         "role": user.role,
     }
@@ -66,10 +66,10 @@ async def login(
 
 @router.post("/logout")
 async def logout():
-    """Elimina la cookie de autenticación y redirige al login.
+    """Remove the authentication cookie and redirect to the login page.
 
-    Crea un RedirectResponse a /login y borra la cookie access_token
-    en el mismo response, así el navegador pierde la sesión al redirigir.
+    Creates a RedirectResponse to /login and deletes the access_token
+    cookie in the same response, so the browser loses the session on redirect.
     """
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie(key="access_token")
@@ -81,19 +81,19 @@ async def perfil_actual(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ):
-    """Devuelve los datos del usuario autenticado vía cookie.
+    """Return the data of the user authenticated via cookie.
 
-    Endpoint que el dashboard usa para verificar sesión.
+    Endpoint the dashboard uses to verify the session.
 
-    Argumentos:
-        request: Request de FastAPI para leer cookies.
-        session: Sesión de base de datos.
+    Args:
+        request: FastAPI request used to read cookies.
+        session: Database session.
 
-    Retorna:
-        Dict con id, username y role del usuario autenticado.
+    Returns:
+        Dict with id, username and role of the authenticated user.
 
     Raises:
-        HTTPException 401: Si no hay sesión activa.
+        HTTPException 401: If there is no active session.
     """
     from app.auth import get_current_user_from_cookie
 
@@ -101,7 +101,7 @@ async def perfil_actual(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No autenticado",
+            detail="Not authenticated",
         )
     return {
         "id": str(user.id),

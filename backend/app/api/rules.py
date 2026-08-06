@@ -1,7 +1,7 @@
-"""Endpoints de la API para reglas de detección.
+"""API endpoints for detection rules.
 
-CRUD completo de reglas estilo Sigma. Las reglas activas se cargan
-en el motor de correlación al iniciar la aplicación.
+Full Sigma-style rule CRUD. Active rules are loaded
+into the correlation engine at application startup.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -13,21 +13,21 @@ from app.models.user import User
 from app.schemas.rule import RuleCreate
 from app.services.rule_service import RuleService
 
-# Router con prefijo /api/rules
+# Router with /api/rules prefix
 router = APIRouter(prefix="/rules", tags=["rules"])
 
 
 @router.get("", response_model=dict)
 async def listar_reglas(
-    limite: int = Query(100, ge=1, le=500, description="Cantidad máxima de reglas"),
-    desde: int = Query(0, ge=0, description="Offset para paginación"),
+    limite: int = Query(100, ge=1, le=500, description="Maximum number of rules"),
+    desde: int = Query(0, ge=0, description="Offset for pagination"),
     estado: str | None = Query(
-        None, description="Filtrar por estado: active, disabled, test"
+        None, description="Filter by status: active, disabled, test"
     ),
-    severidad: str | None = Query(None, description="Filtrar por severidad"),
+    severidad: str | None = Query(None, description="Filter by severity"),
     session: AsyncSession = Depends(get_session),
 ):
-    """Devuelve todas las reglas de detección con paginación y filtros."""
+    """Return all detection rules with pagination and filters."""
     service = RuleService(session)
     reglas, total = await service.listar_reglas(
         limite=limite, desde=desde, estado=estado, severidad=severidad
@@ -60,12 +60,12 @@ async def obtener_regla(
     regla_id: str,
     session: AsyncSession = Depends(get_session),
 ):
-    """Obtiene una regla por su ID."""
+    """Get a rule by its ID."""
     service = RuleService(session)
     regla = await service.obtener_regla(regla_id)
 
     if not regla:
-        raise HTTPException(status_code=404, detail="Regla no encontrada")
+        raise HTTPException(status_code=404, detail="Rule not found")
 
     return {
         "id": str(regla.id),
@@ -93,15 +93,15 @@ async def crear_regla(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Crea una nueva regla de detección (solo admin).
+    """Create a new detection rule (admin only).
 
-    La regla se guarda en la base de datos y, si está activa,
-    se cargará en el motor de correlación en el próximo ciclo.
+    The rule is saved to the database and, if active,
+    will be loaded into the correlation engine on the next cycle.
     """
     service = RuleService(session)
     regla = await service.crear_regla(datos.model_dump())
 
-    # Intentar recargar reglas en el engine (si está disponible)
+    # Try to reload rules into the engine (if available)
     await _recargar_engine(session)
 
     return {
@@ -121,16 +121,16 @@ async def actualizar_regla(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Actualiza una regla existente (solo admin)."""
+    """Update an existing rule (admin only)."""
     service = RuleService(session)
     regla = await service.actualizar_regla(
         regla_id, datos.model_dump(exclude_unset=True)
     )
 
     if not regla:
-        raise HTTPException(status_code=404, detail="Regla no encontrada")
+        raise HTTPException(status_code=404, detail="Rule not found")
 
-    # Recargar reglas en el engine
+    # Reload rules into the engine
     await _recargar_engine(session)
 
     return {
@@ -148,25 +148,25 @@ async def eliminar_regla(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Elimina una regla por su ID (solo admin)."""
+    """Delete a rule by its ID (admin only)."""
     service = RuleService(session)
     eliminado = await service.eliminar_regla(regla_id)
 
     if not eliminado:
-        raise HTTPException(status_code=404, detail="Regla no encontrada")
+        raise HTTPException(status_code=404, detail="Rule not found")
 
-    # Recargar reglas en el engine
+    # Reload rules into the engine
     await _recargar_engine(session)
 
 
 def _toggle_status(current_status: str) -> str:
-    """Retorna el estado opuesto para toggle active/disabled.
+    """Return the opposite status for active/disabled toggling.
 
     Args:
-        current_status: Estado actual ('active' o 'disabled').
+        current_status: Current status ('active' or 'disabled').
 
     Returns:
-        'disabled' si current_status es 'active', 'active' en caso contrario.
+        'disabled' if current_status is 'active', 'active' otherwise.
     """
     return "disabled" if current_status == "active" else "active"
 
@@ -177,31 +177,31 @@ async def toggle_regla(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Activa/desactiva una regla (solo admin). Retorna JSON.
+    """Enable/disable a rule (admin only). Returns JSON.
 
-    El estado cambia entre active y disabled. Después del toggle
-    recarga el motor de correlación para aplicar el cambio.
+    The status toggles between active and disabled. After the toggle
+    it reloads the correlation engine to apply the change.
     """
     service = RuleService(session)
     regla = await service.obtener_regla(regla_id)
 
     if not regla:
-        raise HTTPException(status_code=404, detail="Regla no encontrada")
+        raise HTTPException(status_code=404, detail="Rule not found")
 
     nuevo_estado = _toggle_status(regla.status)
     await service.actualizar_regla(regla_id, {"status": nuevo_estado})
 
-    # Recargar engine para aplicar el cambio
+    # Reload engine to apply the change
     await _recargar_engine(session)
 
     return {"status": nuevo_estado}
 
 
 async def _recargar_engine(session: AsyncSession):
-    """Recarga las reglas activas en el motor de correlación.
+    """Reload active rules into the correlation engine.
 
-    Se llama después de crear, actualizar o eliminar una regla
-    para mantener el engine sincronizado sin reiniciar la app.
+    Called after creating, updating or deleting a rule to keep
+    the engine synchronized without restarting the app.
     """
     try:
         from app.main import app as app_instance
@@ -214,4 +214,4 @@ async def _recargar_engine(session: AsyncSession):
     except Exception as e:
         import logging
 
-        logging.getLogger(__name__).warning("No se pudo recargar engine: %s", e)
+        logging.getLogger(__name__).warning("Could not reload engine: %s", e)

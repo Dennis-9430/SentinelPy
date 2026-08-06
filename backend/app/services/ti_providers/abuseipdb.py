@@ -1,7 +1,7 @@
-"""Proveedor de Threat Intelligence: AbuseIPDB.
+"""Threat Intelligence provider: AbuseIPDB.
 
-Consulta la API de AbuseIPDB para determinar el nivel de abuso
-asociado a una dirección IP.
+Queries the AbuseIPDB API to determine the abuse level
+associated with an IP address.
 """
 
 import httpx
@@ -10,10 +10,10 @@ from app.services.ti_providers.base import BaseTIProvider, IOCResult
 
 
 class AbuseIPDBProvider(BaseTIProvider):
-    """Proveedor de TI que consulta AbuseIPDB para IPs.
+    """TI provider that queries AbuseIPDB for IPs.
 
-    Argumentos:
-        api_key: Clave de API de AbuseIPDB.
+    Args:
+        api_key: AbuseIPDB API key.
     """
 
     BASE_URL = "https://api.abuseipdb.com/api/v2"
@@ -34,13 +34,13 @@ class AbuseIPDBProvider(BaseTIProvider):
         return ["ip"]
 
     async def lookup_ip(self, ip: str) -> IOCResult | None:
-        """Consulta AbuseIPDB para una dirección IP.
+        """Queries AbuseIPDB for an IP address.
 
-        Argumentos:
-            ip: Dirección IP a consultar.
+        Args:
+            ip: IP address to look up.
 
-        Retorna:
-            IOCResult con el score de abuso, o None si hay error/rate limit.
+        Returns:
+            IOCResult with the abuse score, or None on error/rate limit.
         """
         try:
             resp = await self._client.get(

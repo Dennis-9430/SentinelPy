@@ -1,7 +1,7 @@
-"""Servicio de reglas de detección: CRUD y carga de reglas activas.
+"""Detection rule service: CRUD and loading of active rules.
 
-Las reglas se almacenan en PostgreSQL y se cachean en memoria
-en el motor de correlación para evaluación rápida.
+Rules are stored in PostgreSQL and cached in memory
+in the correlation engine for fast evaluation.
 """
 
 import logging
@@ -16,29 +16,29 @@ logger = logging.getLogger(__name__)
 
 
 class RuleService:
-    """Servicio para crear, consultar, actualizar y eliminar reglas."""
+    """Service for creating, querying, updating and deleting rules."""
 
     def __init__(self, session: AsyncSession):
         """
-        Argumentos:
-            session: Sesión asíncrona de SQLAlchemy.
+        Args:
+            session: Async SQLAlchemy session.
         """
         self.session = session
 
     async def crear_regla(self, datos: dict) -> DetectionRule:
-        """Crea una nueva regla de detección.
+        """Create a new detection rule.
 
-        Argumentos:
-            datos: Dict con los campos de la regla (title, description, conditions, etc.).
+        Args:
+            datos: Dict with the rule fields (title, description, conditions, etc.).
 
-        Retorna:
-            La instancia de DetectionRule creada.
+        Returns:
+            The created DetectionRule instance.
         """
         regla = DetectionRule(**datos)
         self.session.add(regla)
         await self.session.commit()
         await self.session.refresh(regla)
-        logger.info("Regla creada: %s - %s", regla.id, regla.title)
+        logger.info("Rule created: %s - %s", regla.id, regla.title)
         return regla
 
     async def listar_reglas(
@@ -48,16 +48,16 @@ class RuleService:
         estado: str | None = None,
         severidad: str | None = None,
     ) -> tuple[list[DetectionRule], int]:
-        """Lista reglas con paginación y filtros.
+        """List rules with pagination and filters.
 
-        Argumentos:
-            limite: Cantidad máxima de reglas.
+        Args:
+            limite: Maximum number of rules.
             desde: Offset.
-            estado: Filtrar por estado (active, disabled, test).
-            severidad: Filtrar por severidad.
+            estado: Filter by status (active, disabled, test).
+            severidad: Filter by severity.
 
-        Retorna:
-            Tupla (lista de reglas, total sin paginación).
+        Returns:
+            Tuple (list of rules, total without pagination).
         """
         query = select(DetectionRule).order_by(DetectionRule.created_at.desc())
         count_query = select(func.count(DetectionRule.id))
@@ -78,13 +78,13 @@ class RuleService:
         return reglas, total
 
     async def obtener_regla(self, regla_id: str) -> DetectionRule | None:
-        """Obtiene una regla por su ID.
+        """Get a rule by its ID.
 
-        Argumentos:
-            regla_id: UUID de la regla.
+        Args:
+            regla_id: UUID of the rule.
 
-        Retorna:
-            DetectionRule o None si no existe.
+        Returns:
+            DetectionRule or None if it does not exist.
         """
         from uuid import UUID
 
@@ -94,20 +94,20 @@ class RuleService:
             )
             return result.scalar_one_or_none()
         except (ValueError, Exception) as e:
-            logger.warning("Error al obtener regla %s: %s", regla_id, e)
+            logger.warning("Error getting rule %s: %s", regla_id, e)
             return None
 
     async def actualizar_regla(
         self, regla_id: str, datos: dict
     ) -> DetectionRule | None:
-        """Actualiza una regla existente.
+        """Update an existing rule.
 
-        Argumentos:
-            regla_id: UUID de la regla.
-            datos: Dict con los campos a actualizar.
+        Args:
+            regla_id: UUID of the rule.
+            datos: Dict with the fields to update.
 
-        Retorna:
-            DetectionRule actualizada, o None si no existe.
+        Returns:
+            Updated DetectionRule, or None if it does not exist.
         """
         regla = await self.obtener_regla(regla_id)
         if not regla:
@@ -120,17 +120,17 @@ class RuleService:
         regla.updated_at = datetime.now(UTC)
         await self.session.commit()
         await self.session.refresh(regla)
-        logger.info("Regla actualizada: %s", regla_id)
+        logger.info("Rule updated: %s", regla_id)
         return regla
 
     async def eliminar_regla(self, regla_id: str) -> bool:
-        """Elimina una regla por su ID.
+        """Delete a rule by its ID.
 
-        Argumentos:
-            regla_id: UUID de la regla.
+        Args:
+            regla_id: UUID of the rule.
 
-        Retorna:
-            True si se eliminó, False si no existía.
+        Returns:
+            True if it was deleted, False if it did not exist.
         """
         from uuid import UUID
 
@@ -141,20 +141,20 @@ class RuleService:
             await self.session.commit()
             eliminado = result.rowcount > 0
             if eliminado:
-                logger.info("Regla eliminada: %s", regla_id)
+                logger.info("Rule deleted: %s", regla_id)
             return eliminado
         except (ValueError, Exception) as e:
-            logger.warning("Error al eliminar regla %s: %s", regla_id, e)
+            logger.warning("Error deleting rule %s: %s", regla_id, e)
             return False
 
     async def cargar_reglas_activas(self) -> list[DetectionRule]:
-        """Carga todas las reglas activas para el motor de correlación.
+        """Load all active rules for the correlation engine.
 
-        Este método se usa al iniciar la aplicación para poblar
-        el caché del CorrelationEngine.
+        This method is used at application startup to populate
+        the CorrelationEngine cache.
 
-        Retorna:
-            Lista de reglas con status='active'.
+        Returns:
+            List of rules with status='active'.
         """
         result = await self.session.execute(
             select(DetectionRule).where(DetectionRule.status == "active")

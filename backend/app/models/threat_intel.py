@@ -1,7 +1,7 @@
-"""Modelos para Threat Intelligence.
+"""Models for Threat Intelligence.
 
-ThreatIntelFeed: registra feeds de proveedores TI (AbuseIPDB, OTX, VT).
-IOCEntry: almacena indicadores de compromiso (IOCs) consultados.
+ThreatIntelFeed: registers feeds from TI providers (AbuseIPDB, OTX, VT).
+IOCEntry: stores queried indicators of compromise (IOCs).
 """
 
 import uuid
@@ -14,10 +14,10 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class ThreatIntelFeed(UUIDMixin, TimestampMixin, Base):
-    """Registro de un feed de Threat Intelligence.
+    """Record of a Threat Intelligence feed.
 
-    Almacena el estado de cada proveedor (activo/inactivo/error),
-    el último sync exitoso, y configuración específica del provider.
+    Stores the status of each provider (active/inactive/error),
+    the last successful sync, and provider-specific configuration.
     """
 
     __tablename__ = "threat_intel_feeds"
@@ -64,10 +64,10 @@ class ThreatIntelFeed(UUIDMixin, TimestampMixin, Base):
 
 
 class IOCEntry(UUIDMixin, TimestampMixin, Base):
-    """Entrada de Indicador de Compromiso (IOC).
+    """Indicator of Compromise (IOC) entry.
 
-    Almacena cada IOC consultado con su tipo, proveedor,
-    nivel de confianza, y ventanas de observación.
+    Stores each queried IOC with its type, provider,
+    confidence level, and observation windows.
     """
 
     __tablename__ = "ioc_entries"

@@ -1,7 +1,7 @@
-"""Parsers de logs: convierten logs crudos al formato normalizado.
+"""Log parsers: convert raw logs to the normalized format.
 
-Cada parser entiende un formato específico y extrae los campos
-comunes para almacenarlos como NormalizedEvent.
+Each parser understands a specific format and extracts the common
+fields to store them as NormalizedEvent.
 """
 
 import json
@@ -11,8 +11,8 @@ from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
-# ── Mapeo de severidad syslog a severidad SentinelPy ─────────────────────
-# Los niveles 0-7 de syslog se mapean a nuestro modelo
+# ── Map syslog severity to SentinelPy severity ─────────────────────
+# Syslog levels 0-7 map to our model
 SYSLOG_SEVERITY_MAP = {
     0: "critical",  # Emergency
     1: "critical",  # Alert
@@ -24,7 +24,7 @@ SYSLOG_SEVERITY_MAP = {
     7: "info",  # Debug
 }
 
-# ── Mapeo de facility syslog ─────────────────────────────────────────────
+# ── Syslog facility map ─────────────────────────────────────────────
 SYSLOG_FACILITY_MAP = {
     0: "kern",
     1: "user",
@@ -43,85 +43,85 @@ SYSLOG_FACILITY_MAP = {
     23: "local7",
 }
 
-# ── Regex para RFC 3164 (BSD syslog) ─────────────────────────────────────
-# Formato: <PRI>Timestamp Hostname App[PID]: Mensaje
-# También soporta sin PID: <PRI>Timestamp Hostname App: Mensaje
+# ── Regex for RFC 3164 (BSD syslog) ─────────────────────────────────────
+# Format: <PRI>Timestamp Hostname App[PID]: Message
+# Also supports without PID: <PRI>Timestamp Hostname App: Message
 RFC3164_PATTERN = re.compile(
     r"^<(\d{1,3})>"  # 1: Priority (facility*8 + severity)
-    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+"  # 2: Mes
-    r"(\d{1,2})\s+"  # 3: Día
-    r"(\d{2}:\d{2}:\d{2})\s+"  # 4: Hora
+    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+"  # 2: Month
+    r"(\d{1,2})\s+"  # 3: Day
+    r"(\d{2}:\d{2}:\d{2})\s+"  # 4: Time
     r"(\S+)\s+"  # 5: Hostname
     r"(\S+?)"  # 6: App name
-    r"(?:\[(\d+)\])?"  # 7: PID (opcional)
-    r":\s*(.*)"  # 8: Mensaje
+    r"(?:\[(\d+)\])?"  # 7: PID (optional)
+    r":\s*(.*)"  # 8: Message
 )
 
 
 class SyslogParser:
-    """Parser de syslog: entiende RFC 3164 (BSD).
+    """Syslog parser: understands RFC 3164 (BSD).
 
-    RFC 3164: "<PRI>Timestamp Hostname App[PID]: Mensaje"
+    RFC 3164: "<PRI>Timestamp Hostname App[PID]: Message"
 
-    Ejemplo:
+    Example:
         <30>Oct  9 22:33:20 myhost sshd[12345]: Failed password for root from 192.168.1.100 port 22 ssh2
     """
 
     def parse(self, raw: str) -> dict | None:
-        """Convierte una línea de syslog a diccionario normalizado.
+        """Convert a syslog line to a normalized dictionary.
 
-        Argumentos:
-            raw: Línea de texto cruda del syslog.
+        Args:
+            raw: Raw text line from syslog.
 
-        Retorna:
-            Dict con campos normalizados listo para crear un NormalizedEvent,
-            o None si no se pudo parsear.
+        Returns:
+            Dict with normalized fields ready to create a NormalizedEvent,
+            or None if it could not be parsed.
         """
         if not raw or not raw.strip():
             return None
 
-        # Intentar matchear con RFC 3164
+        # Try to match RFC 3164
         match = RFC3164_PATTERN.match(raw.strip())
         if not match:
             logger.warning(
-                "No se pudo parsear mensaje syslog (formato no reconocido): %s",
+                "Could not parse syslog message (unrecognized format): %s",
                 raw[:100],
             )
             return None
 
-        # Extraer grupos
+        # Extract groups
         priority = int(match.group(1))
         mes = match.group(2)
         dia = match.group(3)
         hora = match.group(4)
         hostname = match.group(5)
         app_name = match.group(6)
-        match.group(7)  # Puede ser None
+        match.group(7)  # May be None
         mensaje = match.group(8)
 
-        # Calcular facility y severity desde el priority
+        # Compute facility and severity from the priority
         # Syslog: PRI = facility * 8 + severity
         priority // 8
         severity_code = priority % 8
 
-        # Construir timestamp combinando fecha del syslog con año actual
-        # RFC 3164 no incluye año, así que usamos el año actual
+        # Build timestamp combining the syslog date with the current year
+        # RFC 3164 does not include the year, so we use the current year
         año_actual = datetime.now(UTC).year
         timestamp_str = f"{mes} {dia} {hora} {año_actual}"
 
         try:
-            # Parsear fecha estilo syslog: "Oct  9 22:33:20 2026"
+            # Parse syslog-style date: "Oct  9 22:33:20 2026"
             event_timestamp = datetime.strptime(timestamp_str, "%b %d %H:%M:%S %Y")
             event_timestamp = event_timestamp.replace(tzinfo=UTC)
         except ValueError:
-            # Si falla, usar timestamp actual
-            logger.warning("No se pudo parsear timestamp syslog, usando hora actual")
+            # If it fails, use the current timestamp
+            logger.warning("Could not parse syslog timestamp, using current time")
             event_timestamp = datetime.now(UTC)
 
-        # Determinar tipo de evento según el app name
+        # Determine event type based on the app name
         event_type = self._detectar_tipo_evento(app_name, mensaje)
 
-        # Extraer IPs del mensaje si están presentes
+        # Extract IPs from the message if present
         source_ip, dest_ip = self._extraer_ips(mensaje)
 
         return {
@@ -143,14 +143,14 @@ class SyslogParser:
         }
 
     def _detectar_tipo_evento(self, app_name: str, mensaje: str) -> str:
-        """Detecta el tipo de evento según la aplicación y el mensaje.
+        """Detect the event type based on the application and message.
 
         Args:
-            app_name: Nombre de la aplicación que generó el log.
-            mensaje: Contenido del mensaje.
+            app_name: Name of the application that generated the log.
+            mensaje: Message content.
 
         Returns:
-            String con el tipo de evento normalizado.
+            String with the normalized event type.
         """
         mensaje_lower = mensaje.lower()
 
@@ -172,19 +172,19 @@ class SyslogParser:
         if app_name.lower() in ("nginx", "apache", "httpd", "http"):
             return "http_request"
 
-        # Si no se pudo determinar, genérico
+        # If it could not be determined, generic
         return "unknown"
 
     def _extraer_ips(self, mensaje: str) -> tuple:
-        """Extrae direcciones IP del mensaje.
+        """Extract IP addresses from the message.
 
         Args:
-            mensaje: Texto del mensaje.
+            mensaje: Message text.
 
         Returns:
-            Tupla (source_ip, destination_ip).
+            Tuple (source_ip, destination_ip).
         """
-        # Patrón simple para IPv4
+        # Simple IPv4 pattern
         ips = re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", mensaje)
 
         if len(ips) >= 2:
@@ -195,12 +195,12 @@ class SyslogParser:
 
 
 class JSONParser:
-    """Parser de logs en formato JSON.
+    """Parser for logs in JSON format.
 
-    Útil para logs modernos que ya vienen estructurados (ej: Docker, aplicaciones).
+    Useful for modern logs that are already structured (e.g. Docker, applications).
     """
 
-    # Mapeo de nombres de campo del JSON a nuestro modelo normalizado
+    # Map JSON field names to our normalized model
     FIELD_MAP = {
         "source": ("source", "host", "hostname", "origin"),
         "event_type": ("event_type", "type", "event", "log_type"),
@@ -217,13 +217,13 @@ class JSONParser:
     }
 
     def parse(self, raw: str) -> dict | None:
-        """Parsea un string JSON a diccionario normalizado.
+        """Parse a JSON string into a normalized dictionary.
 
-        Argumentos:
-            raw: String JSON con los campos del log.
+        Args:
+            raw: JSON string with the log fields.
 
-        Retorna:
-            Dict con campos normalizados, o None si el JSON es inválido.
+        Returns:
+            Dict with normalized fields, or None if the JSON is invalid.
         """
         if not raw or not raw.strip():
             return None
@@ -231,13 +231,13 @@ class JSONParser:
         try:
             data = json.loads(raw.strip())
         except json.JSONDecodeError:
-            logger.warning("JSON inválido: %s", raw[:100])
+            logger.warning("Invalid JSON: %s", raw[:100])
             return None
 
         if not isinstance(data, dict):
             return None
 
-        # Construir el evento normalizado mapeando campos
+        # Build the normalized event by mapping fields
         evento = {
             "source": self._extraer_campo(data, "source"),
             "collector_type": "json",
@@ -261,14 +261,14 @@ class JSONParser:
         return evento
 
     def _extraer_campo(self, data: dict, campo: str) -> str | None:
-        """Busca un campo en el JSON probando múltiples nombres posibles.
+        """Look up a field in the JSON trying multiple possible names.
 
         Args:
-            data: Diccionario del JSON parseado.
-            campo: Nombre del campo en nuestro modelo.
+            data: Dictionary of the parsed JSON.
+            campo: Field name in our model.
 
         Returns:
-            Valor del campo como string, o None.
+            Field value as a string, or None.
         """
         for nombre in self.FIELD_MAP.get(campo, [campo]):
             valor = data.get(nombre)
@@ -277,14 +277,14 @@ class JSONParser:
         return None
 
     def _extraer_int(self, data: dict, campo: str) -> int | None:
-        """Busca un campo entero en el JSON probando múltiples nombres.
+        """Look up an integer field in the JSON trying multiple names.
 
         Args:
-            data: Diccionario del JSON parseado.
-            campo: Nombre del campo en nuestro modelo.
+            data: Dictionary of the parsed JSON.
+            campo: Field name in our model.
 
         Returns:
-            Valor entero, o None.
+            Integer value, or None.
         """
         for nombre in self.FIELD_MAP.get(campo, [campo]):
             valor = data.get(nombre)
@@ -296,15 +296,15 @@ class JSONParser:
         return None
 
     def _parsear_timestamp(self, data: dict) -> datetime | None:
-        """Parsea el timestamp del JSON probando distintos formatos.
+        """Parse the timestamp from the JSON trying different formats.
 
         Args:
-            data: Diccionario del JSON parseado.
+            data: Dictionary of the parsed JSON.
 
         Returns:
-            datetime con timezone, o None.
+            datetime with timezone, or None.
         """
-        # Campos de timestamp a probar
+        # Timestamp fields to try
         for key in (
             "timestamp",
             "time",
@@ -319,13 +319,13 @@ class JSONParser:
 
             valor_str = str(valor)
 
-            # Intentar formatos comunes
+            # Try common formats
             formatos = [
-                "%Y-%m-%dT%H:%M:%S.%fZ",  # ISO 8601 con microsegundos
-                "%Y-%m-%dT%H:%M:%SZ",  # ISO 8601 sin microsegundos
-                "%Y-%m-%dT%H:%M:%S.%f%z",  # ISO 8601 con timezone
-                "%Y-%m-%d %H:%M:%S",  # Fecha hora simple
-                "%Y-%m-%dT%H:%M:%S",  # ISO sin Z
+                "%Y-%m-%dT%H:%M:%S.%fZ",  # ISO 8601 with microseconds
+                "%Y-%m-%dT%H:%M:%SZ",  # ISO 8601 without microseconds
+                "%Y-%m-%dT%H:%M:%S.%f%z",  # ISO 8601 with timezone
+                "%Y-%m-%d %H:%M:%S",  # Simple date time
+                "%Y-%m-%dT%H:%M:%S",  # ISO without Z
             ]
 
             for fmt in formatos:
@@ -340,20 +340,20 @@ class JSONParser:
         return None
 
     def _normalizar_severidad(self, severidad: str | None) -> str:
-        """Convierte severidades de varios formatos a nuestro estándar.
+        """Convert severities from various formats to our standard.
 
         Args:
-            severidad: Nivel de severidad en cualquier formato.
+            severidad: Severity level in any format.
 
         Returns:
-            Severidad normalizada: critical, high, medium, low, info.
+            Normalized severity: critical, high, medium, low, info.
         """
         if not severidad:
             return "info"
 
         severidad_lower = severidad.lower().strip()
 
-        # Mapeo de valores comunes
+        # Map of common values
         mapeo = {
             "critical": "critical",
             "crit": "critical",

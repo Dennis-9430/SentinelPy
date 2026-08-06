@@ -1,8 +1,8 @@
-"""Dependencias de autenticación para rutas HTML y API.
+"""Authentication dependencies for HTML and API routes.
 
-Incluye helpers para verificar autenticación básica (get_current_user_from_cookie,
-require_user), protección por roles (require_admin, verificar_admin_html),
-y autenticación de agentes remotos via Bearer token (require_agent).
+Includes helpers to verify basic authentication (get_current_user_from_cookie,
+require_user), role-based protection (require_admin, verificar_admin_html),
+and remote agent authentication via Bearer token (require_agent).
 """
 
 import logging
@@ -26,17 +26,17 @@ async def get_current_user_from_cookie(
     request: Request,
     session: AsyncSession,
 ):
-    """Obtiene el usuario autenticado desde la cookie JWT.
+    """Get the authenticated user from the JWT cookie.
 
-    Se usa en las rutas del dashboard HTML. Lee la cookie access_token,
-    decodifica el JWT, y busca el usuario en la base de datos.
+    Used on the HTML dashboard routes. Reads the access_token cookie,
+    decodes the JWT, and looks up the user in the database.
 
-    Argumentos:
-        request: Request de FastAPI para leer cookies.
-        session: Sesión asíncrona de SQLAlchemy.
+    Args:
+        request: FastAPI request used to read cookies.
+        session: Async SQLAlchemy session.
 
-    Retorna:
-        User si el token es válido, None en caso contrario.
+    Returns:
+        User if the token is valid, None otherwise.
     """
     token = request.cookies.get("access_token")
     if not token:
@@ -59,17 +59,17 @@ async def require_user(
     request: Request,
     session: AsyncSession,
 ):
-    """Middleware para rutas que requieren autenticación.
+    """Dependency for routes that require authentication.
 
-    Si el usuario no está autenticado, devuelve (None, RedirectResponse)
-    para redirigir al login. Si está autenticado, devuelve (user, None).
+    If the user is not authenticated, returns (None, RedirectResponse)
+    to redirect to the login page. If authenticated, returns (user, None).
 
-    Argumentos:
-        request: Request de FastAPI.
-        session: Sesión asíncrona de SQLAlchemy.
+    Args:
+        request: FastAPI request.
+        session: Async SQLAlchemy session.
 
-    Retorna:
-        Tupla (user | None, RedirectResponse | None).
+    Returns:
+        Tuple (user | None, RedirectResponse | None).
     """
     user = await get_current_user_from_cookie(request, session)
     if not user:
@@ -81,42 +81,42 @@ async def require_admin(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> User:
-    """Dependency para rutas API — requiere usuario admin autenticado.
+    """API route dependency — requires an authenticated admin user.
 
-    Lee la cookie JWT, verifica el token, busca el usuario en BD,
-    y verifica que tenga rol 'admin'. Si algo falla, lanza HTTPException.
+    Reads the JWT cookie, verifies the token, looks up the user in the DB,
+    and checks that they have the 'admin' role. On any failure, raises HTTPException.
 
-    Uso en rutas API:
+    Usage in API routes:
         @router.post("/rules")
         async def crear_regla(..., admin: User = Depends(require_admin)):
 
-    Retorna:
-        La instancia de User si es admin autenticado.
+    Returns:
+        The User instance if it is an authenticated admin.
 
     Raises:
-        HTTPException 401: Si no hay token, es inválido, o el usuario
-                           no existe o está desactivado.
-        HTTPException 403: Si el usuario no tiene rol admin.
+        HTTPException 401: If there is no token, it is invalid, or the user
+                           does not exist or is deactivated.
+        HTTPException 403: If the user does not have the admin role.
     """
     token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No autenticado",
+            detail="Not authenticated",
         )
 
     payload = AuthService.decodificar_token(token, settings.secret_key)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o expirado",
+            detail="Invalid or expired token",
         )
 
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token mal formado",
+            detail="Malformed token",
         )
 
     service = AuthService(session)
@@ -125,17 +125,17 @@ async def require_admin(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario no encontrado",
+            detail="User not found",
         )
     if not user.active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario desactivado",
+            detail="User deactivated",
         )
     if user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Se requiere rol administrador",
+            detail="Administrator role required",
         )
 
     return user
@@ -145,10 +145,10 @@ async def verificar_admin_html(
     request: Request,
     session: AsyncSession,
 ) -> User | None:
-    """Verifica admin para rutas HTML. Devuelve User o None.
+    """Verify admin access for HTML routes. Returns User or None.
 
-    Es una versión no-dependency de require_admin para usar en
-    rutas de templates donde no se puede usar Depends().
+    A non-dependency version of require_admin for use in template
+    routes where Depends() cannot be used.
     """
     user = await get_current_user_from_cookie(request, session)
     if not user or user.role != "admin":
@@ -160,27 +160,27 @@ async def require_agent(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> Agent:
-    """Dependency para rutas de agente — requiere API key Bearer válida.
+    """Agent route dependency — requires a valid Bearer API key.
 
-    Lee el header Authorization, extrae el token Bearer, y verifica
-    contra los agents activos usando bcrypt verify.
+    Reads the Authorization header, extracts the Bearer token, and verifies
+    it against active agents using bcrypt verify.
 
-    Uso:
+    Usage:
         @router.post("/api/v2/events")
         async def ingestar_eventos(..., agent: Agent = Depends(require_agent)):
 
     Returns:
-        La instancia de Agent si la API key es válida y está activo.
+        The Agent instance if the API key is valid and the agent is active.
 
     Raises:
-        HTTPException 401: Si no hay token o es inválido.
-        HTTPException 403: Si el agente está desactivado.
+        HTTPException 401: If there is no token or it is invalid.
+        HTTPException 403: If the agent is deactivated.
     """
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Se requiere token Bearer",
+            detail="Bearer token required",
         )
 
     api_key = auth.removeprefix("Bearer ")
@@ -190,13 +190,13 @@ async def require_agent(
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key inválida",
+            detail="Invalid API key",
         )
 
     if not agent.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Agente desactivado",
+            detail="Agent deactivated",
         )
 
     return agent

@@ -1,21 +1,21 @@
-"""Esquemas de respuesta estándar para la API.
+"""Standard response schemas for the API.
 
-Wrapper genérico para respuestas paginadas y schema de error
-que todos los endpoints deben usar.
+Generic wrapper for paginated responses and the error schema
+that all endpoints must use.
 """
 
 from pydantic import BaseModel
 
 
 class ErrorResponse(BaseModel):
-    """Schema de error estándar para la API."""
+    """Standard error schema for the API."""
 
     detail: str
     code: str | None = None
 
 
 class PaginationMeta(BaseModel):
-    """Metadata de paginación."""
+    """Pagination metadata."""
 
     total: int
     page: int = 1
@@ -23,14 +23,14 @@ class PaginationMeta(BaseModel):
 
 
 class PaginatedResponse(BaseModel, extra="forbid"):
-    """Respuesta paginada genérica."""
+    """Generic paginated response."""
 
     items: list
     meta: PaginationMeta
 
 
 class HealthResponse(BaseModel):
-    """Respuesta del health check."""
+    """Health check response."""
 
     status: str
     app: str
@@ -40,21 +40,21 @@ class HealthResponse(BaseModel):
 
 
 class EventTimeline(BaseModel):
-    """Punto en la línea de tiempo de eventos."""
+    """Point in the event timeline."""
 
     hora: str
     total: int
 
 
 class EventStatsResponse(BaseModel):
-    """Estadísticas de eventos para el dashboard."""
+    """Event statistics for the dashboard."""
 
     timeline: list[EventTimeline]
     por_severidad: dict[str, int]
 
 
 class AlertStatsResponse(BaseModel):
-    """Estadísticas de alertas para el dashboard."""
+    """Alert statistics for the dashboard."""
 
     por_severidad: dict[str, int]
     por_estado: dict[str, int]

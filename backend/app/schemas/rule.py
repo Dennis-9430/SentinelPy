@@ -1,4 +1,4 @@
-"""Esquemas Pydantic para el modelo DetectionRule."""
+"""Pydantic schemas for the DetectionRule model."""
 
 from datetime import datetime
 from typing import Annotated
@@ -13,10 +13,10 @@ def _coerce_uuid(v):
 
 
 class RuleCreate(BaseModel):
-    """Esquema de entrada para crear o actualizar una regla.
+    """Input schema for creating or updating a rule.
 
-    conditions es un dict JSON con la lógica de detección.
-    Ejemplo: {"field": "event_type", "operator": "eq", "value": "auth_failure"}
+    conditions is a JSON dict with the detection logic.
+    Example: {"field": "event_type", "operator": "eq", "value": "auth_failure"}
     """
 
     title: str
@@ -34,7 +34,7 @@ class RuleCreate(BaseModel):
 
 
 class RuleRead(RuleCreate):
-    """Esquema de salida con campos de base de datos."""
+    """Output schema with database fields."""
 
     id: Annotated[str, BeforeValidator(_coerce_uuid)]
     created_at: datetime

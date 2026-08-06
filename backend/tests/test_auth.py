@@ -180,7 +180,7 @@ async def test_usuario_duplicado_raise(auth_service, mock_session):
     """Verifica que crear_usuario lance ValueError si el usuario ya existe."""
     _make_async_execute(mock_session, _make_mock_result(MagicMock()))
 
-    with pytest.raises(ValueError, match="ya existe"):
+    with pytest.raises(ValueError, match="already exists"):
         await auth_service.crear_usuario(
             username="duplicado",
             password="pass123",

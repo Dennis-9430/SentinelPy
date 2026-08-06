@@ -1,7 +1,7 @@
-"""Endpoints de administración de usuarios (solo admin).
+"""User administration endpoints (admin only).
 
-Permite listar, crear y desactivar usuarios del sistema.
-Todos los endpoints requieren rol admin autenticado.
+Allows listing, creating and deactivating system users.
+All endpoints require an authenticated admin role.
 """
 
 import logging
@@ -27,7 +27,7 @@ async def listar_usuarios(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Lista todos los usuarios del sistema (solo admin)."""
+    """List all system users (admin only)."""
     result = await session.execute(select(User).order_by(User.created_at.desc()))
     usuarios = result.scalars().all()
 
@@ -52,7 +52,7 @@ async def crear_usuario(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Crea un nuevo usuario (solo admin)."""
+    """Create a new user (admin only)."""
     service = AuthService(session)
     try:
         user = await service.crear_usuario(
@@ -76,23 +76,23 @@ async def desactivar_usuario(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Desactiva un usuario (no se puede desactivar a uno mismo).
+    """Deactivate a user (you cannot deactivate yourself).
 
-    Solo un admin puede desactivar usuarios, y no puede
-    desactivarse a sí mismo para evitar quedar sin admins.
+    Only an admin can deactivate users, and cannot
+    deactivate themselves to avoid leaving no admins.
     """
-    # No permitir desactivarse a sí mismo
+    # Do not allow deactivating yourself
     if usuario_id == str(admin.id):
         raise HTTPException(
             status_code=400,
-            detail="No puedes desactivarte a ti mismo",
+            detail="You cannot deactivate yourself",
         )
 
     user = await session.get(User, UUID(usuario_id))
     if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(status_code=404, detail="User not found")
 
     user.active = False
     await session.commit()
 
-    return {"mensaje": f"Usuario '{user.username}' desactivado"}
+    return {"mensaje": f"User '{user.username}' deactivated"}

@@ -1,7 +1,7 @@
-"""Modelo de agente remoto para ingesta autenticada de eventos.
+"""Remote agent model for authenticated event ingestion.
 
-Cada agente tiene una API key única (hasheada con bcrypt) que permite
-autenticarse via Bearer token en los endpoints de ingesta v2.
+Each agent has a unique API key (hashed with bcrypt) that allows
+authentication via Bearer token on the v2 ingestion endpoints.
 """
 
 from datetime import datetime
@@ -13,21 +13,21 @@ from app.models.base import Base
 
 
 class Agent(Base):
-    """Agente remoto autorizado para enviar eventos al sistema.
+    """Remote agent authorized to send events to the system.
 
-    Cada agente representa un host remoto que monitorea logs locales
-    y los reenvía al servidor SentinelPy. Se autentica via API key
-    (Bearer token) hasheada con bcrypt — nunca se almacena plaintext.
+    Each agent represents a remote host that monitors local logs
+    and forwards them to the SentinelPy server. It authenticates via
+    API key (Bearer token) hashed with bcrypt — never stored in plaintext.
 
     Attributes:
-        id: Identificador único autoincremental.
-        name: Nombre único del agente (identificador lógico).
-        hostname: Hostname del equipo donde corre el agente.
-        api_key_hash: Hash bcrypt de la API key del agente.
-        last_seen: Último heartbeat recibido (UTC).
-        active: Si el agente está habilitado para enviar eventos.
-        version: Versión del software agente (opcional).
-        heartbeat_timeout_minutes: Minutos sin heartbeat antes de desactivar automáticamente (default 5).
+        id: Unique autoincremental identifier.
+        name: Unique agent name (logical identifier).
+        hostname: Hostname of the machine where the agent runs.
+        api_key_hash: Bcrypt hash of the agent's API key.
+        last_seen: Last heartbeat received (UTC).
+        active: Whether the agent is enabled to send events.
+        version: Agent software version (optional).
+        heartbeat_timeout_minutes: Minutes without heartbeat before automatically deactivating (default 5).
     """
 
     __tablename__ = "agents"

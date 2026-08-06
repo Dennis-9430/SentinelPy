@@ -1,4 +1,4 @@
-"""Modelo de usuario del sistema para autenticación y roles."""
+"""System user model for authentication and roles."""
 
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -7,10 +7,10 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class User(Base, TimestampMixin, UUIDMixin):
-    """Usuario del sistema para autenticación y control de acceso.
+    """System user for authentication and access control.
 
-    Cada usuario tiene un nombre único, password hasheada con bcrypt,
-    un rol (admin/analyst) y un campo active para habilitar/deshabilitar.
+    Each user has a unique name, a bcrypt-hashed password,
+    a role (admin/analyst) and an active field to enable/disable them.
     """
 
     __tablename__ = "users"

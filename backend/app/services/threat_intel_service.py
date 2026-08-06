@@ -1,7 +1,7 @@
-"""Servicio de Threat Intelligence: orquestación de providers, cache, enriquecimiento.
+"""Threat Intelligence service: provider orchestration, cache, enrichment.
 
-Registra providers de TI, mantiene un cache con TTL,
-y enriquece eventos con datos de IOCs consultados.
+Registers TI providers, keeps a TTL cache,
+and enriches events with data from queried IOCs.
 """
 
 import time
@@ -12,33 +12,33 @@ from app.services.ti_providers.base import BaseTIProvider, IOCResult
 
 
 class ThreatIntelService:
-    """Servicio que orquesta consultas a proveedores de TI.
+    """Service that orchestrates queries to TI providers.
 
-    Maneja registro de providers, cache con TTL, y enriquecimiento
-    de eventos con datos de Indicadores de Compromiso (IOCs).
+    Handles provider registration, TTL cache, and enrichment
+    of events with Indicators of Compromise (IOCs) data.
     """
 
     def __init__(self) -> None:
         self._providers: dict[str, BaseTIProvider] = {}
         self._cache: dict[str, tuple[IOCResult, float]] = {}
-        self._cache_ttl = settings.ti_cache_ttl_minutes * 60  # convertir a segundos
+        self._cache_ttl = settings.ti_cache_ttl_minutes * 60  # convert to seconds
         self._max_cache_size = 1000
         self._enabled = settings.ti_enrichment_enabled
 
     def register_provider(self, provider: BaseTIProvider) -> None:
-        """Registra un proveedor de TI.
+        """Registers a TI provider.
 
-        Argumentos:
-            provider: Instancia de un BaseTIProvider concreto.
+        Args:
+            provider: Instance of a concrete BaseTIProvider.
         """
         self._providers[provider.name] = provider
 
     def _get_cache_key(self, indicator: str, ioc_type: str) -> str:
-        """Genera la clave de cache para un IOC."""
+        """Generates the cache key for an IOC."""
         return f"{ioc_type}:{indicator}"
 
     def _get_cached(self, indicator: str, ioc_type: str) -> IOCResult | None:
-        """Obtiene un resultado de cache si existe y no expiró."""
+        """Gets a cached result if it exists and has not expired."""
         key = self._get_cache_key(indicator, ioc_type)
         if key in self._cache:
             result, ts = self._cache[key]
@@ -48,7 +48,7 @@ class ThreatIntelService:
         return None
 
     def _set_cache(self, indicator: str, ioc_type: str, result: IOCResult) -> None:
-        """Almacena un resultado en cache, evicting el más viejo si está lleno."""
+        """Stores a result in the cache, evicting the oldest if full."""
         if len(self._cache) >= self._max_cache_size:
             oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
             del self._cache[oldest_key]
@@ -56,17 +56,17 @@ class ThreatIntelService:
         self._cache[key] = (result, time.time())
 
     async def lookup(self, indicator: str, ioc_type: str) -> IOCResult | None:
-        """Consulta un IOC a través de los providers registrados.
+        """Looks up an IOC through the registered providers.
 
-        Verifica cache primero. Si no hay hit, consulta cada provider
-        que soporte el tipo indicado.
+        Checks the cache first. If there is no hit, queries each provider
+        that supports the requested type.
 
-        Argumentos:
-            indicator: Valor del IOC a consultar.
-            ioc_type: Tipo del IOC (ip, domain, hash, url).
+        Args:
+            indicator: Value of the IOC to look up.
+            ioc_type: IOC type (ip, domain, hash, url).
 
-        Retorna:
-            IOCResult del primer provider que retorne resultado, o None.
+        Returns:
+            IOCResult from the first provider that returns a result, or None.
         """
         if not self._enabled:
             return None
@@ -85,17 +85,17 @@ class ThreatIntelService:
         return None
 
     async def enrich(self, event_dict: dict[str, Any]) -> dict[str, Any]:
-        """Enriquece un evento con datos de Threat Intelligence.
+        """Enriches an event with Threat Intelligence data.
 
-        Extrae source_ip y destination_ip del evento, los consulta
-        a través de lookup(), y retorna las coincidencias encontradas.
+        Extracts source_ip and destination_ip from the event, looks them
+        up through lookup(), and returns the matches found.
 
-        Argumentos:
-            event_dict: Dict del evento a enriquecer.
+        Args:
+            event_dict: Dict of the event to enrich.
 
-        Retorna:
-            Dict con clave 'matches' (lista de IOCs encontrados),
-            o dict vacío si no hay coincidencias o TI está deshabilitado.
+        Returns:
+            Dict with the 'matches' key (list of found IOCs),
+            or an empty dict if there are no matches or TI is disabled.
         """
         if not self._enabled:
             return {}
@@ -122,7 +122,7 @@ class ThreatIntelService:
 
     @property
     def feeds(self) -> list[dict[str, Any]]:
-        """Retorna el estado de todos los providers registrados."""
+        """Returns the status of all registered providers."""
         return [
             {
                 "name": provider.name,

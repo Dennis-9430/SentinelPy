@@ -1,4 +1,4 @@
-"""Esquemas Pydantic para el modelo Alert."""
+"""Pydantic schemas for the Alert model."""
 
 from datetime import datetime
 from typing import Annotated
@@ -13,10 +13,10 @@ def _coerce_uuid(v):
 
 
 class AlertRead(BaseModel):
-    """Esquema de salida para alertas.
+    """Output schema for alerts.
 
-    Solo lectura — las alertas se crean internamente por el motor de correlación,
-    no por la API directamente.
+    Read-only — alerts are created internally by the correlation engine,
+    not directly by the API.
     """
 
     id: Annotated[str, BeforeValidator(_coerce_uuid)]
@@ -37,7 +37,7 @@ class AlertRead(BaseModel):
 
 
 class AlertListItem(BaseModel):
-    """Esquema ligero para listado de alertas (sin description completa)."""
+    """Light schema for alert listing (without the full description)."""
 
     id: Annotated[str, BeforeValidator(_coerce_uuid)]
     rule_id: Annotated[str, BeforeValidator(_coerce_uuid)]
@@ -53,21 +53,21 @@ class AlertListItem(BaseModel):
 
 
 class AlertListResponse(BaseModel):
-    """Respuesta paginada de alertas."""
+    """Paginated alerts response."""
 
     alertas: list[AlertListItem]
     total: int
 
 
 class AlertUpdateStatus(BaseModel):
-    """Esquema para actualizar el estado de una alerta."""
+    """Schema for updating an alert's status."""
 
     status: str
     resolution_notes: str | None = None
 
 
 class AlertUpdateResponse(BaseModel):
-    """Respuesta al actualizar estado de alerta."""
+    """Response to an alert status update."""
 
     id: Annotated[str, BeforeValidator(_coerce_uuid)]
     status: str
@@ -76,7 +76,7 @@ class AlertUpdateResponse(BaseModel):
 
 
 class AlertGroupAlert(BaseModel):
-    """Alerta dentro de un grupo."""
+    """Alert within a group."""
 
     id: Annotated[str, BeforeValidator(_coerce_uuid)]
     rule_id: Annotated[str, BeforeValidator(_coerce_uuid)]
@@ -92,7 +92,7 @@ class AlertGroupAlert(BaseModel):
 
 
 class AlertGroup(BaseModel):
-    """Grupo de alertas agrupadas por group_key."""
+    """Group of alerts grouped by group_key."""
 
     group_key: str
     group_name: str
@@ -103,14 +103,14 @@ class AlertGroup(BaseModel):
 
 
 class AlertGroupListResponse(BaseModel):
-    """Respuesta de listado de grupos de alertas."""
+    """Alert groups listing response."""
 
     groups: list[AlertGroup]
     total: int
 
 
 class AlertStatsResponse(BaseModel):
-    """Estadísticas de alertas."""
+    """Alert statistics."""
 
     por_severidad: dict[str, int]
     por_estado: dict[str, int]

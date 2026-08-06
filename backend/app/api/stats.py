@@ -1,6 +1,6 @@
-"""Endpoints de estadísticas y exportación CSV.
+"""Statistics and CSV export endpoints.
 
-Movidos de main.py a un router dedicado para mantener main.py limpio.
+Moved from main.py to a dedicated router to keep main.py clean.
 """
 
 import csv
@@ -25,16 +25,16 @@ async def stats_eventos(
     horas: int = 24,
     session: AsyncSession = Depends(get_session),
 ):
-    """Estadísticas de eventos para gráficas del dashboard.
+    """Event statistics for dashboard charts.
 
-    Retorna:
-        timeline: Eventos por hora en las últimas N horas.
-        por_severidad: Conteo de eventos agrupado por severidad.
+    Returns:
+        timeline: Events per hour in the last N hours.
+        por_severidad: Event count grouped by severity.
     """
     ahora = datetime.now(UTC)
     desde = ahora - timedelta(hours=horas)
 
-    # ── Timeline: eventos por hora ──────────────────────────────────
+    # ── Timeline: events per hour ──────────────────────────────────
     timeline_raw = await session.execute(
         select(
             func.date_trunc("hour", NormalizedEvent.event_timestamp).label("hora"),
@@ -48,7 +48,7 @@ async def stats_eventos(
         {"hora": row.hora.isoformat(), "total": row.total} for row in timeline_raw
     ]
 
-    # ── Por severidad ────────────────────────────────────────────────
+    # ── By severity ────────────────────────────────────────────────
     sev_raw = await session.execute(
         select(
             NormalizedEvent.severity,
@@ -64,13 +64,13 @@ async def stats_eventos(
 async def stats_alertas(
     session: AsyncSession = Depends(get_session),
 ):
-    """Estadísticas de alertas para gráficas del dashboard.
+    """Alert statistics for dashboard charts.
 
-    Retorna:
-        por_severidad: Conteo de alertas agrupado por severidad.
-        por_estado: Conteo de alertas agrupado por estado.
+    Returns:
+        por_severidad: Alert count grouped by severity.
+        por_estado: Alert count grouped by status.
     """
-    # ── Por severidad ────────────────────────────────────────────────
+    # ── By severity ────────────────────────────────────────────────
     sev_raw = await session.execute(
         select(
             Alert.severity,
@@ -79,7 +79,7 @@ async def stats_alertas(
     )
     por_severidad = {row.severity or "unknown": row.total for row in sev_raw}
 
-    # ── Por estado ───────────────────────────────────────────────────
+    # ── By status ───────────────────────────────────────────────────
     est_raw = await session.execute(
         select(
             Alert.status,
@@ -97,7 +97,7 @@ async def exportar_alertas_csv(
     severidad: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
-    """Exporta alertas a CSV con los filtros actuales."""
+    """Export alerts to CSV with the current filters."""
     from app.services.alert_service import AlertService
 
     service = AlertService(session)
@@ -110,13 +110,13 @@ async def exportar_alertas_csv(
     writer.writerow(
         [
             "id",
-            "titulo",
-            "severidad",
-            "estado",
-            "eventos",
-            "creada",
-            "resuelta",
-            "descripcion",
+            "title",
+            "severity",
+            "status",
+            "events",
+            "created",
+            "resolved",
+            "description",
         ]
     )
 
@@ -139,6 +139,6 @@ async def exportar_alertas_csv(
         iter([output.getvalue()]),
         media_type="text/csv",
         headers={
-            "Content-Disposition": "attachment; filename=alertas.csv",
+            "Content-Disposition": "attachment; filename=alerts.csv",
         },
     )

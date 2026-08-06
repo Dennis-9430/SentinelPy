@@ -1,7 +1,7 @@
-"""Endpoints de la API para alertas de seguridad.
+"""API endpoints for security alerts.
 
-Listado, filtrado, y actualización del ciclo de vida de alertas.
-Las alertas se generan automáticamente por el motor de correlación.
+Listing, filtering, and lifecycle updates of alerts.
+Alerts are generated automatically by the correlation engine.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -20,22 +20,22 @@ from app.schemas.alert import (
 )
 from app.services.alert_service import AlertService
 
-# Router con prefijo /alerts (bajo /api/v1 o /api)
+# Router with /alerts prefix (under /api/v1 or /api)
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
 @router.get("", response_model=AlertListResponse)
 async def listar_alertas(
-    limite: int = Query(50, ge=1, le=500, description="Cantidad máxima de alertas"),
-    desde: int = Query(0, ge=0, description="Offset para paginación"),
+    limite: int = Query(50, ge=1, le=500, description="Maximum number of alerts"),
+    desde: int = Query(0, ge=0, description="Offset for pagination"),
     estado: str | None = Query(
         None,
-        description="Filtrar por estado: open, acknowledged, investigating, resolved, false_positive",
+        description="Filter by status: open, acknowledged, investigating, resolved, false_positive",
     ),
-    severidad: str | None = Query(None, description="Filtrar por severidad"),
+    severidad: str | None = Query(None, description="Filter by severity"),
     session: AsyncSession = Depends(get_session),
 ):
-    """Lista las alertas con filtros y paginación."""
+    """List alerts with filters and pagination."""
     service = AlertService(session)
     alertas, total = await service.listar_alertas(
         limite=limite, desde=desde, estado=estado, severidad=severidad
@@ -66,7 +66,7 @@ async def listar_alertas(
 async def listar_grupos_alertas(
     session: AsyncSession = Depends(get_session),
 ):
-    """Lista alertas agrupadas por group_key."""
+    """List alerts grouped by group_key."""
     from collections import defaultdict
 
     from sqlalchemy import select
@@ -134,7 +134,7 @@ async def listar_grupos_alertas(
 async def obtener_estadisticas_alertas(
     session: AsyncSession = Depends(get_session),
 ):
-    """Obtiene estadísticas de alertas (totales, abiertas, resueltas)."""
+    """Get alert statistics (totals, open, resolved)."""
     service = AlertService(session)
     return await service.obtener_estadisticas()
 
@@ -144,12 +144,12 @@ async def obtener_alerta(
     alerta_id: str,
     session: AsyncSession = Depends(get_session),
 ):
-    """Obtiene una alerta por su ID con todos los detalles."""
+    """Get an alert by its ID with all details."""
     service = AlertService(session)
     alerta = await service.obtener_alerta(alerta_id)
 
     if not alerta:
-        raise HTTPException(status_code=404, detail="Alerta no encontrada")
+        raise HTTPException(status_code=404, detail="Alert not found")
 
     return AlertRead.model_validate(alerta)
 
@@ -162,9 +162,9 @@ async def actualizar_estado_alerta(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_admin),
 ):
-    """Actualiza el estado de una alerta (solo admin).
+    """Update the status of an alert (admin only).
 
-    Estados posibles: open → acknowledged → investigating → resolved | false_positive
+    Possible statuses: open → acknowledged → investigating → resolved | false_positive
     """
     estados_validos = {
         "open",
@@ -176,7 +176,7 @@ async def actualizar_estado_alerta(
     if datos.status not in estados_validos:
         raise HTTPException(
             status_code=400,
-            detail=f"Estado inválido. Válidos: {', '.join(sorted(estados_validos))}",
+            detail=f"Invalid status. Valid: {', '.join(sorted(estados_validos))}",
         )
 
     service = AlertService(session)
@@ -185,7 +185,7 @@ async def actualizar_estado_alerta(
     )
 
     if not alerta:
-        raise HTTPException(status_code=404, detail="Alerta no encontrada")
+        raise HTTPException(status_code=404, detail="Alert not found")
 
     return AlertUpdateResponse(
         id=str(alerta.id),

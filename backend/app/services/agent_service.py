@@ -1,8 +1,8 @@
-"""Servicio de agentes remotos: CRUD, API key generation, autenticación.
+"""Remote agent service: CRUD, API key generation, authentication.
 
-Cada agente tiene una API key generada con secrets.token_urlsafe(32),
-hasheada con bcrypt antes de persistir. La key plaintext se retorna
-UNA SOLA VEZ en la respuesta de creación.
+Each agent has an API key generated with secrets.token_urlsafe(32),
+hashed with bcrypt before persisting. The plaintext key is returned
+ONLY ONCE in the creation response.
 """
 
 import logging
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class AgentService:
-    """Servicio para crear, listar, desactivar y autenticar agentes."""
+    """Service for creating, listing, deactivating and authenticating agents."""
 
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -28,10 +28,10 @@ class AgentService:
 
     @staticmethod
     def _generar_api_key() -> str:
-        """Genera una API key segura con prefijo spy_.
+        """Generate a secure API key with the spy_ prefix.
 
-        Usa secrets.token_urlsafe(32) que produce ~43 caracteres
-        alfanuméricos seguros para URL.
+        Uses secrets.token_urlsafe(32) which produces ~43 characters
+        of URL-safe alphanumeric content.
         """
         return f"spy_{secrets.token_urlsafe(32)}"
 
@@ -43,31 +43,31 @@ class AgentService:
         hostname: str,
         version: str | None = None,
     ) -> tuple[Agent, str]:
-        """Crea un nuevo agente con API key generada automáticamente.
+        """Create a new agent with an automatically generated API key.
 
-        La API key se genera, se hashea con bcrypt, y se persiste
-        el hash. La key plaintext se retorna en la tupla para que
-        el caller la muestre al usuario UNA SOLA VEZ.
+        The API key is generated, hashed with bcrypt, and the hash
+        is persisted. The plaintext key is returned in the tuple so
+        the caller can show it to the user ONLY ONCE.
 
         Args:
-            name: Nombre único del agente.
-            hostname: Hostname del equipo del agente.
-            version: Versión del software agente (opcional).
+            name: Unique agent name.
+            hostname: Hostname of the agent's machine.
+            version: Agent software version (optional).
 
         Returns:
-            Tupla (Agent, raw_api_key).
+            Tuple (Agent, raw_api_key).
 
         Raises:
-            ValueError: Si ya existe un agente con ese nombre.
+            ValueError: If an agent with that name already exists.
         """
         nombre = name.strip()
 
-        # Verificar duplicado
+        # Check for duplicates
         existe = await self.session.execute(select(Agent).where(Agent.name == nombre))
         if existe.scalar_one_or_none():
-            raise ValueError(f"El agente '{nombre}' ya existe")
+            raise ValueError(f"Agent '{nombre}' already exists")
 
-        # Generar API key
+        # Generate API key
         raw_key = self._generar_api_key()
         api_key_hash = AuthService.hash_password(raw_key)
 
@@ -82,7 +82,7 @@ class AgentService:
         await self.session.commit()
         await self.session.refresh(agente)
 
-        logger.info("Agente creado: %s (hostname: %s)", agente.name, agente.hostname)
+        logger.info("Agent created: %s (hostname: %s)", agente.name, agente.hostname)
         return agente, raw_key
 
     async def listar_agentes(
@@ -91,15 +91,15 @@ class AgentService:
         page: int = 1,
         per_page: int = 10,
     ) -> tuple[list[Agent], int]:
-        """Lista agentes registrados con paginación, opcionalmente solo los activos.
+        """List registered agents with pagination, optionally only the active ones.
 
         Args:
-            solo_activos: Si True, filtra solo agentes con active=True.
-            page: Número de página (empieza en 1).
-            per_page: Cantidad de agentes por página.
+            solo_activos: If True, filters only agents with active=True.
+            page: Page number (starts at 1).
+            per_page: Number of agents per page.
 
         Returns:
-            Tupla (lista de agentes de la página actual, total de agentes).
+            Tuple (list of agents for the current page, total agents).
         """
         query = select(Agent).order_by(Agent.created_at.desc())
         count_query = select(func.count(Agent.id))
@@ -118,13 +118,13 @@ class AgentService:
         return agentes, total
 
     async def desactivar_agente(self, agent_id: int) -> bool:
-        """Desactiva un agente por su ID.
+        """Deactivate an agent by its ID.
 
         Args:
-            agent_id: ID del agente a desactivar.
+            agent_id: ID of the agent to deactivate.
 
         Returns:
-            True si se desactivó, False si no se encontró.
+            True if it was deactivated, False if not found.
         """
         agente = await self.session.get(Agent, agent_id)
         if not agente:
@@ -132,21 +132,21 @@ class AgentService:
 
         agente.active = False
         await self.session.commit()
-        logger.info("Agente desactivado: %s (id=%d)", agente.name, agent_id)
+        logger.info("Agent deactivated: %s (id=%d)", agente.name, agent_id)
         return True
 
     async def obtener_por_api_key(self, api_key: str) -> Agent | None:
-        """Busca un agente por su API key (bcrypt verify).
+        """Find an agent by its API key (bcrypt verify).
 
-        Itera sobre TODOS los agentes y verifica la key
-        contra cada hash con bcrypt. No filtra por active —
-        el llamante (require_agent) maneja el chequeo de estado.
+        Iterates over ALL agents and verifies the key
+        against each hash with bcrypt. Does not filter by active —
+        the caller (require_agent) handles the status check.
 
         Args:
-            api_key: API key plaintext a verificar.
+            api_key: Plaintext API key to verify.
 
         Returns:
-            Agent si encuentra match (activo o no), None en caso contrario.
+            Agent if a match is found (active or not), None otherwise.
         """
         result = await self.session.execute(select(Agent))
         for agente in result.scalars().all():
@@ -155,13 +155,13 @@ class AgentService:
         return None
 
     async def obtener_por_id(self, agent_id: int) -> Agent | None:
-        """Obtiene un agente por su ID.
+        """Get an agent by its ID.
 
         Args:
-            agent_id: ID del agente a buscar.
+            agent_id: ID of the agent to look up.
 
         Returns:
-            Agent si existe, None en caso contrario.
+            Agent if it exists, None otherwise.
         """
         return await self.session.get(Agent, agent_id)
 
@@ -171,18 +171,18 @@ class AgentService:
         name: str | None = None,
         hostname: str | None = None,
     ) -> Agent | None:
-        """Actualiza campos de un agente (name, hostname).
+        """Update agent fields (name, hostname).
 
-        Solo actualiza los campos que se pasan como argumento.
-        Los campos no especificados mantienen su valor actual.
+        Only updates the fields passed as arguments.
+        Unspecified fields keep their current value.
 
         Args:
-            agent_id: ID del agente a actualizar.
-            name: Nuevo nombre (opcional).
-            hostname: Nuevo hostname (opcional).
+            agent_id: ID of the agent to update.
+            name: New name (optional).
+            hostname: New hostname (optional).
 
         Returns:
-            Agent actualizado si existe, None si no se encontró.
+            Updated Agent if it exists, None if not found.
         """
         agente = await self.session.get(Agent, agent_id)
         if not agente:
@@ -195,17 +195,17 @@ class AgentService:
 
         await self.session.commit()
         await self.session.refresh(agente)
-        logger.info("Agente actualizado: %s (id=%d)", agente.name, agent_id)
+        logger.info("Agent updated: %s (id=%d)", agente.name, agent_id)
         return agente
 
     async def eliminar_agente(self, agent_id: int) -> bool:
-        """Elimina un agente por su ID.
+        """Delete an agent by its ID.
 
         Args:
-            agent_id: ID del agente a eliminar.
+            agent_id: ID of the agent to delete.
 
         Returns:
-            True si se eliminó, False si no se encontró.
+            True if it was deleted, False if not found.
         """
         agente = await self.session.get(Agent, agent_id)
         if not agente:
@@ -213,22 +213,22 @@ class AgentService:
 
         await self.session.delete(agente)
         await self.session.commit()
-        logger.info("Agente eliminado: %s (id=%d)", agente.name, agent_id)
+        logger.info("Agent deleted: %s (id=%d)", agente.name, agent_id)
         return True
 
     async def desactivar_inactivos(self) -> int:
-        """Desactiva agentes cuyo heartbeat ha expirado.
+        """Deactivate agents whose heartbeat has expired.
 
-        Busca agents con active=True cuyo last_seen es anterior
-        a (ahora - heartbeat_timeout_minutes). Si last_seen es
-        None (nunca hicieron heartbeat), también se desactivan.
+        Looks up agents with active=True whose last_seen is before
+        (now - heartbeat_timeout_minutes). If last_seen is
+        None (never sent a heartbeat), they are also deactivated.
 
         Returns:
-            Número de agentes desactivados.
+            Number of deactivated agents.
         """
         ahora = datetime.now(UTC)
 
-        # Obtener todos los agentes activos
+        # Get all active agents
         result = await self.session.execute(select(Agent).where(Agent.active.is_(True)))
         agentes_activos = list(result.scalars().all())
 
@@ -237,12 +237,12 @@ class AgentService:
             timeout = timedelta(minutes=agente.heartbeat_timeout_minutes)
             limite = ahora - timeout
 
-            # Si no tiene last_seen o está vencido → desactivar
+            # If it has no last_seen or is expired → deactivate
             if agente.last_seen is None or agente.last_seen < limite:
                 agente.active = False
                 desactivados += 1
                 logger.info(
-                    "Agente desactivado por heartbeat timeout: %s (id=%d, "
+                    "Agent deactivated by heartbeat timeout: %s (id=%d, "
                     "last_seen=%s, timeout=%d min)",
                     agente.name,
                     agente.id,

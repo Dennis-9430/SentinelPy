@@ -1,7 +1,7 @@
-"""Base abstracta para proveedores de Threat Intelligence.
+"""Abstract base for Threat Intelligence providers.
 
-Define IOCResult (resultado de consulta IOC) y BaseTIProvider (ABC)
-que cada proveedor concreto debe implementar.
+Defines IOCResult (IOC lookup result) and BaseTIProvider (ABC)
+that every concrete provider must implement.
 """
 
 from abc import ABC, abstractmethod
@@ -10,14 +10,14 @@ from dataclasses import dataclass
 
 @dataclass
 class IOCResult:
-    """Resultado de una consulta a un proveedor de TI.
+    """Result of a query to a TI provider.
 
-    Atributos:
-        indicator: Valor del IOC consultado (IP, dominio, hash, URL).
-        ioc_type: Tipo del IOC (ip | domain | hash | url).
-        confidence: Nivel de confianza (0-100).
-        provider: Nombre del proveedor que reportó el IOC.
-        raw_response: Respuesta original del API (opcional).
+    Attributes:
+        indicator: Value of the queried IOC (IP, domain, hash, URL).
+        ioc_type: Type of the IOC (ip | domain | hash | url).
+        confidence: Confidence level (0-100).
+        provider: Name of the provider that reported the IOC.
+        raw_response: Original API response (optional).
     """
 
     indicator: str
@@ -28,38 +28,38 @@ class IOCResult:
 
 
 class BaseTIProvider(ABC):
-    """Clase base abstracta para proveedores de Threat Intelligence.
+    """Abstract base class for Threat Intelligence providers.
 
-    Cada proveedor concreto debe implementar:
-      - name (property): nombre del proveedor.
-      - supported_types (property): tipos de IOC soportados.
-      - lookup_{tipo}(): método de consulta por tipo de IOC.
+    Every concrete provider must implement:
+      - name (property): provider name.
+      - supported_types (property): supported IOC types.
+      - lookup_{type}(): lookup method per IOC type.
     """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Nombre del proveedor (ej: 'abuseipdb', 'virustotal')."""
+        """Name of the provider (e.g. 'abuseipdb', 'virustotal')."""
         ...
 
     @property
     @abstractmethod
     def supported_types(self) -> list[str]:
-        """Tipos de IOC soportados (ej: ['ip'], ['ip', 'domain'])."""
+        """Supported IOC types (e.g. ['ip'], ['ip', 'domain'])."""
         ...
 
     async def lookup(self, indicator: str, ioc_type: str) -> IOCResult | None:
-        """Consulta el IOC usando el método específico del tipo.
+        """Looks up the IOC using the type-specific method.
 
-        Despacha a lookup_{ioc_type}. Si el tipo no es soportado
-        o ocurre un error, retorna None.
+        Dispatches to lookup_{ioc_type}. If the type is not supported
+        or an error occurs, returns None.
 
-        Argumentos:
-            indicator: Valor del IOC a consultar.
-            ioc_type: Tipo del IOC (ip, domain, hash, url).
+        Args:
+            indicator: Value of the IOC to look up.
+            ioc_type: Type of the IOC (ip, domain, hash, url).
 
-        Retorna:
-            IOCResult si la consulta fue exitosa, None en caso contrario.
+        Returns:
+            IOCResult if the lookup succeeded, None otherwise.
         """
         if ioc_type not in self.supported_types:
             return None

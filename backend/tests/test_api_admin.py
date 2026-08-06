@@ -159,7 +159,7 @@ class TestDesactivarAgente:
 
         resp = await admin_client.patch(f"/api/admin/agents/{agente.id}/deactivate")
         assert resp.status_code == 200
-        assert "desactivado" in resp.json()["mensaje"]
+        assert "deactivated" in resp.json()["mensaje"]
 
     @pytest.mark.asyncio
     async def test_desactivar_404(self, admin_client):
@@ -218,7 +218,7 @@ class TestEliminarAgente:
 
         resp = await admin_client.delete(f"/api/admin/agents/{agente.id}")
         assert resp.status_code == 200
-        assert "eliminado" in resp.json()["mensaje"]
+        assert "deleted" in resp.json()["mensaje"]
 
     @pytest.mark.asyncio
     async def test_eliminar_404(self, admin_client):

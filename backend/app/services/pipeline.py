@@ -1,8 +1,8 @@
-"""Pipeline de procesamiento: conecta colectores, parsers y base de datos.
+"""Processing pipeline: connects collectors, parsers and the database.
 
-El pipeline es el "middleware" interno de SentinelPy. Recibe logs crudos
-de cualquier colector, los parsea según su formato, y los persiste.
-También los envía al motor de correlación y al servicio de análisis.
+The pipeline is SentinelPy's internal "middleware". It receives raw logs
+from any collector, parses them according to their format, and persists them.
+It also sends them to the correlation engine and the analysis service.
 """
 
 import asyncio
@@ -15,23 +15,23 @@ logger = logging.getLogger(__name__)
 
 
 class Pipeline:
-    """Pipeline que procesa logs desde los colectores hasta la base de datos.
+    """Pipeline that processes logs from collectors to the database.
 
-    Flujo:
-        Colector → Pipeline.process(raw) → Parser.detect() → Parser.parse() → DB
+    Flow:
+        Collector → Pipeline.process(raw) → Parser.detect() → Parser.parse() → DB
         → (async) AnalysisService.analyze() → Engine.evaluate()
 
-    Detecta automáticamente si el log es JSON o syslog según el primer carácter.
+    Automatically detects whether the log is JSON or syslog based on the first character.
     """
 
     def __init__(self, engine=None, session_factory=None, analysis_service=None):
-        """Inicializa los parsers disponibles.
+        """Initialize the available parsers.
 
-        Argumentos:
-            engine: Instancia opcional de CorrelationEngine para evaluación.
-            session_factory: async_sessionmaker para persistencia.
-                Por defecto usa app.database.async_session.
-            analysis_service: Instancia opcional de AnalysisService para análisis.
+        Args:
+            engine: Optional CorrelationEngine instance for evaluation.
+            session_factory: async_sessionmaker for persistence.
+                Defaults to app.database.async_session.
+            analysis_service: Optional AnalysisService instance for analysis.
         """
         self.syslog_parser = SyslogParser()
         self.json_parser = JSONParser()
@@ -40,64 +40,64 @@ class Pipeline:
         self._session_factory = session_factory or _default_session
 
     async def process(self, raw: str, origen: tuple | None = None) -> dict | None:
-        """Procesa un log crudo: detecta formato, parsea y guarda.
+        """Process a raw log: detect format, parse and save.
 
-        Este método se llama desde los colectores cuando reciben un mensaje.
-        Detecta automáticamente el formato (JSON vs syslog), parsea,
-        y guarda el resultado en la base de datos.
+        This method is called from the collectors when they receive a message.
+        It automatically detects the format (JSON vs syslog), parses,
+        and saves the result to the database.
 
-        Argumentos:
-            raw: Texto crudo del log.
-            origen: Tupla (host, port) del remitente (opcional).
+        Args:
+            raw: Raw log text.
+            origen: (host, port) tuple of the sender (optional).
 
-        Retorna:
-            Dict con el evento creado, o None si falló.
+        Returns:
+            Dict with the created event, or None if it failed.
         """
         if not raw or not raw.strip():
             return None
 
-        # Detectar formato y parsear
+        # Detect format and parse
         datos_parseados = self._detectar_y_parsear(raw)
 
         if not datos_parseados:
             logger.warning(
-                "No se pudo parsear el log (formato desconocido): %s", raw[:100]
+                "Could not parse the log (unknown format): %s", raw[:100]
             )
             return None
 
-        # Si tenemos información del origen, actualizar el source
+        # If we have origin information, update the source
         if origen and not datos_parseados.get("source"):
             datos_parseados["source"] = f"{origen[0]}:{origen[1]}"
 
-        # Asegurar que source tenga un valor (columna NOT NULL en DB)
+        # Ensure source has a value (NOT NULL column in DB)
         if not datos_parseados.get("source"):
             datos_parseados["source"] = "unknown"
 
-        # Guardar en base de datos
+        # Save to database
         evento = await self._guardar_evento(datos_parseados)
 
         if evento:
             logger.info(
-                "Evento procesado: %s | %s | %s",
+                "Event processed: %s | %s | %s",
                 evento.event_type,
                 evento.severity,
                 evento.source,
             )
 
-            # ── Análisis estadístico (fire-and-forget) ──────────────────
+            # ── Statistical analysis (fire-and-forget) ──────────────────
             if self.analysis_service:
                 evento_dict = self._evento_to_dict(evento)
                 asyncio.create_task(
                     self.analysis_service.analyze(str(evento.id), evento_dict)
                 )
 
-            # ── Evaluar contra el motor de correlación ──────────────────
+            # ── Evaluate against the correlation engine ──────────────────
             if self.engine:
                 evento_dict = self._evento_to_dict(evento)
                 alertas = await self.engine.evaluate(evento_dict)
                 if alertas:
                     logger.info(
-                        "Evento %s generó %d alerta(s)",
+                        "Event %s generated %d alert(s)",
                         evento.event_type,
                         len(alertas),
                     )
@@ -106,13 +106,13 @@ class Pipeline:
 
     @staticmethod
     def _evento_to_dict(evento) -> dict:
-        """Convierte un ORM event a dict para pasarlo al engine.
+        """Convert an ORM event to a dict to pass to the engine.
 
-        Argumentos:
-            evento: Instancia de NormalizedEvent.
+        Args:
+            evento: NormalizedEvent instance.
 
-        Retorna:
-            Dict con campos serializados para engine.evaluate().
+        Returns:
+            Dict with serialized fields for engine.evaluate().
         """
         return {
             "id": str(evento.id),
@@ -135,19 +135,19 @@ class Pipeline:
     async def process_from_dict(
         self, datos: dict, collector_type: str | None = None
     ) -> object | None:
-        """Procesa un dict de evento ya normalizado a través del pipeline completo.
+        """Process an already normalized event dict through the full pipeline.
 
-        Similar a process() pero recibe un dict ya parseado en lugar de raw text.
-        Guarda en DB y evalúa contra el motor de correlación.
+        Similar to process() but receives an already parsed dict instead of raw text.
+        Saves to DB and evaluates against the correlation engine.
 
-        Útil para endpoints REST donde el evento ya viene normalizado (EventCreate).
+        Useful for REST endpoints where the event already comes normalized (EventCreate).
 
-        Argumentos:
-            datos: Dict con campos normalizados del evento.
-            collector_type: Si se provee, sobreescribe collector_type en los datos.
+        Args:
+            datos: Dict with normalized event fields.
+            collector_type: If provided, overrides collector_type in the data.
 
-        Retorna:
-            Instancia de NormalizedEvent, o None si falló la persistencia.
+        Returns:
+            NormalizedEvent instance, or None if persistence failed.
         """
         if collector_type:
             datos["collector_type"] = collector_type
@@ -155,7 +155,7 @@ class Pipeline:
         if not datos.get("source"):
             datos["source"] = "unknown"
 
-        # Guardar en base de datos
+        # Save to database
         evento = await self._guardar_evento(datos)
 
         if evento and self.analysis_service:
@@ -171,43 +171,43 @@ class Pipeline:
                 alertas = await self.engine.evaluate(evento_dict)
                 if alertas:
                     logger.info(
-                        "Evento %s generó %d alerta(s)",
+                        "Event %s generated %d alert(s)",
                         evento.event_type,
                         len(alertas),
                     )
             except Exception as e:
-                logger.error("Error en engine.evaluate: %s", e, exc_info=True)
+                logger.error("Error in engine.evaluate: %s", e, exc_info=True)
 
         return evento
 
     def _detectar_y_parsear(self, raw: str) -> dict | None:
-        """Detecta el formato del log y lo parsea con el parser adecuado.
+        """Detect the log format and parse it with the appropriate parser.
 
-        Estrategia:
-            - Si empieza con '{' → probar JSON
-            - Si no → probar syslog RFC 3164
+        Strategy:
+            - If it starts with '{' → try JSON
+            - If not → try syslog RFC 3164
 
-        Argumentos:
-            raw: Texto crudo del log.
+        Args:
+            raw: Raw log text.
 
-        Retorna:
-            Dict con campos normalizados, o None.
+        Returns:
+            Dict with normalized fields, or None.
         """
         stripped = raw.strip()
 
-        # Detectar JSON (empieza con llave)
+        # Detect JSON (starts with brace)
         if stripped.startswith("{"):
             resultado = self.json_parser.parse(stripped)
             if resultado:
                 return resultado
 
-        # Detectar syslog (empieza con <)
+        # Detect syslog (starts with <)
         if stripped.startswith("<"):
             resultado = self.syslog_parser.parse(stripped)
             if resultado:
                 return resultado
 
-        # Último recurso: intentar JSON aunque no empiece con {
+        # Last resort: try JSON even if it does not start with {
         resultado = self.json_parser.parse(stripped)
         if resultado:
             return resultado
@@ -215,16 +215,16 @@ class Pipeline:
         return None
 
     async def _guardar_evento(self, datos: dict) -> object | None:
-        """Persiste un evento normalizado en la base de datos.
+        """Persist a normalized event to the database.
 
-        Crea una sesión propia porque este método se llama desde
-        contextos fuera de las dependencias de FastAPI (ej: UDP handler).
+        Creates its own session because this method is called from
+        contexts outside FastAPI dependencies (e.g. UDP handler).
 
-        Argumentos:
-            datos: Dict con campos normalizados del evento.
+        Args:
+            datos: Dict with normalized event fields.
 
-        Retorna:
-            Instancia de NormalizedEvent, o None si falló.
+        Returns:
+            NormalizedEvent instance, or None if it failed.
         """
         from app.models.event import NormalizedEvent
 
@@ -236,5 +236,5 @@ class Pipeline:
                 await session.refresh(evento)
                 return evento
         except Exception as e:
-            logger.error("Error guardando evento en DB: %s", e, exc_info=True)
+            logger.error("Error saving event to DB: %s", e, exc_info=True)
             return None

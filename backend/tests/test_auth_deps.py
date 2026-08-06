@@ -68,7 +68,7 @@ class TestRequireAdminDependency:
             },
         )
         assert resp.status_code == 401
-        assert "No autenticado" in resp.json()["detail"]
+        assert "Not authenticated" in resp.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_invalid_token_returns_401(self, client):
@@ -83,7 +83,7 @@ class TestRequireAdminDependency:
             },
         )
         assert resp.status_code == 401
-        assert "inválido" in resp.json()["detail"]
+        assert "Invalid" in resp.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_token_without_sub_returns_401(self, client):
@@ -106,7 +106,7 @@ class TestRequireAdminDependency:
             },
         )
         assert resp.status_code == 401
-        assert "mal formado" in resp.json()["detail"]
+        assert "Malformed" in resp.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_non_admin_returns_403(self, client, analyst_token):
@@ -121,7 +121,7 @@ class TestRequireAdminDependency:
             },
         )
         assert resp.status_code == 403
-        assert "administrador" in resp.json()["detail"]
+        assert "Administrator role" in resp.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_admin_works(self, client, admin_token):
@@ -156,7 +156,7 @@ class TestRequireAdminDependency:
             },
         )
         assert resp.status_code == 401
-        assert "desactivado" in resp.json()["detail"]
+        assert "User deactivated" in resp.json()["detail"]
 
 
 class TestRequireAgentDependency:
@@ -179,7 +179,7 @@ class TestRequireAgentDependency:
             headers={"Authorization": "Bearer invalid_key"},
         )
         assert resp.status_code == 401
-        assert "inválida" in resp.json()["detail"]
+        assert "Invalid API key" in resp.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_inactive_agent_returns_403(self, client, session):
@@ -196,7 +196,7 @@ class TestRequireAgentDependency:
             headers={"Authorization": f"Bearer {key}"},
         )
         assert resp.status_code == 403
-        assert "desactivado" in resp.json()["detail"]
+        assert "Agent deactivated" in resp.json()["detail"]
 
 
 class TestVerificarAdminHtml:

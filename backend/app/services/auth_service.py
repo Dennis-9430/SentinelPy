@@ -1,4 +1,4 @@
-"""Servicio de autenticación: crear usuarios, validar credenciales, JWT."""
+"""Authentication service: create users, validate credentials, JWT."""
 
 import logging
 from datetime import UTC, datetime, timedelta
@@ -14,12 +14,12 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
-# Contexto de passlib con bcrypt — cacheamos los hashes para performance
+# passlib context with bcrypt — we cache hashes for performance
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
-    """Maneja registro, autenticación y tokens JWT."""
+    """Handles registration, authentication and JWT tokens."""
 
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -28,12 +28,12 @@ class AuthService:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hashea una contraseña con bcrypt."""
+        """Hash a password with bcrypt."""
         return pwd_context.hash(password)
 
     @staticmethod
     def verify_password(plain: str, hashed: str) -> bool:
-        """Verifica una contraseña contra su hash."""
+        """Verify a password against its hash."""
         return pwd_context.verify(plain, hashed)
 
     # ── User CRUD ────────────────────────────────────────────────────────
@@ -41,21 +41,21 @@ class AuthService:
     async def crear_usuario(
         self, username: str, password: str, role: str = "analyst"
     ) -> User:
-        """Crea un nuevo usuario con password hasheada.
+        """Create a new user with a hashed password.
 
-        Normaliza el username a minúsculas sin espacios. Si el usuario
-        ya existe, lanza ValueError.
+        Normalizes the username to lowercase without spaces. If the user
+        already exists, raises ValueError.
 
-        Argumentos:
-            username: Nombre de usuario único.
-            password: Contraseña en texto plano (se hashea antes de guardar).
-            role: Rol del usuario (admin | analyst).
+        Args:
+            username: Unique username.
+            password: Plain text password (hashed before saving).
+            role: User role (admin | analyst).
 
-        Retorna:
-            La instancia de User creada.
+        Returns:
+            The created User instance.
 
         Raises:
-            ValueError: Si el username ya está registrado.
+            ValueError: If the username is already registered.
         """
         username = username.strip().lower()
 
@@ -63,7 +63,7 @@ class AuthService:
             select(User).where(User.username == username)
         )
         if existe.scalar_one_or_none():
-            raise ValueError(f"El usuario '{username}' ya existe")
+            raise ValueError(f"User '{username}' already exists")
 
         user = User(
             username=username,
@@ -74,21 +74,21 @@ class AuthService:
         self.session.add(user)
         await self.session.commit()
         await self.session.refresh(user)
-        logger.info("Usuario creado: %s (%s)", user.username, user.role)
+        logger.info("User created: %s (%s)", user.username, user.role)
         return user
 
     async def autenticar(self, username: str, password: str) -> User | None:
-        """Valida credenciales y devuelve el User si son correctas.
+        """Validate credentials and return the User if they are correct.
 
-        Verifica que el usuario exista, esté activo, y la contraseña
-        coincida con el hash almacenado.
+        Verifies that the user exists, is active, and the password
+        matches the stored hash.
 
-        Argumentos:
-            username: Nombre de usuario.
-            password: Contraseña en texto plano.
+        Args:
+            username: Username.
+            password: Plain text password.
 
-        Retorna:
-            User si las credenciales son válidas, None en caso contrario.
+        Returns:
+            User if the credentials are valid, None otherwise.
         """
         username = username.strip().lower()
         result = await self.session.execute(
@@ -106,22 +106,22 @@ class AuthService:
         return user
 
     async def obtener_por_id(self, user_id: UUID) -> User | None:
-        """Obtiene un usuario por su UUID."""
+        """Get a user by their UUID."""
         return await self.session.get(User, user_id)
 
     # ── JWT ──────────────────────────────────────────────────────────────
 
     def crear_token(self, user: User) -> str:
-        """Crea un JWT con la identidad del usuario.
+        """Create a JWT with the user's identity.
 
-        El token incluye: id (sub), username, role, y expiración.
-        Se firma con la secret_key y el algoritmo configurados.
+        The token includes: id (sub), username, role, and expiration.
+        It is signed with the configured secret_key and algorithm.
 
-        Argumentos:
-            user: Instancia de User a codificar en el token.
+        Args:
+            user: User instance to encode in the token.
 
-        Retorna:
-            String con el JWT firmado.
+        Returns:
+            String with the signed JWT.
         """
         expira = datetime.now(UTC) + timedelta(
             minutes=settings.access_token_expire_minutes
@@ -139,23 +139,23 @@ class AuthService:
 
     @staticmethod
     def decodificar_token(token: str, secret_key: str) -> dict | None:
-        """Decodifica y valida un JWT.
+        """Decode and validate a JWT.
 
-        Verifica la firma y la expiración del token.
+        Verifies the token signature and expiration.
 
-        Argumentos:
+        Args:
             token: JWT string.
-            secret_key: Clave secreta para verificar la firma.
+            secret_key: Secret key to verify the signature.
 
-        Retorna:
-            Payload del token si es válido, None si expiró o es inválido.
+        Returns:
+            Token payload if valid, None if expired or invalid.
         """
         try:
             payload = jwt.decode(token, secret_key, algorithms=[settings.jwt_algorithm])
             return payload
         except jwt.ExpiredSignatureError:
-            logger.warning("Token expirado")
+            logger.warning("Token expired")
             return None
         except jwt.InvalidTokenError as e:
-            logger.warning("Token inválido: %s", e)
+            logger.warning("Invalid token: %s", e)
             return None

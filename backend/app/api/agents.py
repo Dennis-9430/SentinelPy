@@ -1,8 +1,8 @@
-"""Endpoints para agentes remotos: ingesta de eventos v2 y heartbeat.
+"""Endpoints for remote agents: v2 event ingestion and heartbeat.
 
-Los agentes remotos se autentican via Bearer token (API key)
-y pueden enviar batches de eventos normalizados a través de
-POST /api/v2/events, así como reportar su estado mediante
+Remote agents authenticate via Bearer token (API key)
+and can send normalized event batches through
+POST /api/v2/events, as well as report their status via
 POST /api/v2/agent/heartbeat.
 """
 
@@ -19,7 +19,7 @@ from app.models.agent import Agent
 from app.ratelimit import RateLimiter
 from app.services.pipeline import Pipeline
 
-# ── Rate limiter compartido ───────────────────────────────────────────────
+# ── Shared rate limiter ───────────────────────────────────────────────
 
 rate_limiter = RateLimiter()
 
@@ -27,14 +27,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["agents"], prefix="")
 
-# ── Schemas específicos de agente ──────────────────────────────────────────
+# ── Agent-specific schemas ──────────────────────────────────────────
 
 
 class AgentEventItem(BaseModel):
-    """Un evento individual dentro del batch enviado por un agente.
+    """A single event within the batch sent by an agent.
 
-    El agente puede enviar campos normalizados; el servidor completa
-    los valores por defecto (collector_type, source, event_timestamp).
+    The agent can send normalized fields; the server fills in
+    the default values (collector_type, source, event_timestamp).
     """
 
     model_config = {"extra": "ignore"}
@@ -56,16 +56,16 @@ class AgentEventItem(BaseModel):
 
 
 class AgentEventBatch(BaseModel):
-    """Batch de eventos enviado por un agente remoto.
+    """Batch of events sent by a remote agent.
 
-    Máximo 100 eventos por request.
+    Maximum 100 events per request.
     """
 
     events: list[AgentEventItem]
 
 
 class AgentHeartbeat(BaseModel):
-    """Payload de heartbeat enviado por un agente."""
+    """Heartbeat payload sent by an agent."""
 
     hostname: str
     os: str
@@ -81,35 +81,35 @@ async def ingestar_eventos_batch(
     request: Request,
     agent: Agent = Depends(rate_limiter),
 ):
-    """Ingesta un batch de eventos desde un agente remoto autenticado.
+    """Ingest a batch of events from an authenticated remote agent.
 
-    Cada evento pasa por el pipeline completo (persistencia + engine).
-    Si el procesamiento de un evento falla, se cuenta como failed
-    pero se continúa con el resto del batch.
+    Each event goes through the full pipeline (persistence + engine).
+    If processing an event fails, it is counted as failed
+    but the rest of the batch continues.
 
     Args:
-        batch: Lista de hasta 100 eventos.
-        request: Request de FastAPI para acceder a app.state.pipeline.
-        agent: Agente autenticado via require_agent.
+        batch: List of up to 100 events.
+        request: FastAPI request used to access app.state.pipeline.
+        agent: Agent authenticated via require_agent.
 
     Returns:
-        Dict con processed, failed, event_ids.
+        Dict with processed, failed, event_ids.
     """
     if not batch.events:
-        raise HTTPException(status_code=400, detail="Batch vacío")
+        raise HTTPException(status_code=400, detail="Empty batch")
 
     if len(batch.events) > 100:
         raise HTTPException(
             status_code=400,
-            detail="Máximo 100 eventos por batch",
+            detail="Maximum 100 events per batch",
         )
 
-    # Validar campos requeridos en cada evento
+    # Validate required fields on each event
     for i, ev in enumerate(batch.events):
         if not ev.event_type or not ev.severity or not ev.message:
             raise HTTPException(
                 status_code=400,
-                detail=f"Evento {i}: faltan campos requeridos "
+                detail=f"Event {i}: missing required fields "
                 f"(event_type, severity, message)",
             )
 
@@ -117,7 +117,7 @@ async def ingestar_eventos_batch(
     if pipeline is None:
         raise HTTPException(
             status_code=503,
-            detail="Pipeline no disponible",
+            detail="Pipeline unavailable",
         )
 
     processed = 0
@@ -129,18 +129,18 @@ async def ingestar_eventos_batch(
     for ev in batch.events:
         evento_dict = ev.model_dump(exclude_none=True)
 
-        # Forzar collector_type
+        # Force collector_type
         evento_dict["collector_type"] = "agent"
 
-        # Usar hostname del agente como source si el evento no provee uno
+        # Use the agent hostname as source if the event does not provide one
         if not evento_dict.get("source"):
             evento_dict["source"] = agent.hostname
 
-        # Timestamp por defecto
+        # Default timestamp
         if not evento_dict.get("event_timestamp"):
             evento_dict["event_timestamp"] = ahora
 
-        # Mapear message → description
+        # Map message → description
         evento_dict["description"] = evento_dict.pop("message")
 
         try:
@@ -151,7 +151,7 @@ async def ingestar_eventos_batch(
             else:
                 failed += 1
         except Exception as e:
-            logger.warning("Error procesando evento en batch: %s", e, exc_info=True)
+            logger.warning("Error processing event in batch: %s", e, exc_info=True)
             failed += 1
 
     return {
@@ -168,25 +168,25 @@ async def heartbeat(
     agent: Agent = Depends(require_agent),
     session: AsyncSession = Depends(get_session),
 ):
-    """Recibe un heartbeat de un agente remoto.
+    """Receive a heartbeat from a remote agent.
 
-    Actualiza last_seen del agente y retorna el timestamp del servidor.
+    Updates the agent's last_seen and returns the server timestamp.
 
     Args:
-        payload: Datos del heartbeat (hostname, os, agent_version).
-        request: Request de FastAPI.
-        agent: Agente autenticado via require_agent.
-        session: Sesión asíncrona de SQLAlchemy.
+        payload: Heartbeat data (hostname, os, agent_version).
+        request: FastAPI request.
+        agent: Agent authenticated via require_agent.
+        session: Async SQLAlchemy session.
 
     Returns:
-        Dict con status=ok y server_time en ISO 8601.
+        Dict with status=ok and server_time in ISO 8601.
     """
     ahora = datetime.now(UTC)
     agent.last_seen = ahora
     await session.commit()
 
     logger.debug(
-        "Heartbeat recibido de %s (id=%d, hostname=%s)",
+        "Heartbeat received from %s (id=%d, hostname=%s)",
         agent.name,
         agent.id,
         payload.hostname,

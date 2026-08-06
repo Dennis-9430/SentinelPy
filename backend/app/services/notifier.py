@@ -1,14 +1,14 @@
-"""Notificadores: envían alertas a distintos canales.
+"""Notifiers: send alerts to different channels.
 
-Cuando el motor de correlación genera una alerta, el notifier
-se encarga de entregarla al canal configurado.
+When the correlation engine generates an alert, the notifier
+delivers it to the configured channel.
 """
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Orden de severidades para filtrar (mayor = más crítico)
+# Severity order for filtering (higher = more critical)
 _SEVERITY_ORDER = {
     "critical": 5,
     "high": 4,
@@ -19,23 +19,23 @@ _SEVERITY_ORDER = {
 
 
 class ConsoleNotifier:
-    """Notificador de consola: muestra alertas en stdout con formato legible.
+    """Console notifier: shows alerts on stdout in a readable format.
 
-    Útil para desarrollo y debugging. Muestra la alerta con colores
-    (via logging levels) y formato estructurado.
+    Useful for development and debugging. Shows the alert with colors
+    (via logging levels) and structured formatting.
     """
 
     async def send(self, alerta: dict):
-        """Envía una alerta a la consola (async).
+        """Send an alert to the console (async).
 
-        Argumentos:
-            alerta: Dict con los datos de la alerta.
+        Args:
+            alerta: Dict with the alert data.
         """
         severidad = alerta.get("severity", "info").upper()
-        titulo = alerta.get("title", "Alerta sin título")
+        titulo = alerta.get("title", "Untitled alert")
         descripcion = alerta.get("description", "")[:150]
 
-        # Usar diferentes niveles de log según la severidad
+        # Use different log levels depending on severity
         if alerta.get("severity") in ("critical", "high"):
             logger.warning("🔴 [%s] %s — %s", severidad, titulo, descripcion)
         elif alerta.get("severity") == "medium":
@@ -45,37 +45,37 @@ class ConsoleNotifier:
 
 
 class MultiNotifier:
-    """Notificador compuesto: envía alertas a múltiples canales.
+    """Composite notifier: sends alerts to multiple channels.
 
-    Permite registrar varios notificadores y enviar la misma alerta
-    a todos ellos (console, email, webhook, etc.).
+    Allows registering several notifiers and sending the same alert
+    to all of them (console, email, webhook, etc.).
 
-    Cada notificador puede tener un nivel mínimo de severidad para
-    evitar saturar canales con alertas de baja importancia.
+    Each notifier can have a minimum severity level to avoid
+    flooding channels with low-importance alerts.
     """
 
     def __init__(self):
         self._notificadores: list[tuple] = []
 
     def agregar(self, notificador, min_severity: str = "low"):
-        """Agrega un notificador a la lista con filtro de severidad opcional.
+        """Add a notifier to the list with an optional severity filter.
 
-        Argumentos:
-            notificador: Instancia con método async send(alerta).
-            min_severity: Severidad mínima para enviar (default: "low").
-                          Orden: critical > high > medium > low > info.
+        Args:
+            notificador: Instance with async method send(alerta).
+            min_severity: Minimum severity to send (default: "low").
+                          Order: critical > high > medium > low > info.
         """
         self._notificadores.append((notificador, min_severity))
 
     async def send_all(self, alerta: dict):
-        """Envía una alerta a todos los notificadores registrados.
+        """Send an alert to all registered notifiers.
 
-        Cada notificador recibe la alerta solo si la severidad de esta
-        alcanza su mínimo configurado. Si un notificador falla, los
-        demás continúan.
+        Each notifier receives the alert only if its severity reaches
+        the configured minimum. If a notifier fails, the
+        rest continue.
 
-        Argumentos:
-            alerta: Dict con los datos de la alerta.
+        Args:
+            alerta: Dict with the alert data.
         """
         severidad_alerta = alerta.get("severity", "info")
         nivel_alerta = _SEVERITY_ORDER.get(severidad_alerta, 0)
@@ -84,7 +84,7 @@ class MultiNotifier:
             nivel_minimo = _SEVERITY_ORDER.get(min_severity, 0)
             if nivel_alerta < nivel_minimo:
                 logger.debug(
-                    "Saltando %s: severidad %s < mínimo %s",
+                    "Skipping %s: severity %s < minimum %s",
                     type(notificador).__name__,
                     severidad_alerta,
                     min_severity,
@@ -94,7 +94,7 @@ class MultiNotifier:
                 await notificador.send(alerta)
             except Exception as e:
                 logger.error(
-                    "Error en notificador %s: %s",
+                    "Error in notifier %s: %s",
                     type(notificador).__name__,
                     e,
                 )

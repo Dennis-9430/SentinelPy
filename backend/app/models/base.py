@@ -1,7 +1,7 @@
-"""Base declarativa y mixins compartidos por todos los modelos.
+"""Declarative base and mixins shared by all models.
 
-SQLAlchemy 2.0 usa DeclarativeBase en lugar de declarative_base().
-Los mixins se heredan en cada modelo para evitar repetir código.
+SQLAlchemy 2.0 uses DeclarativeBase instead of declarative_base().
+The mixins are inherited by every model to avoid repeating code.
 """
 
 import uuid
@@ -13,20 +13,20 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
-    """Clase base para todos los modelos.
+    """Base class for all models.
 
-    SQLAlchemy busca esta clase para registrar metadatos de tablas.
+    SQLAlchemy looks up this class to register table metadata.
     """
 
     pass
 
 
 class TimestampMixin:
-    """Agrega columnas created_at y updated_at a cualquier modelo.
+    """Adds created_at and updated_at columns to any model.
 
-    - created_at: se setea una sola vez al crear el registro
-    - updated_at: se actualiza automáticamente en cada modificación
-    - Ambos usan UTC para consistencia entre zonas horarias
+    - created_at: set once when the record is created
+    - updated_at: updated automatically on every modification
+    - Both use UTC for consistency across time zones
     """
 
     created_at: Mapped[datetime] = mapped_column(
@@ -41,12 +41,12 @@ class TimestampMixin:
 
 
 class UUIDMixin:
-    """Agrega un UUID como clave primaria.
+    """Adds a UUID as the primary key.
 
-    Ventajas sobre autoincrement integer:
-    - No expone cantidad de registros (seguridad)
-    - Se puede generar del lado del cliente
-    - Funciona en sistemas distribuidos
+    Advantages over an autoincrement integer:
+    - Does not expose the number of records (security)
+    - Can be generated on the client side
+    - Works in distributed systems
     """
 
     id: Mapped[uuid.UUID] = mapped_column(

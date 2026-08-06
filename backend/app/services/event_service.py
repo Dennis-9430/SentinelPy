@@ -1,7 +1,7 @@
-"""Servicio de eventos: operaciones CRUD sobre eventos normalizados.
+"""Event service: CRUD operations over normalized events.
 
-Separa la lógica de acceso a datos de los endpoints de la API,
-siguiendo el patrón de capa de servicio.
+Separates the data access logic from the API endpoints,
+following the service layer pattern.
 """
 
 import logging
@@ -16,32 +16,32 @@ logger = logging.getLogger(__name__)
 
 
 class EventService:
-    """Servicio para crear y consultar eventos en la base de datos."""
+    """Service for creating and querying events in the database."""
 
     def __init__(self, session: AsyncSession):
         """
-        Argumentos:
-            session: Sesión asíncrona de SQLAlchemy.
+        Args:
+            session: Async SQLAlchemy session.
         """
         self.session = session
 
     async def crear_evento(self, datos: dict) -> NormalizedEvent:
-        """Crea un nuevo evento normalizado en la base de datos.
+        """Create a new normalized event in the database.
 
-        Recibe un diccionario con los campos del evento (ya parseado)
-        y lo persiste en PostgreSQL.
+        Receives a dictionary with the event fields (already parsed)
+        and persists it to PostgreSQL.
 
-        Argumentos:
-            datos: Diccionario con los campos del evento normalizado.
+        Args:
+            datos: Dictionary with the normalized event fields.
 
-        Retorna:
-            La instancia de NormalizedEvent creada.
+        Returns:
+            The created NormalizedEvent instance.
         """
         evento = NormalizedEvent(**datos)
         self.session.add(evento)
         await self.session.commit()
         await self.session.refresh(evento)
-        logger.debug("Evento creado: %s - %s", evento.id, evento.event_type)
+        logger.debug("Event created: %s - %s", evento.id, evento.event_type)
         return evento
 
     async def listar_eventos(
@@ -51,22 +51,22 @@ class EventService:
         tipo: str | None = None,
         severidad: str | None = None,
     ) -> tuple[list[NormalizedEvent], int]:
-        """Lista eventos con paginación y filtros opcionales.
+        """List events with pagination and optional filters.
 
-        Argumentos:
-            limite: Cantidad máxima de eventos a retornar.
-            desde: Offset para paginación.
-            tipo: Filtrar por tipo de evento (opcional).
-            severidad: Filtrar por severidad (opcional).
+        Args:
+            limite: Maximum number of events to return.
+            desde: Offset for pagination.
+            tipo: Filter by event type (optional).
+            severidad: Filter by severity (optional).
 
-        Retorna:
-            Tupla (lista de eventos, total de eventos sin paginación).
+        Returns:
+            Tuple (list of events, total events without pagination).
         """
-        # Construir query base
+        # Build base query
         query = select(NormalizedEvent).order_by(NormalizedEvent.event_timestamp.desc())
         count_query = select(func.count(NormalizedEvent.id))
 
-        # Aplicar filtros
+        # Apply filters
         if tipo:
             query = query.where(NormalizedEvent.event_type == tipo)
             count_query = count_query.where(NormalizedEvent.event_type == tipo)
@@ -74,29 +74,29 @@ class EventService:
             query = query.where(NormalizedEvent.severity == severidad)
             count_query = count_query.where(NormalizedEvent.severity == severidad)
 
-        # Ejecutar count
+        # Run count
         total_result = await self.session.execute(count_query)
         total = total_result.scalar() or 0
 
-        # Ejecutar query con paginación
+        # Run query with pagination
         result = await self.session.execute(query.offset(desde).limit(limite))
         eventos = list(result.scalars().all())
 
         return eventos, total
 
     async def obtener_estadisticas(self) -> dict:
-        """Obtiene estadísticas básicas de eventos.
+        """Get basic event statistics.
 
-        Retorna:
-            Dict con conteo de eventos totales, por severidad, y por tipo.
+        Returns:
+            Dict with total event count, by severity, and by type.
         """
-        # Total de eventos
+        # Total events
         total_result = await self.session.execute(
             select(func.count(NormalizedEvent.id))
         )
         total = total_result.scalar() or 0
 
-        # Eventos en la última hora
+        # Events in the last hour
         hace_una_hora = datetime.now(UTC) - timedelta(hours=1)
         recientes_result = await self.session.execute(
             select(func.count(NormalizedEvent.id)).where(
