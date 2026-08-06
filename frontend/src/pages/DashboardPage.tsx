@@ -114,12 +114,12 @@ export default function DashboardPage() {
       {
         queryKey: ["events-stats"],
         queryFn: () =>
-          apiFetch<EventStats>("/events/stats?horas=24"),
+          apiFetch<EventStats>("/stats/events?horas=24"),
       },
       {
         queryKey: ["alerts-stats"],
         queryFn: () =>
-          apiFetch<AlertStats>("/alerts/stats"),
+          apiFetch<AlertStats>("/stats/alerts"),
       },
       {
         queryKey: ["rules-active"],
