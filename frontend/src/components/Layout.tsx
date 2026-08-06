@@ -9,6 +9,7 @@ const navItems = [
   { to: "/rules", label: "Rules", icon: "⚙️" },
   { to: "/agents", label: "Agents", icon: "🤖" },
   { to: "/users", label: "Users", icon: "👥" },
+  { to: "/help", label: "Help", icon: "❓" },
 ]
 
 export function Layout() {
