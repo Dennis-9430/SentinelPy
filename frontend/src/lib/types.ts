@@ -1,4 +1,4 @@
-// ── Usuario / Autenticación ──────────────────────────────────────────────
+// ── User / Authentication ─────────────────────────────────────────────
 
 export interface User {
   id: string
@@ -8,7 +8,7 @@ export interface User {
   created_at?: string
 }
 
-// ── Eventos ──────────────────────────────────────────────────────────────
+// ── Events ─────────────────────────────────────────────────────────────
 
 export interface Event {
   id: string
@@ -31,7 +31,7 @@ export interface EventStats {
   por_severidad: Record<string, number>
 }
 
-// ── Alertas ──────────────────────────────────────────────────────────────
+// ── Alerts ─────────────────────────────────────────────────────────────
 
 export interface Alert {
   id: string
@@ -79,7 +79,7 @@ export interface AlertStats {
   por_estado: Record<string, number>
 }
 
-// ── Reglas ───────────────────────────────────────────────────────────────
+// ── Rules ─────────────────────────────────────────────────────────────
 
 export interface Rule {
   id: string
@@ -128,7 +128,7 @@ export interface CreateRuleResponse {
   created_at: string
 }
 
-// ── Usuarios ─────────────────────────────────────────────────────────────
+// ── Users ─────────────────────────────────────────────────────────────
 
 export interface UsersResponse {
   usuarios: User[]
@@ -175,7 +175,7 @@ export interface DeactivateAgentResponse {
   mensaje: string
 }
 
-// ── Análisis / IA (Slice 1) ──────────────────────────────────────────────
+// ── Analysis / AI (Slice 1) ──────────────────────────────────────────────
 
 export interface AnalysisAlert {
   id: string

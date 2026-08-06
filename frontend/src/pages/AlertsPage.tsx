@@ -41,15 +41,15 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; variant: "destructive" | "secondary" | "default" | "outline" }
 > = {
-  open: { label: "Abierto", variant: "destructive" },
-  acknowledged: { label: "Reconocido", variant: "secondary" },
-  investigating: { label: "En investigación", variant: "secondary" },
-  resolved: { label: "Resuelto", variant: "default" },
-  false_positive: { label: "Falso positivo", variant: "outline" },
+  open: { label: "Open", variant: "destructive" },
+  acknowledged: { label: "Acknowledged", variant: "secondary" },
+  investigating: { label: "Investigating", variant: "secondary" },
+  resolved: { label: "Resolved", variant: "default" },
+  false_positive: { label: "False positive", variant: "outline" },
 }
 
 const SEVERITY_OPTIONS = [
-  { value: ALL_VALUE, label: "Todas las severidades" },
+  { value: ALL_VALUE, label: "All severities" },
   { value: "critical", label: "Critical" },
   { value: "high", label: "High" },
   { value: "medium", label: "Medium" },
@@ -57,12 +57,12 @@ const SEVERITY_OPTIONS = [
 ]
 
 const STATUS_OPTIONS = [
-  { value: ALL_VALUE, label: "Todos los estados" },
-  { value: "open", label: "Abierto" },
-  { value: "acknowledged", label: "Reconocido" },
-  { value: "investigating", label: "En investigación" },
-  { value: "resolved", label: "Resuelto" },
-  { value: "false_positive", label: "Falso positivo" },
+  { value: ALL_VALUE, label: "All statuses" },
+  { value: "open", label: "Open" },
+  { value: "acknowledged", label: "Acknowledged" },
+  { value: "investigating", label: "Investigating" },
+  { value: "resolved", label: "Resolved" },
+  { value: "false_positive", label: "False positive" },
 ]
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -76,7 +76,7 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
 // ── Helpers ──────────────────────────────────────────────────────────
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleString("es-AR", {
+  return d.toLocaleString("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -228,7 +228,7 @@ export default function AlertsPage() {
     <div className="space-y-6">
       {/* ── Header row ────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Alertas</h1>
+        <h1 className="text-2xl font-bold">Alerts</h1>
 
         <div className="flex flex-wrap items-center gap-2">
           <Select
@@ -236,7 +236,7 @@ export default function AlertsPage() {
             onValueChange={handleSeverityChange}
           >
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="Filtrar por severidad" />
+              <SelectValue placeholder="Filter by severity" />
             </SelectTrigger>
             <SelectContent>
               {SEVERITY_OPTIONS.map((opt) => (
@@ -252,7 +252,7 @@ export default function AlertsPage() {
             onValueChange={handleStatusChange}
           >
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="Filtrar por estado" />
+              <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               {STATUS_OPTIONS.map((opt) => (
@@ -283,7 +283,7 @@ export default function AlertsPage() {
           <Button variant="outline" size="sm" asChild>
             <a href="/api/v1/stats/alerts/exportar" download>
               <Download className="mr-1 h-4 w-4" />
-              Exportar CSV
+              Export CSV
             </a>
           </Button>
         </div>
@@ -299,11 +299,11 @@ export default function AlertsPage() {
               </div>
             ) : groupsError ? (
               <div className="flex h-64 items-center justify-center">
-                <p className="text-sm text-destructive">Error al cargar grupos</p>
+                <p className="text-sm text-destructive">Error loading groups</p>
               </div>
             ) : (groupsData?.groups ?? []).length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-16">
-                <p className="text-sm text-muted-foreground">No hay grupos de alertas</p>
+                <p className="text-sm text-muted-foreground">No alert groups</p>
               </div>
             ) : (
               <div>
@@ -325,13 +325,13 @@ export default function AlertsPage() {
             ) : isError ? (
               <div className="flex h-64 items-center justify-center">
                 <p className="text-sm text-destructive">
-                  Error al cargar alertas
+                  Error loading alerts
                 </p>
               </div>
             ) : alertas.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-16">
                 <p className="text-sm text-muted-foreground">
-                  No se encontraron alertas
+                  No alerts found
                 </p>
                 {hasFilters && (
                   <Button
@@ -339,7 +339,7 @@ export default function AlertsPage() {
                     size="sm"
                     onClick={handleClearFilters}
                   >
-                    Limpiar filtros
+                    Clear filters
                   </Button>
                 )}
               </div>
@@ -348,12 +348,12 @@ export default function AlertsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Timestamp</TableHead>
-                    <TableHead>Regla</TableHead>
-                    <TableHead>Evento</TableHead>
-                    <TableHead>Severidad</TableHead>
-                    <TableHead>Riesgo</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                    <TableHead>Rule</TableHead>
+                    <TableHead>Event</TableHead>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Risk</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -400,7 +400,7 @@ export default function AlertsPage() {
                                 }
                               >
                                 <SelectTrigger className="h-7 w-auto px-2 text-xs" size="sm">
-                                  <SelectValue placeholder="Cambiar" />
+                                  <SelectValue placeholder="Change" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {transitions.map((st) => {
@@ -418,7 +418,7 @@ export default function AlertsPage() {
                               </Select>
                             ) : isAdmin ? (
                               <span className="text-xs text-muted-foreground">
-                                Terminal
+                                Final
                               </span>
                             ) : null}
                           </div>
@@ -437,7 +437,7 @@ export default function AlertsPage() {
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Página {page + 1} de {totalPages} ({total} alertas)
+            Page {page + 1} of {totalPages} ({total} alerts)
           </p>
           <div className="flex gap-2">
             <Button
@@ -447,7 +447,7 @@ export default function AlertsPage() {
               onClick={handlePrevPage}
             >
               <ChevronLeft className="mr-1 h-4 w-4" />
-              Anterior
+              Previous
             </Button>
             <Button
               variant="outline"
@@ -455,7 +455,7 @@ export default function AlertsPage() {
               disabled={page >= totalPages - 1}
               onClick={handleNextPage}
             >
-              Siguiente
+              Next
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>

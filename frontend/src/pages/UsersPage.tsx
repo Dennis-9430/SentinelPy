@@ -56,12 +56,12 @@ function activeBadge(active: boolean | undefined) {
   return active ? (
     <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
       <CheckCircle2 className="h-3 w-3" />
-      Activo
+      Active
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
       <Ban className="h-3 w-3" />
-      Inactivo
+      Inactive
     </span>
   )
 }
@@ -70,7 +70,7 @@ function activeBadge(active: boolean | undefined) {
 function formatDate(iso: string | undefined): string {
   if (!iso) return "—"
   const d = new Date(iso)
-  return d.toLocaleDateString("es-AR", {
+  return d.toLocaleDateString("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -107,7 +107,7 @@ function CreateUserDialog({
       if (err instanceof ApiError) {
         setApiError(err.message)
       } else {
-        setApiError("Error al crear usuario")
+        setApiError("Error creating user")
       }
     },
   })
@@ -124,15 +124,15 @@ function CreateUserDialog({
     const errors: Record<string, string> = {}
 
     if (!username.trim()) {
-      errors.username = "El usuario es obligatorio"
+      errors.username = "Username is required"
     } else if (username.trim().length < 3) {
-      errors.username = "Mínimo 3 caracteres"
+      errors.username = "Minimum 3 characters"
     }
 
     if (!password) {
-      errors.password = "La contraseña es obligatoria"
+      errors.password = "Password is required"
     } else if (password.length < 6) {
-      errors.password = "Mínimo 6 caracteres"
+      errors.password = "Minimum 6 characters"
     }
 
     setFieldErrors(errors)
@@ -161,9 +161,9 @@ function CreateUserDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Crear Usuario</DialogTitle>
+          <DialogTitle>Create User</DialogTitle>
           <DialogDescription>
-            Ingresá los datos del nuevo usuario del sistema
+            Enter the details for the new system user
           </DialogDescription>
         </DialogHeader>
 
@@ -176,9 +176,9 @@ function CreateUserDialog({
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Usuario</label>
+            <label className="text-sm font-medium">Username</label>
             <Input
-              placeholder="nombre de usuario"
+              placeholder="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               aria-invalid={!!fieldErrors.username}
@@ -189,7 +189,7 @@ function CreateUserDialog({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Contraseña</label>
+            <label className="text-sm font-medium">Password</label>
             <Input
               type="password"
               placeholder="••••••"
@@ -203,7 +203,7 @@ function CreateUserDialog({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Rol</label>
+            <label className="text-sm font-medium">Role</label>
             <Select value={role} onValueChange={setRole}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -218,7 +218,7 @@ function CreateUserDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Cancelar
+                Cancel
               </Button>
             </DialogClose>
             <Button
@@ -228,10 +228,10 @@ function CreateUserDialog({
               {createMutation.isPending ? (
                 <>
                   <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  Creando...
+                  Creating...
                 </>
               ) : (
-                "Crear Usuario"
+                "Create User"
               )}
             </Button>
           </DialogFooter>
@@ -265,32 +265,32 @@ function DeactivateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Desactivar Usuario</DialogTitle>
+          <DialogTitle>Deactivate User</DialogTitle>
           <DialogDescription>
-            ¿Estás seguro de que querés desactivar a <strong>{username}</strong>?
-            El usuario no podrá iniciar sesión hasta que sea reactivado.
+            Are you sure you want to deactivate <strong>{username}</strong>?
+            The user won't be able to sign in until they are reactivated.
           </DialogDescription>
         </DialogHeader>
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline">
-              Cancelar
-            </Button>
-          </DialogClose>
-          <Button
-            variant="destructive"
-            onClick={handleConfirm}
-            disabled={isPending}
-          >
-            {isPending ? (
-              <>
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                Desactivando...
-              </>
-            ) : (
-              "Desactivar"
-            )}
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={handleConfirm}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  Deactivating...
+                </>
+              ) : (
+                "Deactivate"
+              )}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -350,7 +350,7 @@ export default function UsersPage() {
       return { previousData }
     },
     onSuccess: () => {
-      setFeedback({ type: "success", message: "Usuario desactivado correctamente" })
+      setFeedback({ type: "success", message: "User deactivated successfully" })
       setDeactivateTarget(null)
     },
     onError: (_err, _vars, context) => {
@@ -358,7 +358,7 @@ export default function UsersPage() {
       if (context?.previousData) {
         queryClient.setQueryData(["users"], context.previousData)
       }
-      setFeedback({ type: "error", message: "Error al desactivar usuario" })
+      setFeedback({ type: "error", message: "Error deactivating user" })
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] })
@@ -389,12 +389,12 @@ export default function UsersPage() {
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Usuarios</h1>
+        <h1 className="text-2xl font-bold">Users</h1>
 
         {isAdmin && (
           <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="mr-1 h-4 w-4" />
-            Crear Usuario
+            Create User
           </Button>
         )}
       </div>
@@ -427,24 +427,24 @@ export default function UsersPage() {
           ) : isError ? (
             <div className="flex h-64 items-center justify-center">
               <p className="text-sm text-destructive">
-                Error al cargar usuarios
+                Error loading users
               </p>
             </div>
           ) : usuarios.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16">
               <p className="text-sm text-muted-foreground">
-                No se encontraron usuarios
+                No users found
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Usuario</TableHead>
-                  <TableHead>Rol</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="hidden sm:table-cell">Creado</TableHead>
-                  <TableHead className="text-right">Acción</TableHead>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Created</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -460,7 +460,7 @@ export default function UsersPage() {
                         {u.username}
                         {isSelf && (
                           <span className="ml-2 text-xs text-muted-foreground">
-                            (vos)
+                            (you)
                           </span>
                         )}
                       </TableCell>
@@ -487,7 +487,7 @@ export default function UsersPage() {
                             ) : (
                               <Ban className="mr-1 h-4 w-4" />
                             )}
-                            Desactivar
+                            Deactivate
                           </Button>
                         )}
                         {isSelf && (

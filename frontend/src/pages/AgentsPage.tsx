@@ -26,25 +26,25 @@ function formatRelativeTime(dateStr: string | null): string {
   const diffMs = now - then
 
   // Handle future dates or invalid
-  if (diffMs < 0) return "justo ahora"
+  if (diffMs < 0) return "just now"
 
   const seconds = Math.floor(diffMs / 1000)
-  if (seconds < 60) return "hace segundos"
+  if (seconds < 60) return "seconds ago"
 
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `hace ${minutes}min`
+  if (minutes < 60) return `${minutes}m ago`
 
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `hace ${hours}h`
+  if (hours < 24) return `${hours}h ago`
 
   const days = Math.floor(hours / 24)
-  if (days < 30) return `hace ${days}d`
+  if (days < 30) return `${days}d ago`
 
   const months = Math.floor(days / 30)
-  if (months < 12) return `hace ${months}mes`
+  if (months < 12) return `${months}mo ago`
 
   const years = Math.floor(months / 12)
-  return `hace ${years}a`
+  return `${years}y ago`
 }
 
 function statusBadge(active: boolean) {
@@ -57,7 +57,7 @@ function statusBadge(active: boolean) {
           : "text-muted-foreground"
       }
     >
-      {active ? "Activo" : "Inactivo"}
+      {active ? "Active" : "Inactive"}
     </Badge>
   )
 }
@@ -128,7 +128,7 @@ export default function AgentsPage() {
   })
 
   function handleDeactivate(agentId: number) {
-    if (window.confirm("¿Desactivar este agente?")) {
+    if (window.confirm("Deactivate this agent?")) {
       deactivateMutation.mutate(agentId)
     }
   }
@@ -139,11 +139,11 @@ export default function AgentsPage() {
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Agentes</h1>
+        <h1 className="text-2xl font-bold">Agents</h1>
         {isAdmin && (
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-1 h-4 w-4" />
-            Crear agente
+            Create agent
           </Button>
         )}
       </div>
@@ -161,18 +161,18 @@ export default function AgentsPage() {
           ) : isError ? (
             <div className="flex h-64 items-center justify-center">
               <p className="text-sm text-destructive">
-                Error al cargar agentes
+                Error loading agents
               </p>
             </div>
           ) : agents.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16">
               <p className="text-sm text-muted-foreground">
-                No se encontraron agentes
+                No agents found
               </p>
               {isAdmin && (
                 <Button variant="outline" onClick={() => setCreateOpen(true)}>
                   <Plus className="mr-1 h-4 w-4" />
-                  Crear primer agente
+                  Create your first agent
                 </Button>
               )}
             </div>
@@ -180,12 +180,12 @@ export default function AgentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
+                  <TableHead>Name</TableHead>
                   <TableHead>Hostname</TableHead>
-                  <TableHead>Último contacto</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead>Last seen</TableHead>
+                  <TableHead>Status</TableHead>
                   {isAdmin && (
-                    <TableHead className="text-right">Acción</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   )}
                 </TableRow>
               </TableHeader>
@@ -238,13 +238,13 @@ export default function AgentsPage() {
       {data && !isLoading && !isError && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Total: <span className="font-medium">{data.total}</span> agente
+            Total: <span className="font-medium">{data.total}</span> agent
             {data.total !== 1 ? "s" : ""}
           </p>
 
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="text-xs font-normal">
-              Página {page} de {totalPages}
+              Page {page} of {totalPages}
             </Badge>
 
             <div className="flex gap-1">
@@ -254,7 +254,7 @@ export default function AgentsPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                Anterior
+                Previous
               </Button>
               <Button
                 variant="outline"
@@ -262,7 +262,7 @@ export default function AgentsPage() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Siguiente
+                Next
               </Button>
             </div>
           </div>

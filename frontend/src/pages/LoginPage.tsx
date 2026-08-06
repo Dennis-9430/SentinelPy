@@ -33,7 +33,7 @@ export default function LoginPage() {
       await login(username, password)
       navigate("/", { replace: true })
     } catch {
-      setError("Usuario o contraseña incorrectos")
+      setError("Invalid username or password")
     } finally {
       setSubmitting(false)
     }

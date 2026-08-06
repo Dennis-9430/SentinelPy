@@ -61,7 +61,7 @@ function statusBadge(status: string) {
           : "text-muted-foreground"
       }
     >
-      {isActive ? "Activa" : "Desactivada"}
+      {isActive ? "Active" : "Disabled"}
     </Badge>
   )
 }
@@ -145,42 +145,42 @@ function CreateRuleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Crear regla</DialogTitle>
+          <DialogTitle>Create rule</DialogTitle>
           <DialogDescription>
-            Nueva regla de detección estilo Sigma. Se cargará automáticamente
-            en el motor de correlación.
+            New Sigma-style detection rule. It will be loaded automatically into
+            the correlation engine.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* ── Title ────────────────────────────────────────────────── */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Título *</label>
+            <label className="text-sm font-medium">Title *</label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Detección de fuerza bruta SSH"
+              placeholder="SSH brute force detection"
               required
             />
           </div>
 
           {/* ── Description ──────────────────────────────────────────── */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Descripción *</label>
+            <label className="text-sm font-medium">Description *</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
               rows={3}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Detecta múltiples fallos de autenticación SSH en un período corto"
+              placeholder="Detects multiple SSH authentication failures in a short period"
             />
           </div>
 
           {/* ── Severity + Status ────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Severidad *</label>
+              <label className="text-sm font-medium">Severity *</label>
               <Select value={severity} onValueChange={setSeverity}>
                 <SelectTrigger>
                   <SelectValue />
@@ -194,14 +194,14 @@ function CreateRuleDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Estado</label>
+              <label className="text-sm font-medium">Status</label>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Activa</SelectItem>
-                  <SelectItem value="disabled">Desactivada</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="disabled">Disabled</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -210,16 +210,16 @@ function CreateRuleDialog({
           {/* ── Alert title + Alert severity ─────────────────────────── */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Título de alerta *</label>
+              <label className="text-sm font-medium">Alert title *</label>
               <Input
                 value={alertTitle}
                 onChange={(e) => setAlertTitle(e.target.value)}
-                placeholder="Alerta: Fuerza bruta SSH"
+                placeholder="Alert: SSH brute force"
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Severidad alerta</label>
+              <label className="text-sm font-medium">Alert severity</label>
               <Select value={alertSeverity} onValueChange={setAlertSeverity}>
                 <SelectTrigger>
                   <SelectValue />
@@ -237,11 +237,11 @@ function CreateRuleDialog({
           {/* ── Condiciones: Event type + Threshold + Window ──────────── */}
           <div className="rounded-md border bg-muted/30 p-3">
             <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Condiciones de detección
+              Detection conditions
             </p>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium">Tipo de evento</label>
+                <label className="text-xs font-medium">Event type</label>
                 <Input
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value)}
@@ -250,7 +250,7 @@ function CreateRuleDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium">Umbral</label>
+                <label className="text-xs font-medium">Threshold</label>
                 <Input
                   type="number"
                   min={1}
@@ -260,7 +260,7 @@ function CreateRuleDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium">Ventana (min)</label>
+                <label className="text-xs font-medium">Window (min)</label>
                 <Input
                   type="number"
                   min={1}
@@ -274,11 +274,11 @@ function CreateRuleDialog({
           {/* ── Author + Tags ────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Autor</label>
+              <label className="text-sm font-medium">Author</label>
               <Input
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
-                placeholder="Tu nombre"
+                placeholder="Your name"
               />
             </div>
             <div className="space-y-1.5">
@@ -294,7 +294,7 @@ function CreateRuleDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Cancelar
+                Cancel
               </Button>
             </DialogClose>
             <Button
@@ -304,10 +304,10 @@ function CreateRuleDialog({
               {createMutation.isPending ? (
                 <>
                   <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  Creando...
+                  Creating...
                 </>
               ) : (
-                "Crear regla"
+                "Create rule"
               )}
             </Button>
           </DialogFooter>
@@ -394,7 +394,7 @@ export default function RulesPage() {
   }
 
   function handleDelete(ruleId: string) {
-    if (window.confirm("¿Eliminar esta regla definitivamente?")) {
+    if (window.confirm("Delete this rule permanently?")) {
       deleteMutation.mutate(ruleId)
     }
   }
@@ -413,11 +413,11 @@ export default function RulesPage() {
     <div className="space-y-6">
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Reglas</h1>
+        <h1 className="text-2xl font-bold">Rules</h1>
         {isAdmin && (
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-1 h-4 w-4" />
-            Nueva regla
+            New rule
           </Button>
         )}
       </div>
@@ -432,18 +432,18 @@ export default function RulesPage() {
           ) : isError ? (
             <div className="flex h-64 items-center justify-center">
               <p className="text-sm text-destructive">
-                Error al cargar reglas
+                Error loading rules
               </p>
             </div>
           ) : reglas.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16">
               <p className="text-sm text-muted-foreground">
-                No se encontraron reglas
+                No rules found
               </p>
               {isAdmin && (
                 <Button variant="outline" onClick={() => setCreateOpen(true)}>
                   <Plus className="mr-1 h-4 w-4" />
-                  Crear primera regla
+                  Create your first rule
                 </Button>
               )}
             </div>
@@ -451,12 +451,12 @@ export default function RulesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Descripción</TableHead>
-                  <TableHead>Severidad</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Status</TableHead>
                   {isAdmin && (
-                    <TableHead className="text-right">Acción</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   )}
                 </TableRow>
               </TableHeader>
@@ -528,7 +528,7 @@ export default function RulesPage() {
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Página {page + 1} de {totalPages} ({total} reglas)
+            Page {page + 1} of {totalPages} ({total} rules)
           </p>
           <div className="flex gap-2">
             <Button
@@ -538,7 +538,7 @@ export default function RulesPage() {
               onClick={handlePrevPage}
             >
               <ChevronLeft className="mr-1 h-4 w-4" />
-              Anterior
+              Previous
             </Button>
             <Button
               variant="outline"
@@ -546,7 +546,7 @@ export default function RulesPage() {
               disabled={page >= totalPages - 1}
               onClick={handleNextPage}
             >
-              Siguiente
+              Next
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>

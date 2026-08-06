@@ -26,7 +26,7 @@ const PAGE_SIZE = 20
 const ALL_VALUE = "__all__"
 
 const SEVERITY_OPTIONS = [
-  { value: ALL_VALUE, label: "Todas las severidades" },
+  { value: ALL_VALUE, label: "All severities" },
   { value: "critical", label: "Critical" },
   { value: "high", label: "High" },
   { value: "medium", label: "Medium" },
@@ -37,7 +37,7 @@ const SEVERITY_OPTIONS = [
 // ── Helpers ─────────────────────────────────────────────────────────
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleString("es-AR", {
+  return d.toLocaleString("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -94,11 +94,11 @@ export default function EventsPage() {
     <div className="space-y-6">
       {/* ── Header row ───────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Eventos</h1>
+        <h1 className="text-2xl font-bold">Events</h1>
 
         <Select value={severity} onValueChange={handleSeverityChange}>
           <SelectTrigger className="w-56">
-            <SelectValue placeholder="Filtrar por severidad" />
+            <SelectValue placeholder="Filter by severity" />
           </SelectTrigger>
           <SelectContent>
             {SEVERITY_OPTIONS.map((opt) => (
@@ -120,13 +120,13 @@ export default function EventsPage() {
           ) : isError ? (
             <div className="flex h-64 items-center justify-center">
               <p className="text-sm text-destructive">
-                Error al cargar eventos
+                Error loading events
               </p>
             </div>
           ) : eventos.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16">
               <p className="text-sm text-muted-foreground">
-                No se encontraron eventos
+                No events found
               </p>
               {severity !== ALL_VALUE && (
                 <Button
@@ -134,7 +134,7 @@ export default function EventsPage() {
                   size="sm"
                   onClick={handleClearFilters}
                 >
-                  Limpiar filtros
+                  Clear filters
                 </Button>
               )}
             </div>
@@ -143,10 +143,10 @@ export default function EventsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Timestamp</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Severidad</TableHead>
-                  <TableHead>Fuente</TableHead>
-                  <TableHead>Descripción</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Description</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -177,7 +177,7 @@ export default function EventsPage() {
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Página {page + 1} de {totalPages} ({total} eventos)
+            Page {page + 1} of {totalPages} ({total} events)
           </p>
           <div className="flex gap-2">
             <Button
@@ -187,7 +187,7 @@ export default function EventsPage() {
               onClick={handlePrevPage}
             >
               <ChevronLeft className="mr-1 h-4 w-4" />
-              Anterior
+              Previous
             </Button>
             <Button
               variant="outline"
@@ -195,7 +195,7 @@ export default function EventsPage() {
               disabled={page >= totalPages - 1}
               onClick={handleNextPage}
             >
-              Siguiente
+              Next
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>

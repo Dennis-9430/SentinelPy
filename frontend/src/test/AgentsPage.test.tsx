@@ -71,7 +71,7 @@ describe('AgentsPage', () => {
     vi.clearAllMocks()
   })
 
-  it('renderiza tabla con agents desde la API', async () => {
+  it('renders table with agents from the API', async () => {
     const { apiFetch } = await import('@/lib/api')
     vi.mocked(apiFetch).mockResolvedValue(mockAgentsResponse)
 
@@ -85,18 +85,18 @@ describe('AgentsPage', () => {
     expect(screen.getByText('server-02.example.com')).toBeInTheDocument()
   })
 
-  it('muestra estado vacío cuando no hay agents', async () => {
+  it('shows empty state when there are no agents', async () => {
     const { apiFetch } = await import('@/lib/api')
     vi.mocked(apiFetch).mockResolvedValue(mockEmptyResponse)
 
     renderWithProviders(<AgentsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/no se encontraron/i)).toBeInTheDocument()
+      expect(screen.getByText(/no agents found/i)).toBeInTheDocument()
     })
   })
 
-  it('abre el dialog de creación al hacer click en Crear Agente', async () => {
+  it('opens create dialog when clicking Create Agent', async () => {
     const { apiFetch } = await import('@/lib/api')
     vi.mocked(apiFetch).mockResolvedValue(mockAgentsResponse)
     const user = userEvent.setup()
@@ -107,7 +107,7 @@ describe('AgentsPage', () => {
       expect(screen.getByText('agent-01')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: /crear agente/i }))
+    await user.click(screen.getByRole('button', { name: /create agent/i }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
@@ -121,15 +121,15 @@ describe('AgentsPage', () => {
     expect(screen.getByTestId('skeleton-loader')).toBeInTheDocument()
   })
 
-  it('renderiza active/inactive badge según estado', async () => {
+  it('renders active/inactive badge based on status', async () => {
     const { apiFetch } = await import('@/lib/api')
     vi.mocked(apiFetch).mockResolvedValue(mockAgentsResponse)
 
     renderWithProviders(<AgentsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Activo')).toBeInTheDocument()
+      expect(screen.getByText('Active')).toBeInTheDocument()
     })
-    expect(screen.getByText('Inactivo')).toBeInTheDocument()
+    expect(screen.getByText('Inactive')).toBeInTheDocument()
   })
 })

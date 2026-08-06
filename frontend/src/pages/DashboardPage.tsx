@@ -38,7 +38,7 @@ const SEV_PIE_COLORS: Record<string, string> = {
 // ── Helpers ─────────────────────────────────────────────────────────
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleString("es-AR", {
+  return d.toLocaleString("en-US", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -75,7 +75,7 @@ function StatCard({
         {loading ? (
           <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
         ) : error ? (
-          <p className="text-xs text-destructive">Error al cargar</p>
+          <p className="text-xs text-destructive">Error loading</p>
         ) : (
           <>
             <p className="text-3xl font-bold">{value ?? "—"}</p>
@@ -185,43 +185,43 @@ export default function DashboardPage() {
       {/* ── Stat Cards ───────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatCard
-          title="Eventos 24h"
-          description="Eventos recibidos en las últimas 24 horas"
+          title="Events 24h"
+          description="Events received in the last 24 hours"
           value={totalEvents}
           loading={eventsStats.isLoading}
           error={eventsStats.isError}
         />
         <StatCard
-          title="Alertas activas"
-          description="Alertas abiertas que requieren atención"
+          title="Active alerts"
+          description="Open alerts that need attention"
           value={openAlerts}
           loading={alertsStats.isLoading}
           error={alertsStats.isError}
         />
         <StatCard
-          title="Reglas activas"
-          description="Reglas de detección habilitadas"
+          title="Active rules"
+          description="Enabled detection rules"
           value={activeRules}
           loading={rulesData.isLoading}
           error={rulesData.isError}
         />
         <StatCard
-          title="Últimos eventos"
-          description="Total de eventos registrados en el sistema"
+          title="Recent events"
+          description="Total events recorded in the system"
           value={recentEvents.data?.total ?? 0}
           loading={recentEvents.isLoading}
           error={recentEvents.isError}
         />
         <StatCard
-          title="Anomalías"
-          description="Comportamientos anómalos detectados"
+          title="Anomalies"
+          description="Anomalous behaviors detected"
           value={anomaliesData.data?.total ?? 0}
           loading={anomaliesData.isLoading}
           error={anomaliesData.isError}
         />
         <StatCard
-          title="Entidades en riesgo"
-          description="Hosts o usuarios con mayor riesgo"
+          title="Entities at risk"
+          description="Hosts or users with the highest risk"
           value={topRisks.data?.total ?? 0}
           loading={topRisks.isLoading}
           error={topRisks.isError}
@@ -233,19 +233,19 @@ export default function DashboardPage() {
         {/* Timeline LineChart */}
         <Card>
           <CardHeader>
-            <CardTitle>Eventos 24h</CardTitle>
+            <CardTitle>Events 24h</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Distribución horaria de eventos en las últimas 24 horas
+              Hourly distribution of events in the last 24 hours
             </p>
           </CardHeader>
           <CardContent>
             {eventsStats.isLoading ? (
               <ChartSkeleton />
             ) : eventsStats.isError ? (
-              <ChartError message="Error al cargar línea de tiempo" />
+              <ChartError message="Error loading timeline" />
             ) : timelineData.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                Sin datos en las últimas 24 horas
+                No data in the last 24 hours
               </p>
             ) : (
               <div className="h-64">
@@ -282,19 +282,19 @@ export default function DashboardPage() {
         {/* Severity PieChart */}
         <Card>
           <CardHeader>
-            <CardTitle>Por severidad</CardTitle>
+            <CardTitle>By severity</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Distribución de eventos por nivel de severidad
+              Event distribution by severity level
             </p>
           </CardHeader>
           <CardContent>
             {eventsStats.isLoading ? (
               <ChartSkeleton />
             ) : eventsStats.isError ? (
-              <ChartError message="Error al cargar distribución" />
+              <ChartError message="Error loading distribution" />
             ) : severityData.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                Sin datos de severidad
+                No severity data
               </p>
             ) : (
               <div className="h-64">
@@ -328,26 +328,26 @@ export default function DashboardPage() {
       {/* ── Top Risks ────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Top Entidades en Riesgo</CardTitle>
+          <CardTitle>Top Entities at Risk</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Hosts o usuarios con mayor puntuación de riesgo acumulado
+            Hosts or users with the highest accumulated risk score
           </p>
         </CardHeader>
         <CardContent>
           {topRisks.isLoading ? (
             <ChartSkeleton />
           ) : topRisks.isError ? (
-            <ChartError message="Error al cargar riesgos" />
+            <ChartError message="Error loading risks" />
           ) : (topRisks.data?.risks ?? []).length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Sin datos de riesgo
+              No risk data
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Entidad</TableHead>
-                  <TableHead className="text-right">Riesgo</TableHead>
+                  <TableHead>Entity</TableHead>
+                  <TableHead className="text-right">Risk</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -368,29 +368,29 @@ export default function DashboardPage() {
       {/* ── Recent Events Table ──────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Últimos eventos</CardTitle>
+          <CardTitle>Recent events</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Los 10 eventos más recientes registrados en el sistema
+            The 10 most recent events recorded in the system
           </p>
         </CardHeader>
         <CardContent>
           {recentEvents.isLoading ? (
             <ChartSkeleton />
           ) : recentEvents.isError ? (
-            <ChartError message="Error al cargar eventos recientes" />
+            <ChartError message="Error loading recent events" />
           ) : eventos.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No hay eventos registrados
+              No events recorded
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Timestamp</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Severidad</TableHead>
-                  <TableHead>Fuente</TableHead>
-                  <TableHead>Descripción</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Description</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

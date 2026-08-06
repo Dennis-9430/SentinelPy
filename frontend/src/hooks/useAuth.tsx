@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (err instanceof ApiError && err.status === 401) {
         setUser(null)
       } else {
-        setError("Error al verificar sesión")
+        setError("Error verifying session")
       }
     } finally {
       setLoading(false)
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     if (!res.ok) {
-      throw new Error("Usuario o contraseña incorrectos")
+      throw new Error("Invalid username or password")
     }
 
     // Re-fetch user after login

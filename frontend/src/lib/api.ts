@@ -25,12 +25,12 @@ export async function apiFetch<T>(
   })
 
   if (res.status === 401) {
-    throw new ApiError(401, "No autenticado")
+    throw new ApiError(401, "Not authenticated")
   }
 
   if (!res.ok) {
     const detail = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new ApiError(res.status, detail.detail ?? "Error del servidor")
+    throw new ApiError(res.status, detail.detail ?? "Server error")
   }
 
   return res.json() as Promise<T>

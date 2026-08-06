@@ -3,12 +3,12 @@ import { render, screen } from '@testing-library/react'
 import { SeverityBadge } from './SeverityBadge'
 
 describe('SeverityBadge', () => {
-  it('renderiza el texto de severidad', () => {
+  it('renders severity text', () => {
     render(<SeverityBadge severity="critical" />)
     expect(screen.getByText('critical')).toBeInTheDocument()
   })
 
-  it('renderiza info como fallback para severidad desconocida', () => {
+  it('renders info as fallback for unknown severity', () => {
     render(<SeverityBadge severity="unknown" />)
     expect(screen.getByText('unknown')).toBeInTheDocument()
   })

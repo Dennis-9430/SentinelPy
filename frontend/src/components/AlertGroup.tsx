@@ -8,7 +8,7 @@ import type { AlertGroupItem } from "@/lib/types"
 // Reuse the same formatTime from AlertsPage or import from a shared util
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleString("es-AR", {
+  return d.toLocaleString("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -19,11 +19,11 @@ function formatTime(iso: string): string {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "destructive" | "secondary" | "default" | "outline" }> = {
-  open: { label: "Abierto", variant: "destructive" },
-  acknowledged: { label: "Reconocido", variant: "secondary" },
-  investigating: { label: "En investigación", variant: "secondary" },
-  resolved: { label: "Resuelto", variant: "default" },
-  false_positive: { label: "Falso positivo", variant: "outline" },
+  open: { label: "Open", variant: "destructive" },
+  acknowledged: { label: "Acknowledged", variant: "secondary" },
+  investigating: { label: "Investigating", variant: "secondary" },
+  resolved: { label: "Resolved", variant: "default" },
+  false_positive: { label: "False positive", variant: "outline" },
 }
 
 export function AlertGroupRow({ group }: { group: AlertGroupItem }) {
@@ -43,7 +43,7 @@ export function AlertGroupRow({ group }: { group: AlertGroupItem }) {
         )}
         <span className="flex-1 truncate font-medium">{group.group_name}</span>
         <Badge variant="secondary" className="text-xs">
-          {group.alert_count} alertas
+          {group.alert_count} alerts
         </Badge>
         <SeverityBadge severity={group.max_severity} />
         <RiskBadge score={group.risk_score} />

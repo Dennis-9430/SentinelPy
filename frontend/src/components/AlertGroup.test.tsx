@@ -33,7 +33,7 @@ describe('AlertGroupRow', () => {
   it('renders group name and alert count', () => {
     render(<AlertGroupRow group={mockGroup} />)
     expect(screen.getByText('Brute Force from 192.168.1.1')).toBeInTheDocument()
-    expect(screen.getByText('3 alertas')).toBeInTheDocument()
+    expect(screen.getByText('3 alerts')).toBeInTheDocument()
   })
 
   it('shows child alerts when expanded', () => {

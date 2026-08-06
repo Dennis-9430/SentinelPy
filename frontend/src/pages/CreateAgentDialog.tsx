@@ -44,15 +44,15 @@ function ApiKeyModal({
           </DialogTitle>
           <DialogDescription>
             <strong className="block text-destructive text-base">
-              GUARDA ESTA KEY — no se mostrará de nuevo
+              SAVE THIS KEY — it will not be shown again
             </strong>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            El agente necesita esta API key para autenticarse contra el servidor.
-            Si la pierdes, deberás generar una nueva.
+            The agent needs this API key to authenticate against the server.
+            If you lose it, you'll need to generate a new one.
           </p>
 
           <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-3">
@@ -75,7 +75,7 @@ function ApiKeyModal({
         </div>
 
         <DialogFooter>
-          <Button onClick={onClose}>Entendido, la guardé</Button>
+          <Button onClick={onClose}>Got it, I saved it</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -128,15 +128,15 @@ export function CreateAgentDialog({
       <Dialog open={open && !apiKeyResult} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Crear agente</DialogTitle>
+            <DialogTitle>Create agent</DialogTitle>
             <DialogDescription>
-              Nuevo agente remoto. La API key se generará automáticamente.
+              New remote agent. The API key will be generated automatically.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Nombre *</label>
+              <label className="text-sm font-medium">Name *</label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -158,17 +158,17 @@ export function CreateAgentDialog({
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="outline">
-                  Cancelar
+                  Cancel
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending ? (
                   <>
                     <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    Creando...
+                    Creating...
                   </>
                 ) : (
-                  "Crear agente"
+                  "Create agent"
                 )}
               </Button>
             </DialogFooter>
