@@ -22,6 +22,6 @@ ENV CONFIG_PATH=/etc/sentinelpy/config.toml
 # The agent runs a background loop; HEALTHCHECK ensures the container
 # doesn't stay alive if the loop dies. We check via process presence.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD gosu python -c "import os; os.kill(1, 0)" || exit 1
+  CMD python -c "import os; os.kill(1, 0)" || exit 1
 
 CMD ["python", "-m", "agent", "/etc/sentinelpy/config.toml"]
